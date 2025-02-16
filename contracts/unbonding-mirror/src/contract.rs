@@ -252,14 +252,19 @@ fn execute_retry(
     env: Env,
     receiver: String,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let failed_transfers = FAILED_TRANSFERS.may_load(deps.storage, receiver.clone())?;
     let Config {
         source_port,
         source_channel,
         ibc_timeout,
         retry_limit,
+        prefix,
         ..
     } = CONFIG.load(deps.storage)?;
+
+    ensure!(receiver.starts_with(&prefix), ContractError::InvalidPrefix);
+    bech32::decode(&receiver).map_err(|_| ContractError::WrongReceiverAddress)?;
+
+    let failed_transfers = FAILED_TRANSFERS.may_load(deps.storage, receiver.clone())?;
     let mut ibc_transfer_msgs: Vec<CosmosMsg<NeutronMsg>> = vec![];
     let mut attrs: Vec<Attribute> = vec![attr("action", "execute_retry")];
     if let Some(failed_transfers) = failed_transfers {

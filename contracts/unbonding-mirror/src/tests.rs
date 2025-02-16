@@ -433,6 +433,68 @@ fn test_execute_unbond() {
 }
 
 #[test]
+fn test_execute_retry_invalid_prefix() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 3,
+            },
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("sender", &[]),
+        ExecuteMsg::Retry {
+            receiver: "invalid_prefix".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::InvalidPrefix {});
+}
+
+#[test]
+fn test_execute_retry_wrong_receiver_address() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 3,
+            },
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("sender", &[]),
+        ExecuteMsg::Retry {
+            receiver: "prefix1invalid_address".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::WrongReceiverAddress {});
+}
+
+#[test]
 fn test_execute_retry_take_less() {
     let mut deps = mock_dependencies(&[]);
     CONFIG
@@ -454,7 +516,7 @@ fn test_execute_retry_take_less() {
     FAILED_TRANSFERS
         .save(
             deps.as_mut().storage,
-            "failed_receiver".to_string(),
+            "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
             &vec![
                 Coin {
                     denom: "denom1".to_string(),
@@ -476,7 +538,10 @@ fn test_execute_retry_take_less() {
         )
         .unwrap();
     for _ in 0..FAILED_TRANSFERS
-        .load(&deps.storage, "failed_receiver".to_string())
+        .load(
+            &deps.storage,
+            "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+        )
         .unwrap()
         .len()
     {
@@ -496,7 +561,7 @@ fn test_execute_retry_take_less() {
         mock_env(),
         mock_info("sender", &[]),
         ExecuteMsg::Retry {
-            receiver: "failed_receiver".to_string(),
+            receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         },
     )
     .unwrap();
@@ -507,11 +572,11 @@ fn test_execute_retry_take_less() {
                 Event::new("crates.io:drop-staking__drop-unbonding-mirror-execute_retry")
                     .add_attributes(vec![
                         attr("action", "execute_retry"),
-                        attr("receiver", "failed_receiver"),
+                        attr("receiver", "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc"),
                         attr("amount", "1denom1"),
-                        attr("receiver", "failed_receiver"),
+                        attr("receiver", "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc"),
                         attr("amount", "2denom2"),
-                        attr("receiver", "failed_receiver"),
+                        attr("receiver", "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc"),
                         attr("amount", "3denom3"),
                     ])
             )
@@ -526,7 +591,7 @@ fn test_execute_retry_take_less() {
                             amount: Uint128::from(1u128)
                         },
                         sender: MOCK_CONTRACT_ADDR.to_string(),
-                        receiver: "failed_receiver".to_string(),
+                        receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
                         timeout_height: RequestPacketTimeoutHeight {
                             revision_number: None,
                             revision_height: None,
@@ -558,7 +623,7 @@ fn test_execute_retry_take_less() {
                             amount: Uint128::from(2u128)
                         },
                         sender: MOCK_CONTRACT_ADDR.to_string(),
-                        receiver: "failed_receiver".to_string(),
+                        receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
                         timeout_height: RequestPacketTimeoutHeight {
                             revision_number: None,
                             revision_height: None,
@@ -590,7 +655,7 @@ fn test_execute_retry_take_less() {
                             amount: Uint128::from(3u128)
                         },
                         sender: MOCK_CONTRACT_ADDR.to_string(),
-                        receiver: "failed_receiver".to_string(),
+                        receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
                         timeout_height: RequestPacketTimeoutHeight {
                             revision_number: None,
                             revision_height: None,
@@ -616,7 +681,10 @@ fn test_execute_retry_take_less() {
     );
     assert_eq!(
         FAILED_TRANSFERS
-            .load(&deps.storage, "failed_receiver".to_string())
+            .load(
+                &deps.storage,
+                "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string()
+            )
             .unwrap(),
         vec![Coin {
             denom: "denom4".to_string(),
@@ -647,7 +715,7 @@ fn test_execute_retry_take_bigger() {
     FAILED_TRANSFERS
         .save(
             deps.as_mut().storage,
-            "failed_receiver".to_string(),
+            "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
             &vec![Coin {
                 denom: "denom1".to_string(),
                 amount: Uint128::from(1u128),
@@ -655,7 +723,10 @@ fn test_execute_retry_take_bigger() {
         )
         .unwrap();
     for _ in 0..FAILED_TRANSFERS
-        .load(&deps.storage, "failed_receiver".to_string())
+        .load(
+            &deps.storage,
+            "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+        )
         .unwrap()
         .len()
     {
@@ -675,7 +746,7 @@ fn test_execute_retry_take_bigger() {
         mock_env(),
         mock_info("sender", &[]),
         ExecuteMsg::Retry {
-            receiver: "failed_receiver".to_string(),
+            receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         },
     )
     .unwrap();
@@ -686,7 +757,7 @@ fn test_execute_retry_take_bigger() {
                 Event::new("crates.io:drop-staking__drop-unbonding-mirror-execute_retry")
                     .add_attributes(vec![
                         attr("action", "execute_retry"),
-                        attr("receiver", "failed_receiver"),
+                        attr("receiver", "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc"),
                         attr("amount", "1denom1"),
                     ])
             )
@@ -700,7 +771,7 @@ fn test_execute_retry_take_bigger() {
                         amount: Uint128::from(1u128)
                     },
                     sender: MOCK_CONTRACT_ADDR.to_string(),
-                    receiver: "failed_receiver".to_string(),
+                    receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
                     timeout_height: RequestPacketTimeoutHeight {
                         revision_number: None,
                         revision_height: None,
@@ -725,7 +796,10 @@ fn test_execute_retry_take_bigger() {
     );
     assert_eq!(
         FAILED_TRANSFERS
-            .load(&deps.storage, "failed_receiver".to_string())
+            .load(
+                &deps.storage,
+                "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string()
+            )
             .unwrap()
             .len(),
         0
@@ -754,7 +828,7 @@ fn test_execute_retry_take_equal() {
     FAILED_TRANSFERS
         .save(
             deps.as_mut().storage,
-            "failed_receiver".to_string(),
+            "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
             &vec![Coin {
                 denom: "denom1".to_string(),
                 amount: Uint128::from(1u128),
@@ -762,7 +836,10 @@ fn test_execute_retry_take_equal() {
         )
         .unwrap();
     for _ in 0..FAILED_TRANSFERS
-        .load(&deps.storage, "failed_receiver".to_string())
+        .load(
+            &deps.storage,
+            "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+        )
         .unwrap()
         .len()
     {
@@ -782,7 +859,7 @@ fn test_execute_retry_take_equal() {
         mock_env(),
         mock_info("sender", &[]),
         ExecuteMsg::Retry {
-            receiver: "failed_receiver".to_string(),
+            receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         },
     )
     .unwrap();
@@ -793,7 +870,7 @@ fn test_execute_retry_take_equal() {
                 Event::new("crates.io:drop-staking__drop-unbonding-mirror-execute_retry")
                     .add_attributes(vec![
                         attr("action", "execute_retry"),
-                        attr("receiver", "failed_receiver"),
+                        attr("receiver", "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc"),
                         attr("amount", "1denom1"),
                     ])
             )
@@ -807,7 +884,7 @@ fn test_execute_retry_take_equal() {
                         amount: Uint128::from(1u128)
                     },
                     sender: MOCK_CONTRACT_ADDR.to_string(),
-                    receiver: "failed_receiver".to_string(),
+                    receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
                     timeout_height: RequestPacketTimeoutHeight {
                         revision_number: None,
                         revision_height: None,
@@ -832,7 +909,10 @@ fn test_execute_retry_take_equal() {
     );
     assert_eq!(
         FAILED_TRANSFERS
-            .load(&deps.storage, "failed_receiver".to_string())
+            .load(
+                &deps.storage,
+                "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string()
+            )
             .unwrap()
             .len(),
         0
