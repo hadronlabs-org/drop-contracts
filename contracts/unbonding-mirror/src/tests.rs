@@ -1215,7 +1215,10 @@ fn test_execute_withdraw() {
                 gas_limit: None,
                 reply_on: ReplyOn::Never,
             }])
-    )
+        );
+    TF_DENOM_TO_NFT_ID
+        .load(&deps.storage, "denom".to_string())
+        .unwrap_err();
 }
 
 #[test]

@@ -236,6 +236,9 @@ fn execute_withdraw(
         coin.denom.clone(),
         coin.amount,
     ));
+    // we successfully exchange tf denom back to NFT and NFT to native assets.
+    // No need to keep this relation anymore
+    TF_DENOM_TO_NFT_ID.remove(deps.storage, coin.denom.clone());
     let attrs: Vec<Attribute> = vec![
         attr("action", "execute_withdraw"),
         attr("voucher_amount", coin.to_string()),
