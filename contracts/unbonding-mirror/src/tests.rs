@@ -1834,9 +1834,9 @@ fn test_reply() {
         res,
         Response::new()
             .add_event(
-                Event::new("crates.io:drop-staking__drop-unbonding-mirror-reply-finalize_unbond")
+                Event::new("crates.io:drop-staking__drop-unbonding-mirror-reply_finalize_unbond")
                     .add_attributes(vec![
-                        attr("action", "reply-finalize_bond"),
+                        attr("action", "reply_finalize_bond"),
                         attr("reply_id", "1"),
                         attr("nft", "1_neutron..._123"),
                         attr("to_address", "receiver"),
