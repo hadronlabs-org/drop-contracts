@@ -582,7 +582,7 @@ fn query_nft_status(
         .query_wasm_smart(
             core_contract.clone(),
             &to_json_binary(&drop_staking_base::msg::core::QueryMsg::UnbondBatch {
-                batch_id: Uint128::from_str(&batch_id.as_str())?,
+                batch_id: Uint128::from_str(batch_id.as_str())?,
             })
             .unwrap(),
         )

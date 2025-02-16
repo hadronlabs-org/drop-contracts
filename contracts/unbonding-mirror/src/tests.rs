@@ -28,7 +28,7 @@ fn test_instantiate() {
     let res = instantiate(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &vec![]),
+        mock_info("owner", &[]),
         InstantiateMsg {
             owner: None,
             core_contract: "core_contract".to_string(),
@@ -104,7 +104,7 @@ fn test_execute_update_config_source_channel_not_found() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &vec![]),
+        mock_info("owner", &[]),
         ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 core_contract: Some("core_contract2".to_string()),
@@ -131,7 +131,7 @@ fn test_execute_update_config_unauthrozied() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("random_sender", &vec![]),
+        mock_info("random_sender", &[]),
         ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 core_contract: Some("core_contract2".to_string()),
@@ -196,7 +196,7 @@ fn test_execute_update_config() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &vec![]),
+        mock_info("owner", &[]),
         ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 core_contract: Some("core_contract2".to_string()),
@@ -252,7 +252,7 @@ fn test_execute_unbond_not_no_funds() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("random_sender", &vec![]),
+        mock_info("random_sender", &[]),
         ExecuteMsg::Unbond {
             receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         },
@@ -272,7 +272,7 @@ fn test_execute_unbond_not_one_coin() {
         mock_env(),
         mock_info(
             "random_sender",
-            &vec![
+            &[
                 Coin {
                     denom: "denom1".to_string(),
                     amount: Uint128::from(100u128),
@@ -318,7 +318,7 @@ fn test_execute_unbond_invalid_prefix() {
         mock_env(),
         mock_info(
             "random_sender",
-            &vec![Coin {
+            &[Coin {
                 denom: "denom1".to_string(),
                 amount: Uint128::from(100u128),
             }],
@@ -355,7 +355,7 @@ fn test_execute_unbond_wrong_receiver_address() {
         mock_env(),
         mock_info(
             "random_sender",
-            &vec![Coin {
+            &[Coin {
                 denom: "denom1".to_string(),
                 amount: Uint128::from(100u128),
             }],
@@ -393,7 +393,7 @@ fn test_execute_unbond() {
         mock_env(),
         mock_info(
             "random_sender",
-            &vec![Coin {
+            &[Coin {
                 denom: "dAsset".to_string(),
                 amount: Uint128::from(100u128),
             }],
@@ -494,7 +494,7 @@ fn test_execute_retry_take_less() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &vec![]),
+        mock_info("sender", &[]),
         ExecuteMsg::Retry {
             receiver: "failed_receiver".to_string(),
         },
@@ -673,7 +673,7 @@ fn test_execute_retry_take_bigger() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &vec![]),
+        mock_info("sender", &[]),
         ExecuteMsg::Retry {
             receiver: "failed_receiver".to_string(),
         },
@@ -780,7 +780,7 @@ fn test_execute_retry_take_equal() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &vec![]),
+        mock_info("sender", &[]),
         ExecuteMsg::Retry {
             receiver: "failed_receiver".to_string(),
         },
@@ -845,7 +845,7 @@ fn test_execute_withdraw_no_funds() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &vec![]),
+        mock_info("sender", &[]),
         ExecuteMsg::Withdraw {
             receiver: "receiver".to_string(),
         },
@@ -865,7 +865,7 @@ fn test_execute_withdraw_extra_funds() {
         mock_env(),
         mock_info(
             "sender",
-            &vec![
+            &[
                 Coin {
                     denom: "denom1".to_string(),
                     amount: Uint128::from(1u128),
@@ -952,7 +952,7 @@ fn test_execute_withdraw() {
         mock_env(),
         mock_info(
             "sender",
-            &vec![Coin {
+            &[Coin {
                 denom: "denom".to_string(),
                 amount: Uint128::from(1u128),
             }],
@@ -1320,7 +1320,7 @@ fn test_query_unbond_ready_true() {
         .unwrap(),
     )
     .unwrap();
-    assert_eq!(res, true);
+    assert!(res);
 }
 
 #[test]
@@ -1402,7 +1402,7 @@ fn test_query_unbond_ready_false() {
         .unwrap(),
     )
     .unwrap();
-    assert_eq!(res, false);
+    assert!(!res);
 }
 
 #[test]
@@ -1457,7 +1457,7 @@ fn test_unbond_ready_list() {
                                     name: "name".to_string(),
                                     description: None,
                                     attributes: None,
-                                    batch_id: (i.clone() % 2).to_string(),
+                                    batch_id: (i % 2).to_string(),
                                     amount: Uint128::from(100u128),
                                 },
                             ),
@@ -1477,7 +1477,7 @@ fn test_unbond_ready_list() {
                         status: vec![
                             drop_staking_base::state::core::UnbondBatchStatus::Withdrawing,
                             drop_staking_base::state::core::UnbondBatchStatus::Withdrawn,
-                        ][i.clone() % 2],
+                        ][i % 2],
                         slashing_effect: None,
                         unbonded_amount: None,
                         withdrawn_amount: None,
