@@ -171,8 +171,12 @@ fn execute_withdraw(
         source_port,
         ibc_timeout,
         ibc_denom,
+        prefix,
         ..
     } = CONFIG.load(deps.storage)?;
+
+    ensure!(receiver.starts_with(&prefix), ContractError::InvalidPrefix);
+    bech32::decode(&receiver).map_err(|_| ContractError::WrongReceiverAddress)?;
 
     let nft_id = TF_DENOM_TO_NFT_ID.load(deps.storage, coin.denom.clone())?;
     let nft_response: cw721::AllNftInfoResponse<

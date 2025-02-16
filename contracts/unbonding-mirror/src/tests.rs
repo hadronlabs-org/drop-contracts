@@ -958,7 +958,7 @@ fn test_execute_withdraw() {
             }],
         ),
         ExecuteMsg::Withdraw {
-            receiver: "receiver".to_string(),
+            receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         },
     )
     .unwrap();
@@ -976,7 +976,7 @@ fn test_execute_withdraw() {
                         attr("source_channel", "source_channel"),
                         attr("ibc_timeout", "12345"),
                         attr("nft_amount", "100ibc_denom"),
-                        attr("receiver", "receiver"),
+                        attr("receiver", "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc"),
                     ])
             )
             .add_submessages(vec![SubMsg {
@@ -1009,7 +1009,7 @@ fn test_execute_withdraw() {
                         amount: Uint128::from(100u128)
                     },
                     sender: MOCK_CONTRACT_ADDR.to_string(),
-                    receiver: "receiver".to_string(),
+                    receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
                     timeout_height: RequestPacketTimeoutHeight {
                         revision_number: None,
                         revision_height: None,
