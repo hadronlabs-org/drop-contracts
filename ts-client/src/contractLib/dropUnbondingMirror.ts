@@ -54,7 +54,6 @@ export type Timestamp = Uint64;
  */
 export type Uint64 = string;
 export type Boolean = boolean;
-export type ArrayOfUnbondReadyListResponseItem = UnbondReadyListResponseItem[];
 /**
  * Actions that can be taken to alter the contract's ownership
  */
@@ -74,9 +73,8 @@ export interface DropUnbondingMirrorSchema {
     | Config
     | NullableFailedReceiverResponse
     | OwnershipForString
-    | Boolean
-    | ArrayOfUnbondReadyListResponseItem;
-  query: FailedReceiverArgs | UnbondReadyArgs | UnbondReadyListArgs;
+    | Boolean;
+  query: FailedReceiverArgs | UnbondReadyArgs;
   execute: UpdateConfigArgs | WithdrawArgs | UnbondArgs | RetryArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
@@ -118,18 +116,11 @@ export interface OwnershipForString {
    */
   pending_owner?: string | null;
 }
-export interface UnbondReadyListResponseItem {
-  nft_id: string;
-  status: boolean;
-}
 export interface FailedReceiverArgs {
   receiver: string;
 }
 export interface UnbondReadyArgs {
-  nft_id: string;
-}
-export interface UnbondReadyListArgs {
-  receiver: string;
+  id: string;
 }
 export interface UpdateConfigArgs {
   new_config: ConfigOptional;
@@ -224,9 +215,6 @@ export class Client {
   }
   queryUnbondReady = async(args: UnbondReadyArgs): Promise<Boolean> => {
     return this.client.queryContractSmart(this.contractAddress, { unbond_ready: args });
-  }
-  queryUnbondReadyList = async(args: UnbondReadyListArgs): Promise<ArrayOfUnbondReadyListResponseItem> => {
-    return this.client.queryContractSmart(this.contractAddress, { unbond_ready_list: args });
   }
   queryOwnership = async(): Promise<OwnershipForString> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });

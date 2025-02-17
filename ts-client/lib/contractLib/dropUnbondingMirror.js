@@ -38,9 +38,6 @@ class Client {
     queryUnbondReady = async (args) => {
         return this.client.queryContractSmart(this.contractAddress, { unbond_ready: args });
     };
-    queryUnbondReadyList = async (args) => {
-        return this.client.queryContractSmart(this.contractAddress, { unbond_ready_list: args });
-    };
     queryOwnership = async () => {
         return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
     };

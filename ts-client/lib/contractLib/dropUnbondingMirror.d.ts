@@ -51,7 +51,6 @@ export type Timestamp = Uint64;
  */
 export type Uint64 = string;
 export type Boolean = boolean;
-export type ArrayOfUnbondReadyListResponseItem = UnbondReadyListResponseItem[];
 /**
  * Actions that can be taken to alter the contract's ownership
  */
@@ -62,8 +61,8 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropUnbondingMirrorSchema {
-    responses: ArrayOfTupleOfStringAndArrayOfCoin | Config | NullableFailedReceiverResponse | OwnershipForString | Boolean | ArrayOfUnbondReadyListResponseItem;
-    query: FailedReceiverArgs | UnbondReadyArgs | UnbondReadyListArgs;
+    responses: ArrayOfTupleOfStringAndArrayOfCoin | Config | NullableFailedReceiverResponse | OwnershipForString | Boolean;
+    query: FailedReceiverArgs | UnbondReadyArgs;
     execute: UpdateConfigArgs | WithdrawArgs | UnbondArgs | RetryArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
@@ -105,18 +104,11 @@ export interface OwnershipForString {
      */
     pending_owner?: string | null;
 }
-export interface UnbondReadyListResponseItem {
-    nft_id: string;
-    status: boolean;
-}
 export interface FailedReceiverArgs {
     receiver: string;
 }
 export interface UnbondReadyArgs {
-    nft_id: string;
-}
-export interface UnbondReadyListArgs {
-    receiver: string;
+    id: string;
 }
 export interface UpdateConfigArgs {
     new_config: ConfigOptional;
@@ -164,7 +156,6 @@ export declare class Client {
     queryFailedReceiver: (args: FailedReceiverArgs) => Promise<NullableFailedReceiverResponse>;
     queryAllFailed: () => Promise<ArrayOfTupleOfStringAndArrayOfCoin>;
     queryUnbondReady: (args: UnbondReadyArgs) => Promise<Boolean>;
-    queryUnbondReadyList: (args: UnbondReadyListArgs) => Promise<ArrayOfUnbondReadyListResponseItem>;
     queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     withdraw: (sender: string, args: WithdrawArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

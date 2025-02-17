@@ -676,6 +676,7 @@ describe('Unbonding mirror', () => {
   });
 
   describe('Expected behavior', () => {
+    const neutronDenoms: Array<string> = [];
     it('unbond 1k, wait for the new voucher on gaia', async () => {
       const {
         neutronUserAddress,
@@ -683,7 +684,7 @@ describe('Unbonding mirror', () => {
         gaiaClient,
         unbondingMirrorClient,
       } = context;
-      await unbondingMirrorClient.unbond(
+      const { events } = await unbondingMirrorClient.unbond(
         neutronUserAddress,
         {
           receiver: gaiaUserAddress,
@@ -704,7 +705,55 @@ describe('Unbonding mirror', () => {
           1
         );
       }, 60_000);
-      console.log(await gaiaClient.getAllBalances(gaiaUserAddress));
+      neutronDenoms.push(
+        events
+          .filter(
+            (event) =>
+              event.type ===
+              'wasm-crates.io:drop-staking__drop-unbonding-mirror-reply_finalize_unbond',
+          )[0]
+          .attributes.filter((attribute) => attribute.key === 'tf_denom')[0]
+          .value,
+      );
+    });
+    it('unbond 10k, wait for the new voucher on gaia', async () => {
+      const {
+        neutronUserAddress,
+        gaiaUserAddress,
+        gaiaClient,
+        unbondingMirrorClient,
+      } = context;
+      const { events } = await unbondingMirrorClient.unbond(
+        neutronUserAddress,
+        {
+          receiver: gaiaUserAddress,
+        },
+        undefined,
+        undefined,
+        [
+          {
+            denom: context.ldDenom,
+            amount: '10000',
+          },
+        ],
+      );
+      await waitFor(async () => {
+        const balances = await gaiaClient.getAllBalances(gaiaUserAddress);
+        return (
+          balances.filter((denom) => denom.denom.startsWith('ibc/')).length === // ibc/010233F6F828670807DDBC7B37138AC02968F632D5AF021FFF6F8E63758CE205
+          2
+        );
+      }, 60_000);
+      neutronDenoms.push(
+        events
+          .filter(
+            (event) =>
+              event.type ===
+              'wasm-crates.io:drop-staking__drop-unbonding-mirror-reply_finalize_unbond',
+          )[0]
+          .attributes.filter((attribute) => attribute.key === 'tf_denom')[0]
+          .value,
+      );
     });
   });
 });
