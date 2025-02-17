@@ -23,4 +23,4 @@ recipient = "_"
 
 
 [dependencies]
-InitiaStdlib = { git = "https://github.com/initia-labs/movevm", subdir = "precompile/modules/initia_stdlib", rev = "main" }
+InitiaStdlib = { git = "https://github.com/initia-labs/movevm", subdir = "precompile/modules/initia_stdlib", rev = "v0.6.1" }

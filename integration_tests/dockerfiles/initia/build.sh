@@ -13,6 +13,9 @@ else
     cp ./Dockerfile.x86 ./initia/Dockerfile
 fi
 
+# copy all movevm contracts to initia directory
+cp -r ../../../movevm ./initia
+
 if [[ "$CI" == "true" ]]; then
     VERSION="_$VERSION"
     ORG=neutronorg/lionco-contracts:

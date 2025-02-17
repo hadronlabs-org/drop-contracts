@@ -38,8 +38,6 @@ import { instrumentCoreClass } from '../helpers/knot';
 import { checkExchangeRate } from '../helpers/exchangeRate';
 import { AccAddress } from '@initia/initia.js';
 
-const REWARD_DENOM = 'uinit';
-
 const DropTokenClass = DropToken.Client;
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
@@ -123,7 +121,8 @@ describe('Core', () => {
     moveDenom?: string;
     demo1Address?: string;
     initiaNTRN?: string;
-    temporaryRewardBuffer?: string;
+    initiaAddress3?: string;
+    liquidityProviderModuleAddress?: string;
   } = { codeIds: {} };
 
   beforeAll(async (t) => {
@@ -172,7 +171,7 @@ describe('Core', () => {
         prefix: 'init',
       },
     );
-    context.temporaryRewardBuffer = (
+    context.initiaAddress3 = (
       await (
         await DirectSecp256k1HdWallet.fromMnemonic(
           context.park.config.wallets.demo3.mnemonic,
@@ -857,8 +856,89 @@ describe('Core', () => {
     ]);
   });
 
+  it('configure movevm lp module', async () => {
+    const initiaUINITmetadata = JSON.parse(
+      JSON.parse(
+        (
+          await context.park.executeInNetwork(
+            'initia',
+            `initiad query move view 0x1 coin metadata --args '["address:0x1", "string:uinit"]' --output=json`,
+          )
+        ).out,
+      ).data,
+    );
+
+    const ownerAddress =
+      '0x' +
+      (
+        await context.park.executeInNetwork(
+          'initia',
+          `initiad keys parse ${context.initiaAddress3} | grep bytes | awk '{print $2}' | tr -d '\n'`,
+        )
+      ).out;
+
+    const rewardsPumpIcaAddress =
+      '0x' +
+      (
+        await context.park.executeInNetwork(
+          'initia',
+          `initiad keys parse ${context.rewardsPumpIcaAddress} | grep bytes | awk '{print $2}' | tr -d '\n'`,
+        )
+      ).out;
+
+    await context.park.executeInNetwork(
+      'initia',
+      `/movevm/liquidity-provider/configure.bash ${context.moveToken.metadataAddr} ${initiaUINITmetadata} ${ownerAddress} ${rewardsPumpIcaAddress}`,
+    );
+  });
+
+  it('build movevm lp module', async () => {
+    await context.park.executeInNetwork(
+      'initia',
+      'cd /movevm/liquidity-provider && initiad move build',
+    );
+  });
+
+  it('deploy movevm lp module', async () => {
+    let res = JSON.parse(
+      (
+        await context.park.executeInNetwork(
+          'initia',
+          `initiad move deploy --path /movevm/liquidity-provider --upgrade-policy COMPATIBLE --from demo3 --home /opt --keyring-backend test --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --chain-id ${context.park.config.networks['initia'].chain_id} -o json -y`,
+        )
+      ).out,
+    );
+    await sleep(10_000);
+    res = JSON.parse(
+      (
+        await context.park.executeInNetwork(
+          'initia',
+          `initiad query tx --type=hash ${res.txhash} -o json`,
+        )
+      ).out,
+    );
+    const moveEvents = res.events
+      .filter((event) => event.type == 'move')
+      .map((event) => event.attributes)
+      .flat(1);
+    const createObjectEvent =
+      moveEvents[
+        moveEvents.findIndex(
+          (attribute) =>
+            attribute.key == 'type_tag' &&
+            attribute.value == '0x1::object::CreateEvent',
+        ) + 1
+      ];
+    context.liquidityProviderModuleAddress = (
+      await context.park.executeInNetwork(
+        'initia',
+        `initiad keys parse ${JSON.parse(createObjectEvent.value).object.substring(2)} | grep init1 | awk '{print $2}' | tr -d '\n'`,
+      )
+    ).out;
+  });
+
   it('set up rewards receiver', async () => {
-    const { neutronUserAddress } = context;
+    const { neutronUserAddress, liquidityProviderModuleAddress } = context;
     const res = await context.factoryContractClient.adminExecute(
       neutronUserAddress,
       {
@@ -870,7 +950,7 @@ describe('Core', () => {
                 msg: Buffer.from(
                   JSON.stringify({
                     setup_protocol: {
-                      rewards_withdraw_address: context.temporaryRewardBuffer,
+                      rewards_withdraw_address: liquidityProviderModuleAddress,
                     },
                   }),
                 ).toString('base64'),
@@ -1134,7 +1214,6 @@ describe('Core', () => {
 
   describe('state machine', () => {
     const ica: { balance?: number } = {};
-    let oldBalance = 0;
     describe('prepare', () => {
       it('get ICA balance', async () => {
         const { initiaClient } = context;
@@ -1144,13 +1223,6 @@ describe('Core', () => {
         );
         ica.balance = parseInt(res.amount);
         expect(ica.balance).toEqual(1000);
-        {
-          const res = await initiaClient.getBalance(
-            context.temporaryRewardBuffer,
-            REWARD_DENOM,
-          );
-          oldBalance = parseInt(res.amount);
-        }
       });
       it('deploy pump', async () => {
         const { client, account, neutronUserAddress } = context;
@@ -1516,6 +1588,7 @@ describe('Core', () => {
           puppeteerContractClient,
         );
 
+        await sleep(10_000); // XXX: why does tick() sometimes fail with "rpc error: code = Unknown desc = failed to execute message; message index: 0: Puppeteer balance is outdated: ICA height 197, control height 196: execute wasm contract failed"?
         const res = await context.coreContractClient.tick(
           neutronUserAddress,
           1.5,
@@ -1738,48 +1811,21 @@ describe('Core', () => {
           return !!response;
         }, 100_000);
       });
-      /// HERE INSERT EXCHANGE
-      it('get tempRewardsReceiver balance', async () => {
-        const { initiaClient } = context;
-        const res = await initiaClient.getBalance(
-          context.temporaryRewardBuffer,
-          REWARD_DENOM,
-        );
-        const newBalance = parseInt(res.amount);
-        expect(newBalance).toBeGreaterThan(0);
-        const initiaUINITmetadata = JSON.parse(
-          JSON.parse(
-            (
-              await context.park.executeInNetwork(
-                'initia',
-                `initiad query move view 0x1 coin metadata --args '["address:0x1", "string:uinit"]' --output=json`,
-              )
-            ).out,
-          ).data,
-        );
+      it('trigger liquidity provider', async () => {
+        const ownerAddress =
+          '0x' +
+          (
+            await context.park.executeInNetwork(
+              'initia',
+              `initiad keys parse ${context.initiaAddress3} | grep bytes | awk '{print $2}' | tr -d '\n'`,
+            )
+          ).out;
 
         await context.park.executeInNetwork(
           'initia',
-          `initiad tx move execute 0x1 dex single_asset_provide_liquidity_script --args '["object:${context.moveToken.metadataAddr}", "object:${initiaUINITmetadata}", "u64:${newBalance - oldBalance}", "option<u64>:1"]' --from=demo3 --home=/opt --chain-id=${context.park.config.networks['initia'].chain_id} --keyring-backend=test --fees=50000uinit --gas 300000 -y`,
+          `initiad tx move execute ${ownerAddress} liquidity_provider provide --from demo3 --home /opt --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --chain-id ${context.park.config.networks['initia'].chain_id} --keyring-backend test -y`,
         );
-
-        await sleep(10_000);
-        const balances = await initiaClient.getAllBalances(
-          context.temporaryRewardBuffer,
-        );
-
-        const moveBalance = balances.find(
-          (one) => one.denom === context.moveDenom,
-        );
-
-        expect(parseInt(moveBalance.amount)).toBeGreaterThan(0);
-        await context.park.executeInNetwork(
-          'initia',
-          `initiad tx bank send ${context.temporaryRewardBuffer} ${context.rewardsPumpIcaAddress} ${moveBalance.amount}${context.moveDenom} --from=demo3 --home=/opt --chain-id=${context.park.config.networks['initia'].chain_id} --keyring-backend=test --fees=50000uinit --gas 300000 -y`,
-        );
-        await sleep(3_000);
       });
-      /// HERE END EXCHANGE
 
       it('get rewards pump ICA balance', async () => {
         const { initiaClient } = context;
