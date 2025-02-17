@@ -26,6 +26,8 @@ import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
 import { setupPark } from '../testSuite';
 import fs from 'fs';
+import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
+import { UnbondBatch } from 'drop-ts-client/lib/contractLib/dropCore';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
 import { stringToPath } from '@cosmjs/crypto';
@@ -982,9 +984,412 @@ describe('Unbonding mirror', () => {
       console.log(await gaiaClient.getAllBalances(gaiaUserAddress));
     });
 
-    // it('wait unbonding period', async () => {
-    //   await sleep(UNBONDING_TIME * 1000);
-    // });
+    describe('do a protocol full rotation', () => {
+      it('first tick did nothing and stays in idle', async () => {
+        const {
+          gaiaClient,
+          neutronUserAddress,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+      it('tick 1 (peripheral) transfer coins from neutron to target chain', async () => {
+        const {
+          neutronUserAddress,
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('peripheral');
+      });
+      it('tick 2 (idle)', async () => {
+        const {
+          gaiaClient,
+          neutronUserAddress,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+      it('tick 3 (peripheral) stake collected coins on remote chain', async () => {
+        const {
+          neutronUserAddress,
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('peripheral');
+        let res;
+        await waitFor(async () => {
+          try {
+            res = await context.puppeteerContractClient.queryExtension({
+              msg: {
+                delegations: {},
+              },
+            });
+          } catch (e) {
+            //
+          }
+          return res && res.delegations.delegations.length !== 0;
+        }, 200_000);
+        const delegations =
+          (await context.puppeteerContractClient.queryExtension({
+            msg: {
+              delegations: {},
+            },
+          })) as any;
+
+        expect(delegations.delegations.delegations).toHaveLength(2);
+        console.log(delegations.delegations.delegations);
+        expect(
+          parseInt(delegations.delegations.delegations[0].amount.amount, 10),
+        ).toEqual(500000);
+        expect(
+          parseInt(delegations.delegations.delegations[1].amount.amount, 10),
+        ).toEqual(500000);
+      });
+      it('tick 4 (idle)', async () => {
+        const {
+          gaiaClient,
+          neutronUserAddress,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        const res = await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+      it('decrease idle interval', async () => {
+        const { factoryContractClient, neutronUserAddress } = context;
+        const res = await factoryContractClient.updateConfig(
+          neutronUserAddress,
+          {
+            core: {
+              idle_min_interval: 30,
+            },
+          },
+        );
+        expect(res.transactionHash).toHaveLength(64);
+      });
+      it('tick 5 (claiming)', async () => {
+        const {
+          neutronUserAddress,
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('claiming');
+        let response;
+        await waitFor(async () => {
+          try {
+            response = (
+              await context.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
+          } catch (e) {
+            //
+          }
+          return !!response;
+        }, 100_000);
+      });
+      it('tick 6 (unbonding)', async () => {
+        const {
+          neutronUserAddress,
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('unbonding');
+      });
+      it('tick 7 (idle)', async () => {
+        const {
+          neutronUserAddress,
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        await context.coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+        await sleep(10_000); // wait for idle min interval
+      });
+      it('verify that unbonding batch 0 is in unbonding state', async () => {
+        const batch = await context.coreContractClient.queryUnbondBatch({
+          batch_id: '0',
+        });
+        expect(batch).toBeTruthy();
+        expect(batch).toEqual<UnbondBatch>({
+          slashing_effect: null,
+          status: 'unbonding',
+          status_timestamps: expect.any(Object),
+          expected_release_time: expect.any(Number),
+          total_dasset_amount_to_withdraw: '11000',
+          expected_native_asset_amount: '11000',
+          total_unbond_items: 2,
+          unbonded_amount: null,
+          withdrawn_amount: null,
+        });
+      });
+      it('wait until unbonding period for unbonding batch 0 is finished', async () => {
+        const batchInfo = await context.coreContractClient.queryUnbondBatch({
+          batch_id: '0',
+        });
+        const currentTime = Math.floor(Date.now() / 1000);
+        if (batchInfo.expected_release_time > currentTime) {
+          const diffMs =
+            (batchInfo.expected_release_time - currentTime + 1) * 1000;
+          await sleep(diffMs);
+        }
+      });
+      it('wait until fresh ICA balance for unbonding batch 0 is delivered', async () => {
+        const batchInfo = await context.coreContractClient.queryUnbondBatch({
+          batch_id: '0',
+        });
+        await waitFor(async () => {
+          const icaTs = Math.floor(
+            (
+              (await context.puppeteerContractClient.queryExtension({
+                msg: {
+                  balances: {},
+                },
+              })) as any
+            ).timestamp / 1e9,
+          );
+          return icaTs > batchInfo.expected_release_time;
+        }, 50_000);
+      });
+      it('tick (claiming)', async () => {
+        const {
+          coreContractClient,
+          neutronUserAddress,
+          gaiaClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('claiming');
+        let response;
+        await waitFor(async () => {
+          try {
+            response = (
+              await context.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
+          } catch (e) {
+            //
+          }
+          return !!response;
+        }, 100_000);
+        const { remote_height: currentHeight } =
+          (await context.puppeteerContractClient.queryExtension({
+            msg: {
+              balances: {},
+            },
+          })) as any;
+        await waitFor(async () => {
+          const { remote_height: nowHeight } =
+            (await context.puppeteerContractClient.queryExtension({
+              msg: {
+                balances: {},
+              },
+            })) as any;
+          return nowHeight !== currentHeight;
+        }, 30_000);
+      });
+      it('verify that unbonding batch 0 is in withdrawing state', async () => {
+        const batch = await context.coreContractClient.queryUnbondBatch({
+          batch_id: '0',
+        });
+        expect(batch).toBeTruthy();
+        expect(batch).toEqual<UnbondBatch>({
+          slashing_effect: '1',
+          status: 'withdrawing',
+          status_timestamps: expect.any(Object),
+          expected_release_time: expect.any(Number),
+          total_dasset_amount_to_withdraw: '11000',
+          expected_native_asset_amount: '11000',
+          total_unbond_items: 2,
+          unbonded_amount: '11000',
+          withdrawn_amount: null,
+        });
+      });
+      it('tick (idle)', async () => {
+        const {
+          coreContractClient,
+          neutronUserAddress,
+          gaiaClient,
+          puppeteerContractClient,
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+      it('fund withdrawal manager', async () => {
+        const {
+          pumpContractClient,
+          neutronUserAddress,
+          unbondingMirrorClient,
+        } = context;
+        await pumpContractClient.push(
+          neutronUserAddress,
+          {
+            coins: [{ amount: '11000', denom: 'stake' }],
+          },
+          1.5,
+          undefined,
+          [{ amount: '20000', denom: 'untrn' }],
+        );
+        await waitFor(async () => {
+          const balances =
+            await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+              context.withdrawalManagerClient.contractAddress,
+            );
+          return balances.data.balances.length > 0;
+        }, 40_000);
+      });
+    });
 
     it('send vouchers back on neutron', async () => {
       const { gaiaClient, gaiaUserAddress, neutronUserAddress, client } =
@@ -1015,19 +1420,6 @@ describe('Unbonding mirror', () => {
           1.5,
         );
       }
-      await sleep(10000);
-      console.log(
-        await client.getBalance(
-          neutronUserAddress,
-          'factory/neutron1upp6z6ygqxwvres4w3vy7qa2q9vr3rlp3w2w9glxgeylux3ff8fsxdlsgh/nft_0_1',
-        ),
-      );
-      console.log(
-        await client.getBalance(
-          neutronUserAddress,
-          'factory/neutron1upp6z6ygqxwvres4w3vy7qa2q9vr3rlp3w2w9glxgeylux3ff8fsxdlsgh/nft_0_2',
-        ),
-      );
       await waitFor(
         async () =>
           (
@@ -1044,6 +1436,40 @@ describe('Unbonding mirror', () => {
           ).amount === '1',
         60_000,
       );
+    });
+
+    it('withdraw', async () => {
+      const {
+        unbondingMirrorClient,
+        neutronUserAddress,
+        gaiaUserAddress,
+        gaiaClient,
+      } = context;
+      const balanceBefore = (
+        await gaiaClient.getBalance(gaiaUserAddress, 'stake')
+      ).amount;
+      console.log(await gaiaClient.getBalance(gaiaUserAddress, 'stake'));
+      for (const denom of [
+        'factory/neutron1upp6z6ygqxwvres4w3vy7qa2q9vr3rlp3w2w9glxgeylux3ff8fsxdlsgh/nft_0_1',
+        'factory/neutron1upp6z6ygqxwvres4w3vy7qa2q9vr3rlp3w2w9glxgeylux3ff8fsxdlsgh/nft_0_2',
+      ]) {
+        await unbondingMirrorClient.withdraw(
+          neutronUserAddress,
+          {
+            receiver: gaiaUserAddress,
+          },
+          1.5,
+          undefined,
+          [{ denom: denom, amount: '1' }],
+        );
+      }
+      await waitFor(
+        async () =>
+          (await gaiaClient.getBalance(gaiaUserAddress, 'stake')).amount !==
+          balanceBefore,
+        60_000,
+      );
+      console.log(await gaiaClient.getBalance(gaiaUserAddress, 'stake'));
     });
   });
 });
