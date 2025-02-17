@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import {
   DropCore,
+  DropPump,
   DropFactory,
   DropNativeBondProvider,
   DropPuppeteer,
@@ -37,6 +38,8 @@ const DropCoreClass = DropCore.Client;
 const DropWithdrawalManagerClass = DropWithdrawalManager.Client;
 const DropWithdrawalVoucherClass = DropWithdrawalVoucher.Client;
 const DropNativeBondProviderClass = DropNativeBondProvider.Client;
+const DropRewardsPumpClass = DropPump.Client;
+const DropPumpClass = DropPump.Client;
 const DropPuppeteerClass = DropPuppeteer.Client;
 const UNBONDING_TIME = 360;
 
@@ -52,6 +55,8 @@ describe('Unbonding mirror', () => {
     withdrawalManagerClient?: InstanceType<typeof DropWithdrawalManagerClass>;
     withdrawalVoucherClient?: InstanceType<typeof DropWithdrawalVoucherClass>;
     unbondingMirrorClient?: InstanceType<typeof DropUnbondingMirrorClass>;
+    rewardsPumpContractClient?: InstanceType<typeof DropRewardsPumpClass>;
+    pumpContractClient?: InstanceType<typeof DropPumpClass>;
     account?: AccountData;
     icaAddress?: string;
     rewardsPumpIcaAddress?: string;
@@ -492,7 +497,7 @@ describe('Unbonding mirror', () => {
           idle_min_interval: 120,
           unbond_batch_switch_time: 60,
           unbonding_safe_period: 10,
-          unbonding_period: 360,
+          unbonding_period: UNBONDING_TIME,
           icq_update_delay: 5,
         },
         native_bond_params: {
@@ -574,7 +579,227 @@ describe('Unbonding mirror', () => {
       context.client,
       res.withdrawal_voucher_contract,
     );
+    context.rewardsPumpContractClient = new DropPump.Client(
+      context.client,
+      res.rewards_pump_contract,
+    );
     context.ldDenom = `factory/${res.token_contract}/drop`;
+  });
+
+  it('setup ICA for rewards pump', async () => {
+    const { rewardsPumpContractClient, neutronUserAddress } = context;
+    const res = await rewardsPumpContractClient.registerICA(
+      neutronUserAddress,
+      1.5,
+      undefined,
+      [{ amount: '1000000', denom: 'untrn' }],
+    );
+    expect(res.transactionHash).toHaveLength(64);
+    let ica = '';
+    await waitFor(async () => {
+      const res = await rewardsPumpContractClient.queryIca();
+      switch (res) {
+        case 'none':
+        case 'in_progress':
+        case 'timeout':
+          return false;
+        default:
+          ica = res.registered.ica_address;
+          return true;
+      }
+    }, 100_000);
+    expect(ica).toHaveLength(65);
+    expect(ica.startsWith('cosmos')).toBeTruthy();
+    context.rewardsPumpIcaAddress = ica;
+  });
+
+  it('register puppeteer ICA', async () => {
+    const { puppeteerContractClient, neutronUserAddress } = context;
+    const res = await puppeteerContractClient.registerICA(
+      neutronUserAddress,
+      1.5,
+      undefined,
+      [{ amount: '1000000', denom: 'untrn' }],
+    );
+    expect(res.transactionHash).toHaveLength(64);
+    let ica = '';
+    await waitFor(async () => {
+      const res = await puppeteerContractClient.queryIca();
+      switch (res) {
+        case 'none':
+        case 'in_progress':
+        case 'timeout':
+          return false;
+        default:
+          ica = res.registered.ica_address;
+          return true;
+      }
+    }, 100_000);
+    expect(ica).toHaveLength(65);
+    expect(ica.startsWith('cosmos')).toBeTruthy();
+    context.icaAddress = ica;
+  });
+
+  it('set up rewards receiver', async () => {
+    const { neutronUserAddress } = context;
+    const res = await context.factoryContractClient.adminExecute(
+      neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: context.puppeteerContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    setup_protocol: {
+                      rewards_withdraw_address: context.rewardsPumpIcaAddress,
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [
+                  {
+                    amount: '20000',
+                    denom: 'untrn',
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+      1.5,
+      undefined,
+      [
+        {
+          amount: '20000',
+          denom: 'untrn',
+        },
+      ],
+    );
+    expect(res.transactionHash).toHaveLength(64);
+    const pupRes = await context.puppeteerContractClient.queryTxState();
+    expect(pupRes.status).toBe('waiting_for_ack');
+  });
+
+  it('wait puppeteer response', async () => {
+    const { puppeteerContractClient } = context;
+    await waitFor(async () => {
+      const res = await puppeteerContractClient.queryTxState();
+      return res.status === 'idle';
+    }, 100_000);
+  });
+
+  it('add validators into validators set', async () => {
+    const {
+      neutronUserAddress,
+      factoryContractClient,
+      validatorAddress,
+      secondValidatorAddress,
+    } = context;
+    await factoryContractClient.proxy(
+      neutronUserAddress,
+      {
+        validator_set: {
+          update_validators: {
+            validators: [
+              {
+                valoper_address: validatorAddress,
+                weight: 1,
+                on_top: '0',
+              },
+              {
+                valoper_address: secondValidatorAddress,
+                weight: 1,
+                on_top: '0',
+              },
+            ],
+          },
+        },
+      },
+      1.5,
+      undefined,
+      [
+        {
+          amount: '1000000',
+          denom: 'untrn',
+        },
+      ],
+    );
+  });
+
+  it('deploy pump', async () => {
+    const { client, account, neutronUserAddress } = context;
+    const resUpload = await client.upload(
+      account.address,
+      Uint8Array.from(
+        fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+      ),
+      1.5,
+    );
+    expect(resUpload.codeId).toBeGreaterThan(0);
+    const { codeId } = resUpload;
+    const res = await DropPump.Client.instantiate(
+      client,
+      neutronUserAddress,
+      codeId,
+      {
+        connection_id: 'connection-0',
+        local_denom: 'untrn',
+        timeout: {
+          local: 60,
+          remote: 60,
+        },
+        dest_address: context.withdrawalManagerClient.contractAddress,
+        dest_port: 'transfer',
+        dest_channel: 'channel-0',
+        refundee: neutronUserAddress,
+        owner: account.address,
+      },
+      'Drop-staking-pump',
+      1.5,
+      [],
+    );
+    expect(res.contractAddress).toHaveLength(66);
+    context.pumpContractClient = new DropPump.Client(
+      client,
+      res.contractAddress,
+    );
+    await context.pumpContractClient.registerICA(
+      neutronUserAddress,
+      1.5,
+      undefined,
+      [
+        {
+          amount: '1000000',
+          denom: 'untrn',
+        },
+      ],
+    );
+    let ica = '';
+    await waitFor(async () => {
+      const res = await context.pumpContractClient.queryIca();
+      switch (res) {
+        case 'none':
+        case 'in_progress':
+        case 'timeout':
+          return false;
+        default:
+          ica = res.registered.ica_address;
+          return true;
+      }
+    }, 50_000);
+    expect(ica).toHaveLength(65);
+    expect(ica.startsWith('cosmos')).toBeTruthy();
+    const resFactory = await context.factoryContractClient.updateConfig(
+      neutronUserAddress,
+      {
+        core: {
+          pump_ica_address: ica,
+        },
+      },
+    );
+    expect(resFactory.transactionHash).toHaveLength(64);
   });
 
   it('register native bond provider in the core', async () => {
@@ -701,7 +926,7 @@ describe('Unbonding mirror', () => {
       await waitFor(async () => {
         const balances = await gaiaClient.getAllBalances(gaiaUserAddress);
         return (
-          balances.filter((denom) => denom.denom.startsWith('ibc/')).length === // ibc/EFF4A9BDC6320CDA88C43A0D66A13FEC9767A9B011106B1FC894313A190B64F4
+          balances.filter((denom) => denom.denom.startsWith('ibc/')).length === // ibc/CD71805E407CE64B87D7AB5B28DF0DE023A27368C1EAC5570F4A03D8D584D190
           1
         );
       }, 60_000);
@@ -740,7 +965,7 @@ describe('Unbonding mirror', () => {
       await waitFor(async () => {
         const balances = await gaiaClient.getAllBalances(gaiaUserAddress);
         return (
-          balances.filter((denom) => denom.denom.startsWith('ibc/')).length === // ibc/010233F6F828670807DDBC7B37138AC02968F632D5AF021FFF6F8E63758CE205
+          balances.filter((denom) => denom.denom.startsWith('ibc/')).length === // ibc/19766EE2F3FFAD3DAAA628D862A0536A896B4DC12D692E59BBE736F1087EF563
           2
         );
       }, 60_000);
@@ -753,6 +978,58 @@ describe('Unbonding mirror', () => {
           )[0]
           .attributes.filter((attribute) => attribute.key === 'tf_denom')[0]
           .value,
+      );
+      console.log(await gaiaClient.getAllBalances(gaiaUserAddress));
+    });
+
+    // it('wait unbonding period', async () => {
+    //   await sleep(UNBONDING_TIME * 1000);
+    // });
+
+    it('send vouchers back on neutron', async () => {
+      const { gaiaClient, gaiaUserAddress, neutronUserAddress, client } =
+        context;
+      for (const denom of [
+        'ibc/CD71805E407CE64B87D7AB5B28DF0DE023A27368C1EAC5570F4A03D8D584D190',
+        'ibc/19766EE2F3FFAD3DAAA628D862A0536A896B4DC12D692E59BBE736F1087EF563',
+      ]) {
+        await gaiaClient.signAndBroadcast(
+          gaiaUserAddress,
+          [
+            {
+              typeUrl: '/ibc.applications.transfer.v1.MsgTransfer',
+              value: MsgTransfer.fromPartial({
+                sender: gaiaUserAddress,
+                sourceChannel: 'channel-0',
+                sourcePort: 'transfer',
+                receiver: neutronUserAddress,
+                token: { denom: denom, amount: '1' },
+                timeoutTimestamp: BigInt((Date.now() + 10 * 60 * 1000) * 1e6),
+                timeoutHeight: {
+                  revisionHeight: BigInt(0),
+                  revisionNumber: BigInt(0),
+                },
+              }),
+            },
+          ],
+          1.5,
+        );
+      }
+      await waitFor(
+        async () =>
+          (
+            await client.getBalance(
+              neutronUserAddress,
+              'factory/neutron12xtk58t59tnv36zcuyzv3lda4emvugcl9y4ar7tavjqzl29dyhgsrmefp5/nft_0_1',
+            )
+          ).amount === '1' &&
+          (
+            await client.getBalance(
+              neutronUserAddress,
+              'factory/neutron12xtk58t59tnv36zcuyzv3lda4emvugcl9y4ar7tavjqzl29dyhgsrmefp5/nft_0_2',
+            )
+          ).amount === '1',
+        60_000,
       );
     });
   });
