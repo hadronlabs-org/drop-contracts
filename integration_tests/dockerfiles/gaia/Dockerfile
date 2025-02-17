@@ -11,8 +11,9 @@ RUN make install
 
 FROM golang:1.23-bullseye
 ARG IMG_TAG
-RUN apt install -y bash
+RUN apt install -y bash curl
 COPY --from=builder /go/bin/gaiad /usr/local/bin/
+COPY --from=builder /go/pkg/mod/ /go/pkg/mod/
 EXPOSE 26656 26657 1317 9090
 USER 0
 
