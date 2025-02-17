@@ -34,6 +34,7 @@ import { stringToPath } from '@cosmjs/crypto';
 import { instrumentCoreClass } from '../helpers/knot';
 import { sleep } from '../helpers/sleep';
 import { sha256 } from '@cosmjs/crypto';
+import { toHex } from '@cosmjs/encoding';
 
 const DropUnbondingMirrorClass = DropUnbondingMirror.Client;
 const DropFactoryClass = DropFactory.Client;
@@ -935,13 +936,12 @@ describe('Unbonding mirror', () => {
         .attributes.filter(
           (attribute) => attribute.key === 'tf_denom',
         )[0].value;
+      const te = new TextEncoder();
       denomsMirror.push({
         neutronDenom: neutronDenom,
-        gaiaDenom: `ibc/${sha256(
-          new TextEncoder().encode(`transfer/channel-0/${neutronDenom}`),
-        )
-          .toString()
-          .toUpperCase()}`,
+        gaiaDenom: `ibc/${toHex(
+          sha256(te.encode(`transfer/channel-221/${neutronDenom}`)),
+        ).toUpperCase()}`,
       });
       await waitFor(async () => {
         const balances = await gaiaClient.getAllBalances(gaiaUserAddress);
@@ -981,13 +981,12 @@ describe('Unbonding mirror', () => {
         .attributes.filter(
           (attribute) => attribute.key === 'tf_denom',
         )[0].value;
+      const te = new TextEncoder();
       denomsMirror.push({
         neutronDenom: neutronDenom,
-        gaiaDenom: `ibc/${sha256(
-          new TextEncoder().encode(`transfer/channel-0/${neutronDenom}`),
-        )
-          .toString()
-          .toUpperCase()}`,
+        gaiaDenom: `ibc/${toHex(
+          sha256(te.encode(`transfer/channel-221/${neutronDenom}`)),
+        ).toUpperCase()}`,
       });
       await waitFor(async () => {
         const balances = await gaiaClient.getAllBalances(gaiaUserAddress);
