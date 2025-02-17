@@ -588,7 +588,7 @@ describe('Mirror', () => {
     );
     context.withdrawalVoucherClient = new DropWithdrawalVoucher.Client(
       context.client,
-      res.withdrawal_manager_contract,
+      res.withdrawal_voucher_contract,
     );
     context.ldDenom = `factory/${res.token_contract}/drop`;
   });
