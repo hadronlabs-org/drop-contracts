@@ -125,14 +125,11 @@ fn query_unbond_ready_list(deps: Deps<NeutronQuery>, receiver: String) -> Contra
         .querier
         .query_wasm_smart(
             withdrawal_voucher.clone(),
-            &to_json_binary(
-                &drop_staking_base::msg::withdrawal_voucher::QueryMsg::Tokens {
-                    owner: receiver,
-                    start_after: None,
-                    limit: None,
-                },
-            )
-            .unwrap(),
+            &drop_staking_base::msg::withdrawal_voucher::QueryMsg::Tokens {
+                owner: receiver,
+                start_after: None,
+                limit: None,
+            },
         )
         .unwrap();
     let mut result: Vec<UnbondReadyListResponseItem> = vec![];
@@ -183,7 +180,6 @@ fn execute_withdraw(
         ..
     } = CONFIG.load(deps.storage)?;
 
-    deps.api.addr_validate(&receiver)?;
     ensure!(receiver.starts_with(&prefix), ContractError::InvalidPrefix);
     bech32::decode(&receiver).map_err(|_| ContractError::WrongReceiverAddress)?;
 
@@ -273,7 +269,6 @@ fn execute_retry(
         ..
     } = CONFIG.load(deps.storage)?;
 
-    deps.api.addr_validate(receiver.as_str())?;
     ensure!(receiver.starts_with(&prefix), ContractError::InvalidPrefix);
     bech32::decode(&receiver).map_err(|_| ContractError::WrongReceiverAddress)?;
 
@@ -387,7 +382,6 @@ fn execute_unbond(
     let coin = cw_utils::one_coin(&info)?;
     let config = CONFIG.load(deps.storage)?;
 
-    deps.api.addr_validate(receiver.as_str())?;
     ensure!(
         receiver.starts_with(&config.prefix),
         ContractError::InvalidPrefix
@@ -602,22 +596,19 @@ fn query_nft_status(
         drop_staking_base::msg::withdrawal_voucher::Extension,
     > = deps.querier.query_wasm_smart(
         withdrawal_voucher.clone(),
-        &to_json_binary(
-            &drop_staking_base::msg::withdrawal_voucher::QueryMsg::AllNftInfo {
-                token_id: nft_id.clone(),
-                include_expired: None,
-            },
-        )?,
+        &drop_staking_base::msg::withdrawal_voucher::QueryMsg::AllNftInfo {
+            token_id: nft_id.clone(),
+            include_expired: None,
+        },
     )?;
     let batch_id = nft_response.info.extension.unwrap().batch_id;
     let batch_info: drop_staking_base::state::core::UnbondBatch = deps
         .querier
         .query_wasm_smart(
             core_contract.clone(),
-            &to_json_binary(&drop_staking_base::msg::core::QueryMsg::UnbondBatch {
+            &drop_staking_base::msg::core::QueryMsg::UnbondBatch {
                 batch_id: Uint128::from_str(batch_id.as_str())?,
-            })
-            .unwrap(),
+            },
         )
         .unwrap();
     Ok(batch_info.status)

@@ -2,7 +2,6 @@ import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import {
   DropCore,
   DropFactory,
-  DropMirror,
   DropNativeBondProvider,
   DropPuppeteer,
   DropUnbondingMirror,
@@ -33,7 +32,6 @@ import { instrumentCoreClass } from '../helpers/knot';
 import { sleep } from '../helpers/sleep';
 
 const DropUnbondingMirrorClass = DropUnbondingMirror.Client;
-const DropMirrorClass = DropMirror.Client;
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
 const DropWithdrawalManagerClass = DropWithdrawalManager.Client;
@@ -42,7 +40,7 @@ const DropNativeBondProviderClass = DropNativeBondProvider.Client;
 const DropPuppeteerClass = DropPuppeteer.Client;
 const UNBONDING_TIME = 360;
 
-describe('Mirror', () => {
+describe('Unbonding mirror', () => {
   const context: {
     park?: Cosmopark;
     contractAddress?: string;
@@ -53,7 +51,6 @@ describe('Mirror', () => {
     coreContractClient?: InstanceType<typeof DropCoreClass>;
     withdrawalManagerClient?: InstanceType<typeof DropWithdrawalManagerClass>;
     withdrawalVoucherClient?: InstanceType<typeof DropWithdrawalVoucherClass>;
-    mirrorContractClient?: InstanceType<typeof DropMirrorClass>;
     unbondingMirrorClient?: InstanceType<typeof DropUnbondingMirrorClass>;
     account?: AccountData;
     icaAddress?: string;
@@ -394,19 +391,6 @@ describe('Mirror', () => {
         account.address,
         Uint8Array.from(
           fs.readFileSync(
-            join(__dirname, '../../../artifacts/drop_mirror.wasm'),
-          ),
-        ),
-        1.5,
-      );
-      expect(res.codeId).toBeGreaterThan(0);
-      context.codeIds.mirror = res.codeId;
-    }
-    {
-      const res = await client.upload(
-        account.address,
-        Uint8Array.from(
-          fs.readFileSync(
             join(__dirname, '../../../artifacts/drop_unbonding_mirror.wasm'),
           ),
         ),
@@ -623,34 +607,13 @@ describe('Mirror', () => {
     );
     expect(res.transactionHash).toHaveLength(64);
   });
+
   it('wait puppeteer response', async () => {
     const { puppeteerContractClient } = context;
     await waitFor(async () => {
       const res = await puppeteerContractClient.queryTxState();
       return res.status === 'idle';
     }, 100_000);
-  });
-
-  it('instantiate mirror', async () => {
-    const res = await DropMirror.Client.instantiate(
-      context.client,
-      context.neutronUserAddress,
-      context.codeIds.mirror,
-      {
-        core_contract: context.coreContractClient.contractAddress,
-        source_channel: 'channel-0',
-        source_port: 'transfer',
-        ibc_timeout: 10,
-        prefix: 'cosmos',
-      },
-      'mirror',
-      1.6,
-    );
-    expect(res.contractAddress).toHaveLength(66);
-    context.mirrorContractClient = new DropMirror.Client(
-      context.client,
-      res.contractAddress,
-    );
   });
 
   it('instantiate unbonding mirror', async () => {
@@ -677,6 +640,71 @@ describe('Mirror', () => {
       context.client,
       res.contractAddress,
     );
-    console.log(await context.unbondingMirrorClient.queryConfig());
+  });
+
+  it('bond 1m uAssets', async () => {
+    const { neutronUserAddress, coreContractClient } = context;
+    await coreContractClient.bond(
+      neutronUserAddress,
+      {},
+      undefined,
+      undefined,
+      [
+        {
+          denom: context.neutronIBCDenom,
+          amount: '1000000',
+        },
+      ],
+    );
+  });
+
+  it('send 10 ntrn to the unbonding mirror contract', async () => {
+    const { neutronUserAddress, client, unbondingMirrorClient } = context;
+    await client.sendTokens(
+      neutronUserAddress,
+      unbondingMirrorClient.contractAddress,
+      [{ denom: 'untrn', amount: '10000000' }],
+      {
+        gas: '100000',
+        amount: [{ denom: 'untrn', amount: '10000' }],
+      },
+    );
+    expect(
+      (await client.getBalance(unbondingMirrorClient.contractAddress, 'untrn'))
+        .amount,
+    ).toBe('10000000');
+  });
+
+  describe('Expected behavior', () => {
+    it('unbond 1k, wait for the new voucher on gaia', async () => {
+      const {
+        neutronUserAddress,
+        gaiaUserAddress,
+        gaiaClient,
+        unbondingMirrorClient,
+      } = context;
+      await unbondingMirrorClient.unbond(
+        neutronUserAddress,
+        {
+          receiver: gaiaUserAddress,
+        },
+        undefined,
+        undefined,
+        [
+          {
+            denom: context.ldDenom,
+            amount: '1000',
+          },
+        ],
+      );
+      await waitFor(async () => {
+        const balances = await gaiaClient.getAllBalances(gaiaUserAddress);
+        return (
+          balances.filter((denom) => denom.denom.startsWith('ibc/')).length === // ibc/EFF4A9BDC6320CDA88C43A0D66A13FEC9767A9B011106B1FC894313A190B64F4
+          1
+        );
+      }, 60_000);
+      console.log(await gaiaClient.getAllBalances(gaiaUserAddress));
+    });
   });
 });
