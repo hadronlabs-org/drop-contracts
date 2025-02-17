@@ -182,12 +182,10 @@ fn execute_withdraw(
         drop_staking_base::msg::withdrawal_voucher::Extension,
     > = deps.querier.query_wasm_smart(
         withdrawal_voucher.clone(),
-        &to_json_binary(
-            &drop_staking_base::msg::withdrawal_voucher::QueryMsg::AllNftInfo {
-                token_id: nft_id.clone(),
-                include_expired: None,
-            },
-        )?,
+        &drop_staking_base::msg::withdrawal_voucher::QueryMsg::AllNftInfo {
+            token_id: nft_id.clone(),
+            include_expired: None,
+        },
     )?;
     let nft_amount = nft_response.info.extension.unwrap().amount; // safe because we always have extension there
     let withdraw_msg: CosmosMsg<NeutronMsg> = CosmosMsg::Wasm(WasmMsg::Execute {

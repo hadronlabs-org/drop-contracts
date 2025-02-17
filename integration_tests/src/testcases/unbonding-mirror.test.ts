@@ -33,6 +33,7 @@ import { waitFor } from '../helpers/waitFor';
 import { stringToPath } from '@cosmjs/crypto';
 import { instrumentCoreClass } from '../helpers/knot';
 import { sleep } from '../helpers/sleep';
+import { sha256 } from '@cosmjs/crypto';
 
 const DropUnbondingMirrorClass = DropUnbondingMirror.Client;
 const DropFactoryClass = DropFactory.Client;
@@ -903,7 +904,7 @@ describe('Unbonding mirror', () => {
   });
 
   describe('Expected behavior', () => {
-    const neutronDenoms: Array<string> = [];
+    const denomsMirror: Array<{ gaiaDenom: string; neutronDenom: string }> = [];
     it('unbond 1k, wait for the new voucher on gaia', async () => {
       const {
         neutronUserAddress,
@@ -925,23 +926,30 @@ describe('Unbonding mirror', () => {
           },
         ],
       );
+      const neutronDenom = events
+        .filter(
+          (event) =>
+            event.type ===
+            'wasm-crates.io:drop-staking__drop-unbonding-mirror-reply_finalize_unbond',
+        )[0]
+        .attributes.filter(
+          (attribute) => attribute.key === 'tf_denom',
+        )[0].value;
+      denomsMirror.push({
+        neutronDenom: neutronDenom,
+        gaiaDenom: `ibc/${sha256(
+          new TextEncoder().encode(`transfer/channel-0/${neutronDenom}`),
+        )
+          .toString()
+          .toUpperCase()}`,
+      });
       await waitFor(async () => {
         const balances = await gaiaClient.getAllBalances(gaiaUserAddress);
         return (
-          balances.filter((denom) => denom.denom.startsWith('ibc/')).length === // ibc/CD71805E407CE64B87D7AB5B28DF0DE023A27368C1EAC5570F4A03D8D584D190
+          balances.filter((denom) => denom.denom.startsWith('ibc/')).length ===
           1
         );
       }, 60_000);
-      neutronDenoms.push(
-        events
-          .filter(
-            (event) =>
-              event.type ===
-              'wasm-crates.io:drop-staking__drop-unbonding-mirror-reply_finalize_unbond',
-          )[0]
-          .attributes.filter((attribute) => attribute.key === 'tf_denom')[0]
-          .value,
-      );
     });
     it('unbond 10k, wait for the new voucher on gaia', async () => {
       const {
@@ -964,24 +972,30 @@ describe('Unbonding mirror', () => {
           },
         ],
       );
+      const neutronDenom = events
+        .filter(
+          (event) =>
+            event.type ===
+            'wasm-crates.io:drop-staking__drop-unbonding-mirror-reply_finalize_unbond',
+        )[0]
+        .attributes.filter(
+          (attribute) => attribute.key === 'tf_denom',
+        )[0].value;
+      denomsMirror.push({
+        neutronDenom: neutronDenom,
+        gaiaDenom: `ibc/${sha256(
+          new TextEncoder().encode(`transfer/channel-0/${neutronDenom}`),
+        )
+          .toString()
+          .toUpperCase()}`,
+      });
       await waitFor(async () => {
         const balances = await gaiaClient.getAllBalances(gaiaUserAddress);
         return (
-          balances.filter((denom) => denom.denom.startsWith('ibc/')).length === // ibc/19766EE2F3FFAD3DAAA628D862A0536A896B4DC12D692E59BBE736F1087EF563
+          balances.filter((denom) => denom.denom.startsWith('ibc/')).length ===
           2
         );
       }, 60_000);
-      neutronDenoms.push(
-        events
-          .filter(
-            (event) =>
-              event.type ===
-              'wasm-crates.io:drop-staking__drop-unbonding-mirror-reply_finalize_unbond',
-          )[0]
-          .attributes.filter((attribute) => attribute.key === 'tf_denom')[0]
-          .value,
-      );
-      console.log(await gaiaClient.getAllBalances(gaiaUserAddress));
     });
 
     describe('do a protocol full rotation', () => {
@@ -1367,11 +1381,7 @@ describe('Unbonding mirror', () => {
         expect(state).toEqual('idle');
       });
       it('fund withdrawal manager', async () => {
-        const {
-          pumpContractClient,
-          neutronUserAddress,
-          unbondingMirrorClient,
-        } = context;
+        const { pumpContractClient, neutronUserAddress } = context;
         await pumpContractClient.push(
           neutronUserAddress,
           {
@@ -1394,10 +1404,7 @@ describe('Unbonding mirror', () => {
     it('send vouchers back on neutron', async () => {
       const { gaiaClient, gaiaUserAddress, neutronUserAddress, client } =
         context;
-      for (const denom of [
-        'ibc/CD71805E407CE64B87D7AB5B28DF0DE023A27368C1EAC5570F4A03D8D584D190',
-        'ibc/19766EE2F3FFAD3DAAA628D862A0536A896B4DC12D692E59BBE736F1087EF563',
-      ]) {
+      for (const denom of denomsMirror.map((denom) => denom.gaiaDenom)) {
         await gaiaClient.signAndBroadcast(
           gaiaUserAddress,
           [
@@ -1425,13 +1432,13 @@ describe('Unbonding mirror', () => {
           (
             await client.getBalance(
               neutronUserAddress,
-              'factory/neutron1upp6z6ygqxwvres4w3vy7qa2q9vr3rlp3w2w9glxgeylux3ff8fsxdlsgh/nft_0_1',
+              denomsMirror[0].neutronDenom,
             )
           ).amount === '1' &&
           (
             await client.getBalance(
               neutronUserAddress,
-              'factory/neutron1upp6z6ygqxwvres4w3vy7qa2q9vr3rlp3w2w9glxgeylux3ff8fsxdlsgh/nft_0_2',
+              denomsMirror[1].neutronDenom,
             )
           ).amount === '1',
         60_000,
@@ -1449,10 +1456,7 @@ describe('Unbonding mirror', () => {
         await gaiaClient.getBalance(gaiaUserAddress, 'stake')
       ).amount;
       console.log(await gaiaClient.getBalance(gaiaUserAddress, 'stake'));
-      for (const denom of [
-        'factory/neutron1upp6z6ygqxwvres4w3vy7qa2q9vr3rlp3w2w9glxgeylux3ff8fsxdlsgh/nft_0_1',
-        'factory/neutron1upp6z6ygqxwvres4w3vy7qa2q9vr3rlp3w2w9glxgeylux3ff8fsxdlsgh/nft_0_2',
-      ]) {
+      for (const denom of denomsMirror.map((denom) => denom.neutronDenom)) {
         await unbondingMirrorClient.withdraw(
           neutronUserAddress,
           {
