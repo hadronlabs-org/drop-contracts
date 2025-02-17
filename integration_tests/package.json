@@ -47,7 +47,6 @@
     "decimal.js": "^10.4.3",
     "dotparser": "^1.1.1",
     "drop-ts-client": "file:../ts-client",
-    "sha256": "^0.2.0",
     "sha3": "^2.1.4",
     "yaml": "^2.4.1"
   },
