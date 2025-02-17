@@ -1015,18 +1015,31 @@ describe('Unbonding mirror', () => {
           1.5,
         );
       }
+      await sleep(10000);
+      console.log(
+        await client.getBalance(
+          neutronUserAddress,
+          'factory/neutron1upp6z6ygqxwvres4w3vy7qa2q9vr3rlp3w2w9glxgeylux3ff8fsxdlsgh/nft_0_1',
+        ),
+      );
+      console.log(
+        await client.getBalance(
+          neutronUserAddress,
+          'factory/neutron1upp6z6ygqxwvres4w3vy7qa2q9vr3rlp3w2w9glxgeylux3ff8fsxdlsgh/nft_0_2',
+        ),
+      );
       await waitFor(
         async () =>
           (
             await client.getBalance(
               neutronUserAddress,
-              'factory/neutron12xtk58t59tnv36zcuyzv3lda4emvugcl9y4ar7tavjqzl29dyhgsrmefp5/nft_0_1',
+              'factory/neutron1upp6z6ygqxwvres4w3vy7qa2q9vr3rlp3w2w9glxgeylux3ff8fsxdlsgh/nft_0_1',
             )
           ).amount === '1' &&
           (
             await client.getBalance(
               neutronUserAddress,
-              'factory/neutron12xtk58t59tnv36zcuyzv3lda4emvugcl9y4ar7tavjqzl29dyhgsrmefp5/nft_0_2',
+              'factory/neutron1upp6z6ygqxwvres4w3vy7qa2q9vr3rlp3w2w9glxgeylux3ff8fsxdlsgh/nft_0_2',
             )
           ).amount === '1',
         60_000,
