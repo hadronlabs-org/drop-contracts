@@ -32,12 +32,6 @@ pub struct FailedReceiverResponse {
     pub amount: Vec<Coin>,
 }
 
-#[cw_serde]
-pub struct UnbondReadyListResponseItem {
-    pub nft_id: String,
-    pub status: bool,
-}
-
 #[cw_ownable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
@@ -49,9 +43,7 @@ pub enum QueryMsg {
     #[returns(Vec<(String, Vec<Coin>)>)]
     AllFailed {},
     #[returns(bool)]
-    UnbondReady { nft_id: String },
-    #[returns(Vec<UnbondReadyListResponseItem>)]
-    UnbondReadyList { receiver: String },
+    UnbondReady { id: String },
 }
 
 #[cw_serde]

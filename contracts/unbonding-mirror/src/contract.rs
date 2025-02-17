@@ -1,7 +1,6 @@
 use crate::error::{ContractError, ContractResult};
 use crate::msg::{
     ExecuteMsg, FailedReceiverResponse, FungibleTokenPacketData, InstantiateMsg, QueryMsg,
-    UnbondReadyListResponseItem,
 };
 use crate::state::{
     Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, REPLY_RECEIVERS, TF_DENOM_TO_NFT_ID,
@@ -83,8 +82,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
         QueryMsg::Config {} => Ok(to_json_binary(&CONFIG.load(deps.storage)?)?),
         QueryMsg::FailedReceiver { receiver } => query_failed_receiver(deps, receiver),
         QueryMsg::AllFailed {} => query_all_failed(deps),
-        QueryMsg::UnbondReady { nft_id } => query_unbond_ready(deps, nft_id),
-        QueryMsg::UnbondReadyList { receiver } => query_unbond_ready_list(deps, receiver),
+        QueryMsg::UnbondReady { id } => query_unbond_ready(deps, id),
     }
 }
 
@@ -107,40 +105,36 @@ fn query_all_failed(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     Ok(to_json_binary(&failed_transfers)?)
 }
 
-fn query_unbond_ready(deps: Deps<NeutronQuery>, nft_id: String) -> ContractResult<Binary> {
-    let config = CONFIG.load(deps.storage)?;
-    let batch_status = query_nft_status(deps, config, nft_id)?;
-    Ok(to_json_binary(
-        &(batch_status == drop_staking_base::state::core::UnbondBatchStatus::Withdrawn),
-    )?)
-}
-
-fn query_unbond_ready_list(deps: Deps<NeutronQuery>, receiver: String) -> ContractResult<Binary> {
-    let config = CONFIG.load(deps.storage)?;
+fn query_unbond_ready(deps: Deps<NeutronQuery>, id: String) -> ContractResult<Binary> {
     let Config {
-        withdrawal_voucher, ..
-    } = config.clone();
-    // Let's forget about the pagination here until it become necessary
-    let tokens: cw721::TokensResponse = deps
+        withdrawal_voucher,
+        core_contract,
+        ..
+    } = CONFIG.load(deps.storage)?;
+    let nft_id = TF_DENOM_TO_NFT_ID.load(deps.storage, id)?;
+    let nft_response: cw721::AllNftInfoResponse<
+        drop_staking_base::msg::withdrawal_voucher::Extension,
+    > = deps.querier.query_wasm_smart(
+        withdrawal_voucher.clone(),
+        &drop_staking_base::msg::withdrawal_voucher::QueryMsg::AllNftInfo {
+            token_id: nft_id.clone(),
+            include_expired: None,
+        },
+    )?;
+    let batch_id = nft_response.info.extension.unwrap().batch_id;
+    let batch_info: drop_staking_base::state::core::UnbondBatch = deps
         .querier
         .query_wasm_smart(
-            withdrawal_voucher.clone(),
-            &drop_staking_base::msg::withdrawal_voucher::QueryMsg::Tokens {
-                owner: receiver,
-                start_after: None,
-                limit: None,
+            core_contract.clone(),
+            &drop_staking_base::msg::core::QueryMsg::UnbondBatch {
+                batch_id: Uint128::from_str(batch_id.as_str())?,
             },
         )
         .unwrap();
-    let mut result: Vec<UnbondReadyListResponseItem> = vec![];
-    for nft_id in tokens.tokens.iter() {
-        let batch_status = query_nft_status(deps, config.clone(), nft_id.clone())?;
-        result.push(UnbondReadyListResponseItem {
-            nft_id: nft_id.clone(),
-            status: batch_status == drop_staking_base::state::core::UnbondBatchStatus::Withdrawn,
-        });
-    }
-    Ok(to_json_binary(&result)?)
+    let batch_status = batch_info.status;
+    Ok(to_json_binary(
+        &(batch_status == drop_staking_base::state::core::UnbondBatchStatus::Withdrawn),
+    )?)
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
@@ -581,35 +575,4 @@ fn parse_nft(nft_id: String) -> Result<(u64, u64), ContractError> {
         }
     }
     Err(ContractError::NFTParseError {})
-}
-
-fn query_nft_status(
-    deps: Deps<NeutronQuery>,
-    Config {
-        withdrawal_voucher,
-        core_contract,
-        ..
-    }: Config,
-    nft_id: String,
-) -> ContractResult<drop_staking_base::state::core::UnbondBatchStatus> {
-    let nft_response: cw721::AllNftInfoResponse<
-        drop_staking_base::msg::withdrawal_voucher::Extension,
-    > = deps.querier.query_wasm_smart(
-        withdrawal_voucher.clone(),
-        &drop_staking_base::msg::withdrawal_voucher::QueryMsg::AllNftInfo {
-            token_id: nft_id.clone(),
-            include_expired: None,
-        },
-    )?;
-    let batch_id = nft_response.info.extension.unwrap().batch_id;
-    let batch_info: drop_staking_base::state::core::UnbondBatch = deps
-        .querier
-        .query_wasm_smart(
-            core_contract.clone(),
-            &drop_staking_base::msg::core::QueryMsg::UnbondBatch {
-                batch_id: Uint128::from_str(batch_id.as_str())?,
-            },
-        )
-        .unwrap();
-    Ok(batch_info.status)
 }
