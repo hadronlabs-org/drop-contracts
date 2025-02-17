@@ -940,6 +940,121 @@ fn test_execute_retry_take_equal() {
 }
 
 #[test]
+fn test_execute_retry_take_0() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 0,
+            },
+        )
+        .unwrap();
+    FAILED_TRANSFERS
+        .save(
+            deps.as_mut().storage,
+            "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+            &vec![Coin {
+                denom: "denom1".to_string(),
+                amount: Uint128::from(1u128),
+            }],
+        )
+        .unwrap();
+    for _ in 0..FAILED_TRANSFERS
+        .load(
+            &deps.storage,
+            "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+        )
+        .unwrap()
+        .len()
+    {
+        deps.querier.add_custom_query_response(|_| {
+            to_json_binary(&MinIbcFeeResponse {
+                min_fee: IbcFee {
+                    recv_fee: vec![],
+                    ack_fee: cosmwasm_std::coins(100, "untrn"),
+                    timeout_fee: cosmwasm_std::coins(200, "untrn"),
+                },
+            })
+            .unwrap()
+        });
+    }
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("sender", &[]),
+        ExecuteMsg::Retry {
+            receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new().add_event(
+            Event::new("crates.io:drop-staking__drop-unbonding-mirror-execute_retry")
+                .add_attributes(vec![attr("action", "execute_retry"),])
+        )
+    );
+    assert_eq!(
+        FAILED_TRANSFERS
+            .load(
+                &deps.storage,
+                "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string()
+            )
+            .unwrap(),
+        vec![Coin {
+            denom: "denom1".to_string(),
+            amount: Uint128::from(1u128),
+        }]
+    );
+}
+
+#[test]
+fn test_execute_retry_none() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 0,
+            },
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("sender", &[]),
+        ExecuteMsg::Retry {
+            receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new().add_event(
+            Event::new("crates.io:drop-staking__drop-unbonding-mirror-execute_retry")
+                .add_attributes(vec![attr("action", "execute_retry"),])
+        )
+    );
+}
+
+#[test]
 fn test_execute_withdraw_no_funds() {
     let mut deps = mock_dependencies(&[]);
     let res = execute(
