@@ -940,7 +940,7 @@ describe('Unbonding mirror', () => {
       denomsMirror.push({
         neutronDenom: neutronDenom,
         gaiaDenom: `ibc/${toHex(
-          sha256(te.encode(`transfer/channel-221/${neutronDenom}`)),
+          sha256(te.encode(`transfer/channel-0/${neutronDenom}`)),
         ).toUpperCase()}`,
       });
       await waitFor(async () => {
@@ -985,7 +985,7 @@ describe('Unbonding mirror', () => {
       denomsMirror.push({
         neutronDenom: neutronDenom,
         gaiaDenom: `ibc/${toHex(
-          sha256(te.encode(`transfer/channel-221/${neutronDenom}`)),
+          sha256(te.encode(`transfer/channel-0/${neutronDenom}`)),
         ).toUpperCase()}`,
       });
       await waitFor(async () => {
