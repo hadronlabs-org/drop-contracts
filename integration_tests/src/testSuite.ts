@@ -15,7 +15,6 @@ import {
 } from '@neutron-org/cosmopark/lib/types';
 import { Suite } from 'vitest';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
-
 const packageJSON = require(`${__dirname}/../package.json`);
 const VERSION = (process.env.CI ? '_' : ':') + packageJSON.version;
 const ORG = process.env.CI ? 'neutronorg/lionco-contracts:' : '';
@@ -189,7 +188,7 @@ const networkConfigs = {
     denom: 'untrn',
     image: `${ORG}neutron-test${VERSION}`,
     prefix: 'neutron',
-    loglevel: 'info',
+    loglevel: 'debug',
     trace: true,
     public: true,
     type: 'ics',
