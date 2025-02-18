@@ -859,7 +859,6 @@ describe('Unbonding mirror', () => {
         ibc_timeout: 10,
         prefix: 'cosmos',
         retry_limit: 1,
-        ibc_denom: context.neutronIBCDenom,
       },
       'mirror',
       1.6,
@@ -1455,13 +1454,7 @@ describe('Unbonding mirror', () => {
         await gaiaClient.getBalance(gaiaUserAddress, 'stake')
       ).amount;
       for (const denom of denomsMirror.map((denom) => denom.neutronDenom)) {
-        console.log(
-          await client.getBalance(
-            context.withdrawalManagerClient.contractAddress,
-            context.neutronIBCDenom,
-          ),
-        );
-        await unbondingMirrorClient.withdraw(
+        const { transactionHash } = await unbondingMirrorClient.withdraw(
           neutronUserAddress,
           {
             receiver: gaiaUserAddress,
@@ -1470,7 +1463,9 @@ describe('Unbonding mirror', () => {
           undefined,
           [{ denom: denom, amount: '1' }],
         );
+        console.log(transactionHash);
       }
+      await sleep(10000000000);
       await waitFor(
         async () =>
           (await gaiaClient.getBalance(gaiaUserAddress, 'stake')).amount !==

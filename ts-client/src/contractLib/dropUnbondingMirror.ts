@@ -86,7 +86,6 @@ export interface Coin {
 }
 export interface Config {
   core_contract: string;
-  ibc_denom: string;
   ibc_timeout: number;
   prefix: string;
   retry_limit: number;
@@ -127,7 +126,6 @@ export interface UpdateConfigArgs {
 }
 export interface ConfigOptional {
   core_contract?: string | null;
-  ibc_denom?: string | null;
   ibc_timeout?: number | null;
   prefix?: string | null;
   retry_limit?: number | null;
@@ -147,7 +145,6 @@ export interface RetryArgs {
 }
 export interface InstantiateMsg {
   core_contract: string;
-  ibc_denom: string;
   ibc_timeout: number;
   owner?: string | null;
   prefix: string;

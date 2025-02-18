@@ -172,26 +172,29 @@ fn execute_withdraw(
     bech32::decode(&receiver).map_err(|_| ContractError::WrongReceiverAddress)?;
 
     let nft_id = TF_DENOM_TO_NFT_ID.load(deps.storage, coin.denom.clone())?;
-    let withdraw_msg: CosmosMsg<NeutronMsg> = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: withdrawal_voucher.clone(),
-        msg: to_json_binary(
-            &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::SendNft {
-                contract: withdrawal_manager.clone(),
-                token_id: nft_id,
-                msg: to_json_binary(
-                    &drop_staking_base::msg::withdrawal_manager::ReceiveNftMsg::Withdraw {
-                        receiver: None,
-                    },
-                )?,
-            },
-        )?,
-        funds: vec![],
-    });
+    let withdraw_reply_id: u64 = WITHDRAW_REPLY_ID.load(deps.storage)? + 1;
+    let withdraw_submsg: SubMsg<NeutronMsg> = SubMsg::reply_on_success(
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: withdrawal_voucher.clone(),
+            msg: to_json_binary(
+                &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::SendNft {
+                    contract: withdrawal_manager.clone(),
+                    token_id: nft_id,
+                    msg: to_json_binary(
+                        &drop_staking_base::msg::withdrawal_manager::ReceiveNftMsg::Withdraw {
+                            receiver: None,
+                        },
+                    )?,
+                },
+            )?,
+            funds: vec![],
+        }),
+        withdraw_reply_id,
+    );
     let tf_burn_msg = CosmosMsg::Custom(NeutronMsg::submit_burn_tokens(
         coin.denom.clone(),
         coin.amount,
     ));
-    let withdraw_reply_id: u64 = WITHDRAW_REPLY_ID.load(deps.storage)? + 1;
     WITHDRAW_REPLY_ID.save(deps.storage, &withdraw_reply_id)?;
     REPLY_RECEIVERS.save(deps.storage, withdraw_reply_id, &receiver)?;
     // we successfully exchange tf denom back to NFT and NFT to native assets.
@@ -202,10 +205,12 @@ fn execute_withdraw(
         attr("voucher_amount", coin.to_string()),
         attr("withdrawal_manager", withdrawal_manager),
         attr("withdrawal_voucher", withdrawal_voucher),
+        attr("withdraw_reply_id", withdraw_reply_id.to_string()),
         attr("burn", coin.to_string()),
     ];
     Ok(response("execute_withdraw", CONTRACT_NAME, attrs)
-        .add_messages(vec![withdraw_msg, tf_burn_msg]))
+        .add_message(tf_burn_msg)
+        .add_submessage(withdraw_submsg))
 }
 
 fn execute_retry(

@@ -1230,38 +1230,40 @@ fn test_execute_withdraw() {
                         attr("voucher_amount", "1denom"),
                         attr("withdrawal_manager", "withdrawal_manager"),
                         attr("withdrawal_voucher", "withdrawal_voucher"),
+                        attr("withdraw_reply_id", "4294967296"),
                         attr("burn", "1denom"),
                     ])
             )
-            .add_submessages(vec![SubMsg {
-                id: 0,
-                msg: CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: "withdrawal_voucher".to_string(),
-                    msg: to_json_binary(
-                        &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::SendNft {
-                            contract: "withdrawal_manager".to_string(),
-                            token_id: "1_neutron1_123".to_string(),
-                            msg: to_json_binary(
-                                &drop_staking_base::msg::withdrawal_manager::ReceiveNftMsg::Withdraw {
-                                    receiver: None,
-                                },
-                            ).unwrap(),
-                        },
-                    ).unwrap(),
-                    funds: vec![]
-                }),
-                gas_limit: None,
-                reply_on: ReplyOn::Never,
-            },
-            SubMsg {
-                id: 0,
-                msg: CosmosMsg::Custom(NeutronMsg::BurnTokens {
-                    denom: "denom".to_string(),
-                    amount: Uint128::from(1u128),
-                    burn_from_address: "".to_string()
-                }),
-                gas_limit: None,
-                reply_on: ReplyOn::Never,
+            .add_submessages(vec![
+                SubMsg {
+                    id: 0,
+                    msg: CosmosMsg::Custom(NeutronMsg::BurnTokens {
+                        denom: "denom".to_string(),
+                        amount: Uint128::from(1u128),
+                        burn_from_address: "".to_string()
+                    }),
+                    gas_limit: None,
+                    reply_on: ReplyOn::Never,
+                },
+                SubMsg {
+                    id: 4294967296,
+                    msg: CosmosMsg::Wasm(WasmMsg::Execute {
+                        contract_addr: "withdrawal_voucher".to_string(),
+                        msg: to_json_binary(
+                            &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::SendNft {
+                                contract: "withdrawal_manager".to_string(),
+                                token_id: "1_neutron1_123".to_string(),
+                                msg: to_json_binary(
+                                    &drop_staking_base::msg::withdrawal_manager::ReceiveNftMsg::Withdraw {
+                                        receiver: None,
+                                    },
+                                ).unwrap(),
+                            },
+                        ).unwrap(),
+                        funds: vec![]
+                    }),
+                    gas_limit: None,
+                    reply_on: ReplyOn::Success,
             }])
         );
     TF_DENOM_TO_NFT_ID
