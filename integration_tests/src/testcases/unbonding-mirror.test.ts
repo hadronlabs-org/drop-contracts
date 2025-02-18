@@ -1448,13 +1448,12 @@ describe('Unbonding mirror', () => {
         neutronUserAddress,
         gaiaUserAddress,
         gaiaClient,
-        client,
       } = context;
       const balanceBefore = (
         await gaiaClient.getBalance(gaiaUserAddress, 'stake')
       ).amount;
       for (const denom of denomsMirror.map((denom) => denom.neutronDenom)) {
-        const { transactionHash } = await unbondingMirrorClient.withdraw(
+        await unbondingMirrorClient.withdraw(
           neutronUserAddress,
           {
             receiver: gaiaUserAddress,
@@ -1463,7 +1462,6 @@ describe('Unbonding mirror', () => {
           undefined,
           [{ denom: denom, amount: '1' }],
         );
-        console.log(transactionHash);
       }
       await sleep(10000000000);
       await waitFor(
@@ -1472,7 +1470,6 @@ describe('Unbonding mirror', () => {
           balanceBefore,
         60_000,
       );
-      console.log(await gaiaClient.getBalance(gaiaUserAddress, 'stake'));
     });
   });
 });
