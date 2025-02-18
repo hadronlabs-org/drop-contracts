@@ -367,7 +367,7 @@ pub fn reply(
 ) -> ContractResult<Response<NeutronMsg>> {
     const U32_MAX_AS_U64: u64 = u32::MAX as u64;
     match msg.id {
-        0..U32_MAX_AS_U64 => finalize_unbond(deps, env, msg),
+        0..=U32_MAX_AS_U64 => finalize_unbond(deps, env, msg),
         _ => finalize_withdraw(deps, env, msg),
     }
 }
