@@ -94,6 +94,10 @@ fn test_instantiate() {
         }
     );
     assert_eq!(UNBOND_REPLY_ID.load(deps.as_ref().storage).unwrap(), 0u64);
+    assert_eq!(
+        WITHDRAW_REPLY_ID.load(deps.as_ref().storage).unwrap(),
+        u32::MAX as u64
+    );
 }
 
 #[test]
@@ -1269,6 +1273,16 @@ fn test_execute_withdraw() {
     TF_DENOM_TO_NFT_ID
         .load(&deps.storage, "denom".to_string())
         .unwrap_err();
+    assert_eq!(
+        WITHDRAW_REPLY_ID.load(&deps.storage).unwrap(),
+        (u32::MAX as u64 + 1)
+    );
+    assert_eq!(
+        REPLY_RECEIVERS
+            .load(&deps.storage, u32::MAX as u64 + 1)
+            .unwrap(),
+        "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string()
+    );
 }
 
 #[test]
