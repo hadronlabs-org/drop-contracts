@@ -1,4 +1,4 @@
-use crate::contract::instantiate;
+use crate::contract::{instantiate, CONTRACT_NAME};
 
 use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
 use cosmwasm_std::{
@@ -646,4 +646,27 @@ fn test_two_handlers_call() {
             Attribute::new("received_funds".to_string(), "55untrn".to_string()),
         ]
     );
+}
+
+#[test]
+fn test_migrate_wrong_contract() {
+    let mut deps = mock_dependencies();
+
+    let deps_mut = deps.as_mut();
+
+    cw2::set_contract_version(deps_mut.storage, "wrong_contract_name", "0.0.1").unwrap();
+
+    let res = crate::contract::migrate(
+        deps.as_mut(),
+        mock_env(),
+        drop_staking_base::msg::rewards_manager::MigrateMsg {},
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_staking_base::error::rewards_manager::ContractError::MigrationError {
+            storage_contract_name: "wrong_contract_name".to_string(),
+            contract_name: CONTRACT_NAME.to_string()
+        }
+    )
 }

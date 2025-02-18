@@ -15,7 +15,9 @@ use drop_staking_base::state::validatorset::{
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
 
-const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
+use std::collections::HashMap;
+
+pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
@@ -138,14 +140,23 @@ fn execute_update_validators(
 
     let total_count = validators.len();
 
-    // TODO: implement notification of the validator stats contract about new validators set
+    let old_validator_set: HashMap<String, ValidatorInfo> = VALIDATORS_SET
+        .range_raw(deps.storage, None, None, Order::Ascending)
+        .map(|item| item.map(|(_key, value)| (value.valoper_address.to_string(), value)))
+        .collect::<StdResult<_>>()?;
+
     VALIDATORS_SET.clear(deps.storage);
 
     for validator in validators {
+        let on_top_value = old_validator_set
+            .get(&validator.valoper_address)
+            .map(|validator_info| validator_info.on_top)
+            .unwrap_or_default();
+
         let validator_info = ValidatorInfo {
             valoper_address: validator.valoper_address,
             weight: validator.weight,
-            on_top: validator.on_top,
+            on_top: validator.on_top.unwrap_or(on_top_value),
             last_processed_remote_height: None,
             last_processed_local_height: None,
             last_validated_height: None,
@@ -330,12 +341,12 @@ fn execute_edit_on_top(
                 validator_info.on_top = validator_info.on_top.checked_add(amount)?;
                 validator_info
             }
-            OnTopEditOperation::Subtract {
+            OnTopEditOperation::Set {
                 validator_address,
                 amount,
             } => {
                 let mut validator_info = VALIDATORS_SET.load(deps.storage, &validator_address)?;
-                validator_info.on_top = validator_info.on_top.checked_sub(amount)?;
+                validator_info.on_top = amount;
                 validator_info
             }
         };
@@ -368,9 +379,17 @@ pub fn migrate(
     _env: Env,
     _msg: MigrateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
+    let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
+    let storage_contract_name = contract_version_metadata.contract.as_str();
+    if storage_contract_name != CONTRACT_NAME {
+        return Err(ContractError::MigrationError {
+            storage_contract_name: storage_contract_name.to_string(),
+            contract_name: CONTRACT_NAME.to_string(),
+        });
+    }
+
+    let storage_version: semver::Version = contract_version_metadata.version.parse()?;
     let version: semver::Version = CONTRACT_VERSION.parse()?;
-    let storage_version: semver::Version =
-        cw2::get_contract_version(deps.storage)?.version.parse()?;
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;

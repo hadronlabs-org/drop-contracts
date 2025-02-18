@@ -7,8 +7,7 @@ use crate::{
     store::{
         bondings_map,
         reply::{CoreUnbond, CORE_UNBOND},
-        BondingRecord, CORE_ADDRESS, LD_TOKEN, WITHDRAWAL_MANAGER_ADDRESS,
-        WITHDRAWAL_VOUCHER_ADDRESS,
+        BondingRecord, FACTORY_CONTRACT, LD_TOKEN,
     },
 };
 use cosmwasm_std::{
@@ -16,7 +15,7 @@ use cosmwasm_std::{
     Env, Event, MessageInfo, Order, Reply, Response, SubMsg, Uint64, WasmMsg,
 };
 use cw_storage_plus::Bound;
-use drop_helpers::answer::response;
+use drop_helpers::{answer::response, get_contracts};
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 
 pub const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
@@ -32,25 +31,18 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    FACTORY_CONTRACT.save(
+        deps.storage,
+        &deps.api.addr_validate(&msg.factory_contract)?,
+    )?;
 
-    CORE_ADDRESS.save(deps.storage, &deps.api.addr_validate(&msg.core_address)?)?;
-    WITHDRAWAL_VOUCHER_ADDRESS.save(
-        deps.storage,
-        &deps.api.addr_validate(&msg.withdrawal_voucher_address)?,
-    )?;
-    WITHDRAWAL_MANAGER_ADDRESS.save(
-        deps.storage,
-        &deps.api.addr_validate(&msg.withdrawal_manager_address)?,
-    )?;
     LD_TOKEN.save(deps.storage, &msg.ld_token)?;
 
     Ok(response(
         "instantiate",
         CONTRACT_NAME,
         [
-            attr("core_address", msg.core_address),
-            attr("withdrawal_voucher", msg.withdrawal_voucher_address),
-            attr("withdrawal_manager", msg.withdrawal_manager_address),
+            attr("factory_contract", msg.factory_contract),
             attr("ld_token", msg.ld_token),
         ],
     ))
@@ -78,6 +70,8 @@ fn execute_bond_with_ld_assets(
     mut info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
     let ld_token = LD_TOKEN.load(deps.storage)?;
+    let factory_contract = FACTORY_CONTRACT.load(deps.storage)?;
+    let addrs = get_contracts!(deps, factory_contract, core_contract);
 
     let ld_asset = info.funds.swap_remove(
         info.funds
@@ -97,7 +91,7 @@ fn execute_bond_with_ld_assets(
     )?;
 
     let msg = WasmMsg::Execute {
-        contract_addr: CORE_ADDRESS.load(deps.storage)?.into_string(),
+        contract_addr: addrs.core_contract,
         msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::Unbond {})?,
         funds: vec![ld_asset],
     };
@@ -114,6 +108,8 @@ fn execute_bond_with_nft(
 ) -> ContractResult<Response<NeutronMsg>> {
     let deposit = info.funds;
     ensure!(!deposit.is_empty(), ContractError::DepositExpected {});
+    let factory_contract = FACTORY_CONTRACT.load(deps.storage)?;
+    let addrs = get_contracts!(deps, factory_contract, withdrawal_voucher_contract);
 
     // XXX: this code allows user to pass ld_token as a deposit. This sounds strange, but it might actually make
     //      sense to do so. Should we introduce a check that forbids it?
@@ -127,9 +123,8 @@ fn execute_bond_with_nft(
         },
     )?;
 
-    let withdrawal_voucher = WITHDRAWAL_VOUCHER_ADDRESS.load(deps.storage)?;
     let msg = WasmMsg::Execute {
-        contract_addr: withdrawal_voucher.into_string(),
+        contract_addr: addrs.withdrawal_voucher_contract,
         msg: to_json_binary(
             &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::TransferNft {
                 recipient: env.contract.address.into_string(),
@@ -150,12 +145,13 @@ fn execute_unbond(
 ) -> ContractResult<Response<NeutronMsg>> {
     let bonding = bondings_map().load(deps.storage, &token_id)?;
     ensure_eq!(info.sender, bonding.bonder, ContractError::Unauthorized {});
+    let factory_contract = FACTORY_CONTRACT.load(deps.storage)?;
+    let addrs = get_contracts!(deps, factory_contract, withdrawal_voucher_contract);
+
     bondings_map().remove(deps.storage, &token_id)?;
 
-    let withdrawal_voucher = WITHDRAWAL_VOUCHER_ADDRESS.load(deps.storage)?;
-
     let nft_msg: CosmosMsg<NeutronMsg> = WasmMsg::Execute {
-        contract_addr: withdrawal_voucher.into_string(),
+        contract_addr: addrs.withdrawal_voucher_contract,
         msg: to_json_binary(
             &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::TransferNft {
                 recipient: info.sender.to_string(),
@@ -182,16 +178,20 @@ fn execute_withdraw(
     token_id: String,
 ) -> ContractResult<Response<NeutronMsg>> {
     let bonding = bondings_map().load(deps.storage, &token_id)?;
+    let factory_contract = FACTORY_CONTRACT.load(deps.storage)?;
+    let addrs = get_contracts!(
+        deps,
+        factory_contract,
+        withdrawal_voucher_contract,
+        withdrawal_manager_contract
+    );
     bondings_map().remove(deps.storage, &token_id)?;
 
-    let withdrawal_voucher = WITHDRAWAL_VOUCHER_ADDRESS.load(deps.storage)?;
-    let withdrawal_manager = WITHDRAWAL_MANAGER_ADDRESS.load(deps.storage)?;
-
     let withdraw_msg: CosmosMsg<NeutronMsg> = WasmMsg::Execute {
-        contract_addr: withdrawal_voucher.into_string(),
+        contract_addr: addrs.withdrawal_voucher_contract,
         msg: to_json_binary(
             &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::SendNft {
-                contract: withdrawal_manager.into_string(),
+                contract: addrs.withdrawal_manager_contract,
                 token_id,
                 msg: to_json_binary(
                     &drop_staking_base::msg::withdrawal_manager::ReceiveNftMsg::Withdraw {
@@ -319,9 +319,7 @@ fn query_all_bondings(
 
 fn query_config(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     Ok(to_json_binary(&InstantiateMsg {
-        core_address: CORE_ADDRESS.load(deps.storage)?.into_string(),
-        withdrawal_voucher_address: WITHDRAWAL_VOUCHER_ADDRESS.load(deps.storage)?.into_string(),
-        withdrawal_manager_address: WITHDRAWAL_MANAGER_ADDRESS.load(deps.storage)?.into_string(),
+        factory_contract: FACTORY_CONTRACT.load(deps.storage)?.to_string(),
         ld_token: LD_TOKEN.load(deps.storage)?,
     })?)
 }
@@ -333,8 +331,17 @@ pub fn migrate(
     _msg: MigrateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let version: semver::Version = CONTRACT_VERSION.parse()?;
-    let storage_version: semver::Version =
-        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
+    let storage_contract_name = contract_version_metadata.contract.as_str();
+    if storage_contract_name != CONTRACT_NAME {
+        return Err(ContractError::MigrationError {
+            storage_contract_name: storage_contract_name.to_string(),
+            contract_name: CONTRACT_NAME.to_string(),
+        });
+    }
+
+    let storage_version: semver::Version = contract_version_metadata.version.parse()?;
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;

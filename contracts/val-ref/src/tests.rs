@@ -1,8 +1,11 @@
-use crate::{contract, error::ContractError};
+use crate::{
+    contract::{self, EDIT_ON_TOP_REPLY_ID},
+    error::ContractError,
+};
 use cosmwasm_std::{
     from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, Decimal, Event, Order, Response, StdResult, Uint128, WasmMsg,
+    to_json_binary, Addr, Decimal, Event, Order, Response, StdResult, SubMsg, Uint128, WasmMsg,
 };
 use drop_helpers::testing::mock_dependencies;
 use drop_staking_base::{
@@ -248,7 +251,9 @@ fn execute_bond_hook_known_validator() {
         let req = from_json::<CoreQueryMsg>(req).unwrap();
         assert_eq!(req, CoreQueryMsg::ExchangeRate {});
 
-        to_json_binary(&Decimal::from_ratio(3u128, 2u128)).unwrap()
+        cosmwasm_std::ContractResult::Ok(
+            to_json_binary(&Decimal::from_ratio(3u128, 2u128)).unwrap(),
+        )
     });
 
     let response = contract::execute(
@@ -262,17 +267,20 @@ fn execute_bond_hook_known_validator() {
     assert_eq!(
         response,
         Response::new()
-            .add_message(WasmMsg::Execute {
-                contract_addr: String::from("validators_set"),
-                msg: to_json_binary(&ValidatorSetExecuteMsg::EditOnTop {
-                    operations: vec![OnTopEditOperation::Add {
-                        validator_address: String::from("valoperX"),
-                        amount: Uint128::new(150),
-                    }]
-                })
-                .unwrap(),
-                funds: vec![]
-            })
+            .add_submessage(SubMsg::reply_on_error(
+                WasmMsg::Execute {
+                    contract_addr: String::from("validators_set"),
+                    msg: to_json_binary(&ValidatorSetExecuteMsg::EditOnTop {
+                        operations: vec![OnTopEditOperation::Add {
+                            validator_address: String::from("valoperX"),
+                            amount: Uint128::new(150),
+                        }]
+                    })
+                    .unwrap(),
+                    funds: vec![]
+                },
+                EDIT_ON_TOP_REPLY_ID
+            ))
             .add_event(
                 Event::new("drop-val-ref-execute-bond-hook").add_attributes([
                     ("ref", "X"),
@@ -492,5 +500,28 @@ fn query_all_refs() {
                 validator_address: String::from("valoperY"),
             }
         ]
+    )
+}
+
+#[test]
+fn test_migrate_wrong_contract() {
+    let mut deps = mock_dependencies(&[]);
+
+    let deps_mut = deps.as_mut();
+
+    cw2::set_contract_version(deps_mut.storage, "wrong_contract_name", "0.0.1").unwrap();
+
+    let res = crate::contract::migrate(
+        deps.as_mut().into_empty(),
+        mock_env(),
+        drop_staking_base::msg::val_ref::MigrateMsg {},
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        ContractError::MigrationError {
+            storage_contract_name: "wrong_contract_name".to_string(),
+            contract_name: contract::CONTRACT_NAME.to_string()
+        }
     )
 }

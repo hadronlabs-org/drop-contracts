@@ -641,7 +641,6 @@ dependencies = [
 name = "drop-core"
 version = "1.0.0"
 dependencies = [
- "cosmos-sdk-proto",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-ownable",
@@ -652,9 +651,7 @@ dependencies = [
  "drop-puppeteer-base",
  "drop-staking-base",
  "neutron-sdk",
- "prost",
  "semver",
- "thiserror",
 ]
 
 [[package]]
@@ -699,6 +696,7 @@ dependencies = [
  "cw-storage-plus 1.2.0",
  "hex",
  "neutron-sdk",
+ "once_cell",
  "prost",
  "schemars",
  "serde",
@@ -1019,6 +1017,7 @@ dependencies = [
  "cw-ownable",
  "cw2 1.1.2",
  "drop-distribution",
+ "drop-factory",
  "drop-helpers",
  "drop-puppeteer-base",
  "drop-staking-base",

@@ -177,7 +177,7 @@ fn update_validators_wrong_owner() {
             validators: vec![drop_staking_base::msg::validatorset::ValidatorData {
                 valoper_address: "valoper_address".to_string(),
                 weight: 1,
-                on_top: Uint128::zero(),
+                on_top: Some(Uint128::zero()),
             }],
         },
     )
@@ -211,12 +211,12 @@ fn update_validators_ok() {
                 drop_staking_base::msg::validatorset::ValidatorData {
                     valoper_address: "valoper_address1".to_string(),
                     weight: 1,
-                    on_top: Uint128::new(10),
+                    on_top: Some(Uint128::new(10)),
                 },
                 drop_staking_base::msg::validatorset::ValidatorData {
                     valoper_address: "valoper_address2".to_string(),
                     weight: 1,
-                    on_top: Uint128::zero(),
+                    on_top: Some(Uint128::zero()),
                 },
             ],
         },
@@ -269,6 +269,162 @@ fn update_validators_ok() {
 }
 
 #[test]
+fn update_validators_without_ontop_ok() {
+    let mut deps = mock_dependencies(&[]);
+
+    let deps_mut = deps.as_mut();
+
+    let _result = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(Addr::unchecked("core").as_ref()),
+    );
+
+    let response = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &[]),
+        drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
+            validators: vec![
+                drop_staking_base::msg::validatorset::ValidatorData {
+                    valoper_address: "valoper_address1".to_string(),
+                    weight: 1,
+                    on_top: Some(Uint128::new(20)),
+                },
+                drop_staking_base::msg::validatorset::ValidatorData {
+                    valoper_address: "valoper_address2".to_string(),
+                    weight: 1,
+                    on_top: None,
+                },
+            ],
+        },
+    )
+    .unwrap();
+    assert_eq!(response.messages.len(), 0);
+
+    let validator = crate::contract::query(
+        deps.as_ref(),
+        mock_env(),
+        drop_staking_base::msg::validatorset::QueryMsg::Validators {},
+    )
+    .unwrap();
+    assert_eq!(
+        validator,
+        to_json_binary(&vec![
+            drop_staking_base::state::validatorset::ValidatorInfo {
+                valoper_address: "valoper_address1".to_string(),
+                weight: 1,
+                on_top: Uint128::new(20),
+                last_processed_remote_height: None,
+                last_processed_local_height: None,
+                last_validated_height: None,
+                last_commission_in_range: None,
+                uptime: Decimal::zero(),
+                tombstone: false,
+                jailed_number: None,
+                init_proposal: None,
+                total_passed_proposals: 0,
+                total_voted_proposals: 0,
+            },
+            drop_staking_base::state::validatorset::ValidatorInfo {
+                valoper_address: "valoper_address2".to_string(),
+                weight: 1,
+                on_top: Uint128::zero(),
+                last_processed_remote_height: None,
+                last_processed_local_height: None,
+                last_validated_height: None,
+                last_commission_in_range: None,
+                uptime: Decimal::zero(),
+                tombstone: false,
+                jailed_number: None,
+                init_proposal: None,
+                total_passed_proposals: 0,
+                total_voted_proposals: 0,
+            }
+        ])
+        .unwrap()
+    );
+}
+
+#[test]
+fn update_validators_use_last_ontop() {
+    let mut deps = mock_dependencies(&[]);
+
+    let deps_mut = deps.as_mut();
+
+    let _result = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(Addr::unchecked("core").as_ref()),
+    );
+
+    drop_staking_base::state::validatorset::VALIDATORS_SET
+        .save(
+            deps.as_mut().storage,
+            "voter",
+            &drop_staking_base::state::validatorset::ValidatorInfo {
+                valoper_address: "valoper_address1".to_string(),
+                weight: 0u64,
+                on_top: Uint128::new(30),
+                last_processed_remote_height: None,
+                last_processed_local_height: None,
+                last_validated_height: None,
+                last_commission_in_range: None,
+                uptime: Decimal::zero(),
+                tombstone: false,
+                jailed_number: None,
+                init_proposal: None,
+                total_passed_proposals: 0u64,
+                total_voted_proposals: 0u64,
+            },
+        )
+        .unwrap();
+
+    let response = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &[]),
+        drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
+            validators: vec![drop_staking_base::msg::validatorset::ValidatorData {
+                valoper_address: "valoper_address1".to_string(),
+                weight: 1,
+                on_top: None,
+            }],
+        },
+    )
+    .unwrap();
+    assert_eq!(response.messages.len(), 0);
+
+    let validator = crate::contract::query(
+        deps.as_ref(),
+        mock_env(),
+        drop_staking_base::msg::validatorset::QueryMsg::Validators {},
+    )
+    .unwrap();
+    assert_eq!(
+        validator,
+        to_json_binary(&vec![
+            drop_staking_base::state::validatorset::ValidatorInfo {
+                valoper_address: "valoper_address1".to_string(),
+                weight: 1,
+                on_top: Uint128::new(30),
+                last_processed_remote_height: None,
+                last_processed_local_height: None,
+                last_validated_height: None,
+                last_commission_in_range: None,
+                uptime: Decimal::zero(),
+                tombstone: false,
+                jailed_number: None,
+                init_proposal: None,
+                total_passed_proposals: 0,
+                total_voted_proposals: 0,
+            },
+        ])
+        .unwrap()
+    );
+}
+
+#[test]
 fn update_validators_info_wrong_sender() {
     let mut deps = mock_dependencies(&[]);
 
@@ -299,7 +455,7 @@ fn update_validators_info_wrong_sender() {
             validators: vec![drop_staking_base::msg::validatorset::ValidatorData {
                 valoper_address: "valoper_address".to_string(),
                 weight: 1,
-                on_top: Uint128::zero(),
+                on_top: Some(Uint128::zero()),
             }],
         },
     )
@@ -360,7 +516,7 @@ fn update_validators_info_ok() {
             validators: vec![drop_staking_base::msg::validatorset::ValidatorData {
                 valoper_address: "valoper_address".to_string(),
                 weight: 1,
-                on_top: Uint128::new(2),
+                on_top: Some(Uint128::new(2)),
             }],
         },
     )
@@ -914,7 +1070,7 @@ fn execute_edit_on_top_subtract() {
         mock_info("val_ref_contract", &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::EditOnTop {
             operations: vec![
-                drop_staking_base::msg::validatorset::OnTopEditOperation::Subtract {
+                drop_staking_base::msg::validatorset::OnTopEditOperation::Set {
                     validator_address: String::from("valoperX"),
                     amount: Uint128::new(100),
                 },
@@ -1017,7 +1173,7 @@ fn execute_edit_on_top_mixed() {
         mock_info("val_ref_contract", &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::EditOnTop {
             operations: vec![
-                drop_staking_base::msg::validatorset::OnTopEditOperation::Subtract {
+                drop_staking_base::msg::validatorset::OnTopEditOperation::Set {
                     validator_address: String::from("valoperX"),
                     amount: Uint128::new(100),
                 },
@@ -1079,4 +1235,27 @@ fn execute_edit_on_top_mixed() {
                 .add_attributes([("valoperX", "100"), ("valoperY", "500")])
         )
     );
+}
+
+#[test]
+fn test_migrate_wrong_contract() {
+    let mut deps = mock_dependencies(&[]);
+
+    let deps_mut = deps.as_mut();
+
+    cw2::set_contract_version(deps_mut.storage, "wrong_contract_name", "0.0.1").unwrap();
+
+    let res = crate::contract::migrate(
+        deps.as_mut(),
+        mock_env(),
+        drop_staking_base::msg::validatorset::MigrateMsg {},
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_staking_base::error::validatorset::ContractError::MigrationError {
+            storage_contract_name: "wrong_contract_name".to_string(),
+            contract_name: crate::contract::CONTRACT_NAME.to_string()
+        }
+    )
 }

@@ -6,13 +6,13 @@ use cosmwasm_std::{
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::{attr_coin, response};
+use drop_helpers::get_contracts;
 use drop_helpers::ibc_client_state::query_client_state;
 use drop_helpers::ibc_fee::query_ibc_fee;
 use drop_puppeteer_base::peripheral_hook::{
-    IBCTransferReason, ReceiverExecuteMsg, ResponseAnswer, ResponseHookErrorMsg, ResponseHookMsg,
+    IBCTransferReason, ReceiverExecuteMsg, ResponseHookErrorMsg, ResponseHookMsg,
     ResponseHookSuccessMsg, Transaction,
 };
-use drop_puppeteer_base::proto::MsgIBCTransfer;
 use drop_staking_base::error::native_bond_provider::{ContractError, ContractResult};
 use drop_staking_base::msg::core::LastPuppeteerResponse;
 use drop_staking_base::msg::native_bond_provider::{
@@ -26,7 +26,7 @@ use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
 use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, SudoMsg};
 
-const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
+pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub const LOCAL_DENOM: &str = "untrn";
@@ -41,14 +41,10 @@ pub fn instantiate(
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(msg.owner.as_ref()))?;
 
-    let puppeteer_contract = deps.api.addr_validate(&msg.puppeteer_contract)?;
-    let core_contract = deps.api.addr_validate(&msg.core_contract)?;
-    let strategy_contract = deps.api.addr_validate(&msg.strategy_contract)?;
+    let factory_contract = deps.api.addr_validate(&msg.factory_contract)?;
 
     let config = &Config {
-        puppeteer_contract: puppeteer_contract.clone(),
-        core_contract: core_contract.clone(),
-        strategy_contract: strategy_contract.clone(),
+        factory_contract: factory_contract.clone(),
         base_denom: msg.base_denom.to_string(),
         min_ibc_transfer: msg.min_ibc_transfer,
         min_stake_amount: msg.min_stake_amount,
@@ -65,9 +61,7 @@ pub fn instantiate(
         "instantiate",
         CONTRACT_NAME,
         [
-            attr("puppeteer_contract", puppeteer_contract.into_string()),
-            attr("core_contract", core_contract.into_string()),
-            attr("strategy_contract", strategy_contract.into_string()),
+            attr("factory_contract", factory_contract.into_string()),
             attr("min_ibc_transfer", msg.min_ibc_transfer),
             attr("min_stake_amount", msg.min_stake_amount),
             attr("base_denom", msg.base_denom),
@@ -100,7 +94,21 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::LastPuppeteerResponse {} => Ok(to_json_binary(&LastPuppeteerResponse {
             response: LAST_PUPPETEER_RESPONSE.may_load(deps.storage)?,
         })?),
+        QueryMsg::CanBeRemoved {} => query_can_be_removed(deps, env),
     }
+}
+
+fn query_can_be_removed(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
+    let all_balances = deps.querier.query_all_balances(env.contract.address)?;
+    let all_balances_except_untrn = all_balances
+        .into_iter()
+        .filter(|coin| coin.denom != *LOCAL_DENOM.to_string())
+        .collect::<Vec<Coin>>();
+    let non_staked_balance = NON_STAKED_BALANCE.load(deps.storage)?;
+    let result = all_balances_except_untrn.is_empty()
+        && (non_staked_balance.is_zero())
+        && TX_STATE.load(deps.storage)?.status == TxStateStatus::Idle;
+    Ok(to_json_binary(&result)?)
 }
 
 fn query_tx_state(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Binary> {
@@ -215,19 +223,9 @@ fn execute_update_config(
     let mut state = CONFIG.load(deps.storage)?;
     let mut attrs: Vec<Attribute> = Vec::new();
 
-    if let Some(puppeteer_contract) = new_config.puppeteer_contract {
-        state.puppeteer_contract = deps.api.addr_validate(puppeteer_contract.as_ref())?;
-        attrs.push(attr("puppeteer_contract", puppeteer_contract))
-    }
-
-    if let Some(core_contract) = new_config.core_contract {
-        state.core_contract = deps.api.addr_validate(core_contract.as_ref())?;
-        attrs.push(attr("core_contract", core_contract))
-    }
-
-    if let Some(strategy_contract) = new_config.strategy_contract {
-        state.strategy_contract = deps.api.addr_validate(strategy_contract.as_ref())?;
-        attrs.push(attr("strategy_contract", strategy_contract))
+    if let Some(factory_contract) = new_config.factory_contract {
+        state.factory_contract = deps.api.addr_validate(factory_contract.as_ref())?;
+        attrs.push(attr("factory_contract", factory_contract))
     }
 
     if let Some(base_denom) = new_config.base_denom {
@@ -289,9 +287,11 @@ fn execute_process_on_idle(
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
+    let addrs = get_contracts!(deps, config.factory_contract, core_contract);
+
     ensure_eq!(
         info.sender,
-        config.core_contract,
+        addrs.core_contract,
         ContractError::Unauthorized {}
     );
 
@@ -319,19 +319,25 @@ fn get_delegation_msg(
     config: &Config,
 ) -> ContractResult<Option<SubMsg<NeutronMsg>>> {
     let non_staked_balance = NON_STAKED_BALANCE.load(deps.storage)?;
+    let addrs = get_contracts!(
+        deps,
+        config.factory_contract,
+        strategy_contract,
+        puppeteer_contract
+    );
 
     if non_staked_balance < config.min_stake_amount {
         return Ok(None);
     }
 
     let to_delegate: Vec<(String, Uint128)> = deps.querier.query_wasm_smart(
-        &config.strategy_contract,
+        &addrs.strategy_contract,
         &drop_staking_base::msg::strategy::QueryMsg::CalcDeposit {
             deposit: non_staked_balance,
         },
     )?;
     let puppeteer_delegation_msg = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.puppeteer_contract.to_string(),
+        contract_addr: addrs.puppeteer_contract.to_string(),
         msg: to_json_binary(&drop_staking_base::msg::puppeteer::ExecuteMsg::Delegate {
             items: to_delegate,
             reply_to: env.contract.address.to_string(),
@@ -355,6 +361,7 @@ fn get_ibc_transfer_msg(
     env: &Env,
     config: &Config,
 ) -> ContractResult<Option<SubMsg<NeutronMsg>>> {
+    let addrs = get_contracts!(deps, config.factory_contract, puppeteer_contract);
     let pending_coin = deps
         .querier
         .query_balance(&env.contract.address, config.base_denom.to_string())?;
@@ -364,7 +371,7 @@ fn get_ibc_transfer_msg(
     }
 
     let puppeteer_ica: drop_helpers::ica::IcaState = deps.querier.query_wasm_smart(
-        &config.puppeteer_contract,
+        addrs.puppeteer_contract,
         &drop_puppeteer_base::msg::QueryMsg::<Empty>::Ica {},
     )?;
 
@@ -410,9 +417,16 @@ fn execute_puppeteer_hook(
     msg: drop_puppeteer_base::peripheral_hook::ResponseHookMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let config = CONFIG.load(deps.storage)?;
+    let addrs = get_contracts!(
+        deps,
+        config.factory_contract,
+        core_contract,
+        puppeteer_contract
+    );
+
     ensure_eq!(
         info.sender,
-        config.puppeteer_contract,
+        addrs.puppeteer_contract,
         ContractError::Unauthorized {}
     );
 
@@ -453,7 +467,7 @@ fn execute_puppeteer_hook(
     LAST_PUPPETEER_RESPONSE.save(deps.storage, &msg)?;
 
     let hook_message = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.core_contract.to_string(),
+        contract_addr: addrs.core_contract.to_string(),
         msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(msg))?,
         funds: vec![],
     });
@@ -565,13 +579,12 @@ fn sudo_error(
     TX_STATE.save(deps.storage, &TxState::default())?;
 
     let config = CONFIG.load(deps.storage)?;
+    let addrs = get_contracts!(deps, config.factory_contract, core_contract);
 
     let hook_message = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.core_contract.to_string(),
+        contract_addr: addrs.core_contract.to_string(),
         msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(ResponseHookMsg::Error(
             ResponseHookErrorMsg {
-                request_id: seq_id,
-                request,
                 transaction,
                 details,
             },
@@ -597,10 +610,6 @@ fn sudo_response(
         }
     );
 
-    let seq_id = request
-        .sequence
-        .ok_or_else(|| StdError::generic_err("sequence not found"))?;
-
     let transaction = tx_state
         .transaction
         .ok_or_else(|| StdError::generic_err("transaction not found"))?;
@@ -624,36 +633,28 @@ fn sudo_response(
         .ok_or_else(|| StdError::generic_err("IBC client state latest_height not found"))?
         .revision_height;
 
-    let attrs = vec![
-        attr("action", "sudo_response"),
-        attr("request_id", seq_id.to_string()),
-    ];
+    let attrs = vec![attr("action", "sudo_response")];
 
     TX_STATE.save(deps.storage, &TxState::default())?;
 
     let config = CONFIG.load(deps.storage)?;
+    let addrs = get_contracts!(deps, config.factory_contract, core_contract);
 
     deps.api.debug(&format!(
         "WASMDEBUG: json: {request:?}",
         request = to_json_binary(&ReceiverExecuteMsg::PeripheralHook(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
-                request_id: seq_id,
-                request: request.clone(),
                 transaction: transaction.clone(),
-                answers: vec![ResponseAnswer::IBCTransfer(MsgIBCTransfer {})],
                 local_height: env.block.height,
                 remote_height: remote_height.u64(),
             },)
         ))?
     ));
     let hook_message = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.core_contract.to_string(),
+        contract_addr: addrs.core_contract.to_string(),
         msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
-                request_id: seq_id,
-                request: request.clone(),
                 transaction: transaction.clone(),
-                answers: vec![ResponseAnswer::IBCTransfer(MsgIBCTransfer {})],
                 local_height: env.block.height,
                 remote_height: remote_height.u64(),
             }),
@@ -670,9 +671,17 @@ pub fn migrate(
     _env: Env,
     _msg: MigrateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
+    let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
+    let storage_contract_name = contract_version_metadata.contract.as_str();
+    if storage_contract_name != CONTRACT_NAME {
+        return Err(ContractError::MigrationError {
+            storage_contract_name: storage_contract_name.to_string(),
+            contract_name: CONTRACT_NAME.to_string(),
+        });
+    }
+
+    let storage_version: semver::Version = contract_version_metadata.version.parse()?;
     let version: semver::Version = CONTRACT_VERSION.parse()?;
-    let storage_version: semver::Version =
-        cw2::get_contract_version(deps.storage)?.version.parse()?;
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;

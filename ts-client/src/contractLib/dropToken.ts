@@ -72,8 +72,8 @@ export interface DropTokenSchema {
   [k: string]: unknown;
 }
 export interface ConfigResponse {
-  core_address: string;
   denom: string;
+  factory_contract: string;
 }
 /**
  * The contract's ownership info
@@ -130,7 +130,7 @@ export interface DenomMetadata {
   uri_hash?: string | null;
 }
 export interface InstantiateMsg {
-  core_address: string;
+  factory_contract: string;
   owner: string;
   subdenom: string;
   token_metadata: DenomMetadata;

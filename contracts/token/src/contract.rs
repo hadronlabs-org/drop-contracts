@@ -4,10 +4,13 @@ use cosmwasm_std::{
     attr, ensure_eq, ensure_ne, entry_point, to_json_binary, Binary, CosmosMsg, Deps, DepsMut, Env,
     MessageInfo, Reply, Response, SubMsg, Uint128,
 };
-use drop_helpers::answer::{attr_coin, response};
+use drop_helpers::{
+    answer::{attr_coin, response},
+    get_contracts,
+};
 use drop_staking_base::{
     msg::token::{ConfigResponse, DenomMetadata, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
-    state::token::{CORE_ADDRESS, DENOM, TOKEN_METADATA},
+    state::token::{DENOM, FACTORY_CONTRACT, TOKEN_METADATA},
 };
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -30,8 +33,8 @@ pub fn instantiate(
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(&msg.owner))?;
 
-    let core = deps.api.addr_validate(&msg.core_address)?;
-    CORE_ADDRESS.save(deps.storage, &core)?;
+    let factory_contract = deps.api.addr_validate(&msg.factory_contract)?;
+    FACTORY_CONTRACT.save(deps.storage, &factory_contract)?;
 
     TOKEN_METADATA.save(deps.storage, &msg.token_metadata)?;
 
@@ -44,7 +47,10 @@ pub fn instantiate(
     Ok(response(
         "instantiate",
         CONTRACT_NAME,
-        [attr("core_address", core), attr("subdenom", msg.subdenom)],
+        [
+            attr("factory_contract", factory_contract),
+            attr("subdenom", msg.subdenom),
+        ],
     )
     .add_submessage(create_denom_msg))
 }
@@ -81,8 +87,14 @@ fn mint(
 ) -> ContractResult<Response<NeutronMsg>> {
     ensure_ne!(amount, Uint128::zero(), ContractError::NothingToMint);
 
-    let core = CORE_ADDRESS.load(deps.storage)?;
-    ensure_eq!(info.sender, core, ContractError::Unauthorized);
+    let factory_contract = FACTORY_CONTRACT.load(deps.storage)?;
+    let addrs = get_contracts!(deps, factory_contract, core_contract);
+
+    ensure_eq!(
+        info.sender,
+        addrs.core_contract,
+        ContractError::Unauthorized
+    );
 
     let denom = DENOM.load(deps.storage)?;
     let mint_msg = NeutronMsg::submit_mint_tokens(&denom, amount, &receiver);
@@ -99,8 +111,13 @@ fn mint(
 }
 
 fn burn(deps: DepsMut<NeutronQuery>, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
-    let core = CORE_ADDRESS.load(deps.storage)?;
-    ensure_eq!(info.sender, core, ContractError::Unauthorized);
+    let factory_contract = FACTORY_CONTRACT.load(deps.storage)?;
+    let addrs = get_contracts!(deps, factory_contract, core_contract);
+    ensure_eq!(
+        info.sender,
+        addrs.core_contract,
+        ContractError::Unauthorized
+    );
 
     let denom = DENOM.load(deps.storage)?;
     let amount = cw_utils::must_pay(&info, &denom)?;
@@ -144,10 +161,10 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
     match msg {
         QueryMsg::Ownership {} => Ok(to_json_binary(&cw_ownable::get_ownership(deps.storage)?)?),
         QueryMsg::Config {} => {
-            let core_address = CORE_ADDRESS.load(deps.storage)?.into_string();
+            let factory_contract = FACTORY_CONTRACT.load(deps.storage)?;
             let denom = DENOM.load(deps.storage)?;
             Ok(to_json_binary(&ConfigResponse {
-                core_address,
+                factory_contract: factory_contract.to_string(),
                 denom,
             })?)
         }
@@ -156,9 +173,17 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> ContractResult<Response<NeutronMsg>> {
+    let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
+    let storage_contract_name = contract_version_metadata.contract.as_str();
+    if storage_contract_name != CONTRACT_NAME {
+        return Err(ContractError::MigrationError {
+            storage_contract_name: storage_contract_name.to_string(),
+            contract_name: CONTRACT_NAME.to_string(),
+        });
+    }
+
+    let storage_version: semver::Version = contract_version_metadata.version.parse()?;
     let version: semver::Version = CONTRACT_VERSION.parse()?;
-    let storage_version: semver::Version =
-        cw2::get_contract_version(deps.storage)?.version.parse()?;
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;

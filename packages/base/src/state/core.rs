@@ -8,13 +8,7 @@ use super::bond_providers::BondProviders;
 
 #[cw_serde]
 pub struct ConfigOptional {
-    pub token_contract: Option<String>,
-    pub puppeteer_contract: Option<String>,
-    pub strategy_contract: Option<String>,
-    pub staker_contract: Option<String>,
-    pub withdrawal_voucher_contract: Option<String>,
-    pub withdrawal_manager_contract: Option<String>,
-    pub validators_set_contract: Option<String>,
+    pub factory_contract: Option<String>,
     pub base_denom: Option<String>,
     pub remote_denom: Option<String>,
     pub idle_min_interval: Option<u64>,
@@ -22,20 +16,13 @@ pub struct ConfigOptional {
     pub unbonding_safe_period: Option<u64>,
     pub unbond_batch_switch_time: Option<u64>,
     pub pump_ica_address: Option<String>,
-    pub transfer_channel_id: Option<String>,
-    pub bond_limit: Option<Uint128>,
     pub rewards_receiver: Option<String>,
     pub emergency_address: Option<String>,
 }
 
 #[cw_serde]
 pub struct Config {
-    pub token_contract: Addr,
-    pub puppeteer_contract: Addr,
-    pub strategy_contract: Addr,
-    pub withdrawal_voucher_contract: Addr,
-    pub withdrawal_manager_contract: Addr,
-    pub validators_set_contract: Addr,
+    pub factory_contract: Addr,
     pub base_denom: String,
     pub remote_denom: String,
     pub idle_min_interval: u64,        //seconds
@@ -43,13 +30,11 @@ pub struct Config {
     pub unbonding_safe_period: u64,    //seconds
     pub unbond_batch_switch_time: u64, //seconds
     pub pump_ica_address: Option<String>,
-    pub transfer_channel_id: String,
-    pub bond_limit: Option<Uint128>,
     pub emergency_address: Option<String>,
     pub icq_update_delay: u64, // blocks
 }
 
-pub const CONFIG: Item<Config> = Item::new("config");
+pub const CONFIG: Item<Config> = Item::new("config_v2");
 
 #[cw_serde]
 #[derive(Copy)]
@@ -159,7 +144,7 @@ pub struct Pause {
     pub unbond: bool,
     pub tick: bool,
 }
-pub const BOND_PROVIDER_REPLY_ID: u64 = 1;
+pub const MAX_BOND_PROVIDERS: u64 = 10;
 
 pub const FSM: Fsm<ContractState> = Fsm::new("machine_state", TRANSITIONS);
 pub const LAST_IDLE_CALL: Item<u64> = Item::new("last_tick");
@@ -167,7 +152,6 @@ pub const LAST_ICA_CHANGE_HEIGHT: Item<u64> = Item::new("last_ica_change_height"
 pub const LAST_PUPPETEER_RESPONSE: Item<PuppeteerResponseHookMsg> =
     Item::new("last_puppeteer_response");
 pub const FAILED_BATCH_ID: Item<u128> = Item::new("failed_batch_id");
-pub const BONDED_AMOUNT: Item<Uint128> = Item::new("bonded_amount"); // to be used in bond limit
 pub const LAST_LSM_REDEEM: Item<u64> = Item::new("last_lsm_redeem");
 pub const EXCHANGE_RATE: Item<(Decimal, u64)> = Item::new("exchange_rate");
 pub const LD_DENOM: Item<String> = Item::new("ld_denom");

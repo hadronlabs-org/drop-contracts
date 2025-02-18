@@ -6,7 +6,10 @@ use cosmwasm_std::{
 };
 use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
-use drop_helpers::{ica::IcaState, testing::mock_dependencies};
+use drop_helpers::{
+    ica::IcaState,
+    testing::{mock_dependencies, mock_state_query},
+};
 use drop_staking_base::state::native_bond_provider::{
     Config, ConfigOptional, ReplyMsg, TxState, CONFIG, NON_STAKED_BALANCE, TX_STATE,
 };
@@ -18,9 +21,7 @@ use neutron_sdk::{
 
 fn get_default_config() -> Config {
     Config {
-        puppeteer_contract: Addr::unchecked("puppeteer_contract"),
-        core_contract: Addr::unchecked("core_contract"),
-        strategy_contract: Addr::unchecked("strategy_contract"),
+        factory_contract: Addr::unchecked("factory_contract"),
         base_denom: "base_denom".to_string(),
         min_ibc_transfer: Uint128::from(100u128),
         min_stake_amount: Uint128::from(100u128),
@@ -40,9 +41,7 @@ fn instantiate() {
         drop_staking_base::msg::native_bond_provider::InstantiateMsg {
             owner: "owner".to_string(),
             base_denom: "base_denom".to_string(),
-            puppeteer_contract: "puppeteer_contract".to_string(),
-            core_contract: "core_contract".to_string(),
-            strategy_contract: "strategy_contract".to_string(),
+            factory_contract: "factory_contract".to_string(),
             min_ibc_transfer: Uint128::from(100u128),
             min_stake_amount: Uint128::from(100u128),
             port_id: "port_id".to_string(),
@@ -62,9 +61,7 @@ fn instantiate() {
         vec![
             Event::new("crates.io:drop-staking__drop-native-bond-provider-instantiate")
                 .add_attributes([
-                    attr("puppeteer_contract", "puppeteer_contract"),
-                    attr("core_contract", "core_contract"),
-                    attr("strategy_contract", "strategy_contract"),
+                    attr("factory_contract", "factory_contract"),
                     attr("min_ibc_transfer", Uint128::from(100u128)),
                     attr("min_stake_amount", Uint128::from(100u128)),
                     attr("base_denom", "base_denom"),
@@ -116,9 +113,7 @@ fn update_config_wrong_owner() {
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 base_denom: Some("base_denom".to_string()),
-                puppeteer_contract: Some(Addr::unchecked("puppeteer_contract")),
-                core_contract: Some(Addr::unchecked("core_contract")),
-                strategy_contract: Some(Addr::unchecked("strategy_contract")),
+                factory_contract: Some(Addr::unchecked("factory_contract")),
                 min_ibc_transfer: Some(Uint128::from(100u128)),
                 min_stake_amount: Some(Uint128::from(100u128)),
                 port_id: Some("port_id".to_string()),
@@ -159,9 +154,7 @@ fn update_config_ok() {
         drop_staking_base::msg::native_bond_provider::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 base_denom: Some("base_denom_1".to_string()),
-                puppeteer_contract: Some(Addr::unchecked("puppeteer_contract_1")),
-                core_contract: Some(Addr::unchecked("core_contract_1")),
-                strategy_contract: Some(Addr::unchecked("strategy_contract_1")),
+                factory_contract: Some(Addr::unchecked("factory_contract_1")),
                 min_ibc_transfer: Some(Uint128::from(90u128)),
                 min_stake_amount: Some(Uint128::from(90u128)),
                 port_id: Some("port_id_1".to_string()),
@@ -177,9 +170,7 @@ fn update_config_ok() {
         vec![
             Event::new("crates.io:drop-staking__drop-native-bond-provider-update_config")
                 .add_attributes([
-                    attr("puppeteer_contract", "puppeteer_contract_1"),
-                    attr("core_contract", "core_contract_1"),
-                    attr("strategy_contract", "strategy_contract_1"),
+                    attr("factory_contract", "factory_contract_1"),
                     attr("base_denom", "base_denom_1"),
                     attr("min_ibc_transfer", Uint128::from(90u128)),
                     attr("min_stake_amount", Uint128::from(90u128)),
@@ -200,9 +191,7 @@ fn update_config_ok() {
     assert_eq!(
         config,
         to_json_binary(&drop_staking_base::state::native_bond_provider::Config {
-            puppeteer_contract: Addr::unchecked("puppeteer_contract_1"),
-            core_contract: Addr::unchecked("core_contract_1"),
-            strategy_contract: Addr::unchecked("strategy_contract_1"),
+            factory_contract: Addr::unchecked("factory_contract_1"),
             base_denom: "base_denom_1".to_string(),
             min_ibc_transfer: Uint128::from(90u128),
             min_stake_amount: Uint128::from(90u128),
@@ -580,6 +569,7 @@ fn update_ownership() {
 #[test]
 fn process_on_idle_not_in_idle_state() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -620,6 +610,7 @@ fn process_on_idle_not_in_idle_state() {
 #[test]
 fn process_on_idle_not_core_contract() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -642,6 +633,7 @@ fn process_on_idle_not_core_contract() {
 #[test]
 fn process_on_idle_delegation() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -657,11 +649,13 @@ fn process_on_idle_delegation() {
 
     deps.querier
         .add_wasm_query_response("strategy_contract", |_| {
-            to_json_binary(&vec![(
-                "valoper_address".to_string(),
-                Uint128::from(1000u128),
-            )])
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&vec![(
+                    "valoper_address".to_string(),
+                    Uint128::from(1000u128),
+                )])
+                .unwrap(),
+            )
         });
 
     let res = crate::contract::execute(
@@ -697,6 +691,7 @@ fn process_on_idle_delegation() {
 #[test]
 fn process_on_idle_ibc_transfer() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -730,12 +725,14 @@ fn process_on_idle_ibc_transfer() {
 
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&IcaState::Registered {
-                ica_address: "ica_address".to_string(),
-                port_id: "port_id".to_string(),
-                channel_id: "channel_id".to_string(),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&IcaState::Registered {
+                    ica_address: "ica_address".to_string(),
+                    port_id: "port_id".to_string(),
+                    channel_id: "channel_id".to_string(),
+                })
+                .unwrap(),
+            )
         });
 
     let mocked_env = mock_env();
@@ -782,6 +779,7 @@ fn process_on_idle_ibc_transfer() {
 #[test]
 fn process_on_idle_not_allowed_if_no_funds() {
     let mut deps = mock_dependencies(&[]);
+    mock_state_query(&mut deps);
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -921,4 +919,27 @@ fn execute_bond_multiple_denoms() {
             PaymentError::MultipleDenoms {}
         )
     );
+}
+
+#[test]
+fn test_migrate_wrong_contract() {
+    let mut deps = mock_dependencies(&[]);
+
+    let deps_mut = deps.as_mut();
+
+    cw2::set_contract_version(deps_mut.storage, "wrong_contract_name", "0.0.1").unwrap();
+
+    let res = crate::contract::migrate(
+        deps.as_mut(),
+        mock_env(),
+        drop_staking_base::msg::native_bond_provider::MigrateMsg {},
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_staking_base::error::native_bond_provider::ContractError::MigrationError {
+            storage_contract_name: "wrong_contract_name".to_string(),
+            contract_name: crate::contract::CONTRACT_NAME.to_string()
+        }
+    )
 }

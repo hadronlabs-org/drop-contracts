@@ -30,7 +30,7 @@ pub struct ConfigOptional {
     pub allowed_senders: Option<Vec<String>>,
     pub transfer_channel_id: Option<String>,
     pub sdk_version: Option<String>,
-    pub native_bond_provider: Option<Addr>,
+    pub factory_contract: Option<Addr>,
     pub timeout: Option<u64>,
 }
 
@@ -45,7 +45,7 @@ pub struct Config {
     pub sdk_version: String,
     pub timeout: u64, // timeout for interchain transactions in seconds
     pub delegations_queries_chunk_size: u32,
-    pub native_bond_provider: Addr,
+    pub factory_contract: Addr,
 }
 
 impl BaseConfig for Config {

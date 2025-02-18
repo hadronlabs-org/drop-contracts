@@ -16,6 +16,7 @@ import { StdFee } from "@cosmjs/amino";
 export type Uint128 = string;
 export type Boolean = boolean;
 export type Boolean1 = boolean;
+export type Boolean2 = boolean;
 /**
  * A human readable address.
  *
@@ -45,33 +46,6 @@ export type ResponseHookMsg = {
 } | {
     error: ResponseHookErrorMsg;
 };
-export type ResponseAnswer = {
-    grant_delegate_response: MsgGrantResponse;
-} | {
-    delegate_response: MsgDelegateResponse;
-} | {
-    undelegate_response: MsgUndelegateResponse;
-} | {
-    begin_redelegate_response: MsgBeginRedelegateResponse;
-} | {
-    tokenize_shares_response: MsgTokenizeSharesResponse;
-} | {
-    redeem_tokensfor_shares_response: MsgRedeemTokensforSharesResponse;
-} | {
-    authz_exec_response: MsgExecResponse;
-} | {
-    i_b_c_transfer: MsgIBCTransfer;
-} | {
-    transfer_response: MsgSendResponse;
-} | {
-    unknown_response: {};
-};
-/**
- * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
- *
- * This is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.
- */
-export type Binary = string;
 export type Transaction = {
     undelegate: {
         batch_id: number;
@@ -154,7 +128,7 @@ export type Uint1282 = string;
 export type Expiration = {
     at_height: number;
 } | {
-    at_time: Timestamp2;
+    at_time: Timestamp;
 } | {
     never: {};
 };
@@ -169,7 +143,7 @@ export type Expiration = {
  *
  * let ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```
  */
-export type Timestamp2 = Uint64;
+export type Timestamp = Uint64;
 /**
  * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -210,7 +184,7 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropNativeBondProviderSchema {
-    responses: Uint128 | Boolean | Boolean1 | Config | LastPuppeteerResponse | Uint1282 | OwnershipForString | Decimal | TxState;
+    responses: Uint128 | Boolean | Boolean1 | Boolean2 | Config | LastPuppeteerResponse | Uint1282 | OwnershipForString | Decimal | TxState;
     query: CanBondArgs | TokensAmountArgs;
     execute: UpdateConfigArgs | PeripheralHookArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
@@ -218,12 +192,10 @@ export interface DropNativeBondProviderSchema {
 }
 export interface Config {
     base_denom: string;
-    core_contract: Addr;
+    factory_contract: Addr;
     min_ibc_transfer: Uint1281;
     min_stake_amount: Uint1281;
     port_id: string;
-    puppeteer_contract: Addr;
-    strategy_contract: Addr;
     timeout: number;
     transfer_channel_id: string;
 }
@@ -231,60 +203,9 @@ export interface LastPuppeteerResponse {
     response?: ResponseHookMsg | null;
 }
 export interface ResponseHookSuccessMsg {
-    answers: ResponseAnswer[];
     local_height: number;
     remote_height: number;
-    request: RequestPacket;
-    request_id: number;
     transaction: Transaction;
-}
-export interface MsgGrantResponse {
-}
-export interface MsgDelegateResponse {
-}
-export interface MsgUndelegateResponse {
-    completion_time?: Timestamp | null;
-}
-export interface Timestamp {
-    nanos: number;
-    seconds: number;
-}
-export interface MsgBeginRedelegateResponse {
-    completion_time?: Timestamp | null;
-}
-export interface MsgTokenizeSharesResponse {
-    amount?: Coin | null;
-}
-export interface Coin {
-    amount: Uint1281;
-    denom: string;
-    [k: string]: unknown;
-}
-export interface MsgRedeemTokensforSharesResponse {
-    amount?: Coin | null;
-}
-export interface MsgExecResponse {
-    results: number[][];
-}
-export interface MsgIBCTransfer {
-}
-export interface MsgSendResponse {
-}
-export interface RequestPacket {
-    data?: Binary | null;
-    destination_channel?: string | null;
-    destination_port?: string | null;
-    sequence?: number | null;
-    source_channel?: string | null;
-    source_port?: string | null;
-    timeout_height?: RequestPacketTimeoutHeight | null;
-    timeout_timestamp?: number | null;
-    [k: string]: unknown;
-}
-export interface RequestPacketTimeoutHeight {
-    revision_height?: number | null;
-    revision_number?: number | null;
-    [k: string]: unknown;
 }
 export interface RedeemShareItem {
     amount: Uint1281;
@@ -297,10 +218,13 @@ export interface TransferReadyBatchesMsg {
     emergency: boolean;
     recipient: string;
 }
+export interface Coin {
+    amount: Uint1281;
+    denom: string;
+    [k: string]: unknown;
+}
 export interface ResponseHookErrorMsg {
     details: string;
-    request: RequestPacket;
-    request_id: number;
     transaction: Transaction;
 }
 /**
@@ -336,24 +260,20 @@ export interface UpdateConfigArgs {
 }
 export interface ConfigOptional {
     base_denom?: string | null;
-    core_contract?: Addr | null;
+    factory_contract?: Addr | null;
     min_ibc_transfer?: Uint1281 | null;
     min_stake_amount?: Uint1281 | null;
     port_id?: string | null;
-    puppeteer_contract?: Addr | null;
-    strategy_contract?: Addr | null;
     timeout?: number | null;
     transfer_channel_id?: string | null;
 }
 export interface InstantiateMsg {
     base_denom: string;
-    core_contract: string;
+    factory_contract: string;
     min_ibc_transfer: Uint1281;
     min_stake_amount: Uint1281;
     owner: string;
     port_id: string;
-    puppeteer_contract: string;
-    strategy_contract: string;
     timeout: number;
     transfer_channel_id: string;
 }
@@ -372,6 +292,7 @@ export declare class Client {
     queryCanProcessOnIdle: () => Promise<Boolean>;
     queryTokensAmount: (args: TokensAmountArgs) => Promise<Decimal>;
     queryAsyncTokensAmount: () => Promise<Uint128>;
+    queryCanBeRemoved: () => Promise<Boolean>;
     queryOwnership: () => Promise<OwnershipForString>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     peripheralHook: (sender: string, args: PeripheralHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;

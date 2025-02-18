@@ -80,7 +80,7 @@ fn test_instantiate() {
         delegations_queries_chunk_size: Some(2u32),
         owner: Some("owner".to_string()),
         connection_id: "connection_id".to_string(),
-        native_bond_provider: "native_bond_provider".to_string(),
+        factory_contract: "factory_contract".to_string(),
         port_id: "port_id".to_string(),
         update_period: 60u64,
         remote_denom: "move/14a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
@@ -113,7 +113,7 @@ fn test_update_config() {
             remote_denom: Some(
                 "move/24a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a".to_string(),
             ),
-            native_bond_provider: Some(Addr::unchecked("native_bond_provider")),
+            factory_contract: Some(Addr::unchecked("factory_contract")),
             allowed_senders: Some(vec!["new_allowed_sender".to_string()]),
             transfer_channel_id: Some("new_transfer_channel_id".to_string()),
             connection_id: Some("new_connection_id".to_string()),
@@ -153,7 +153,7 @@ fn test_update_config() {
             delegations_queries_chunk_size: 2u32,
             port_id: "new_port_id".to_string(),
             connection_id: "new_connection_id".to_string(),
-            native_bond_provider: Addr::unchecked("native_bond_provider"),
+            factory_contract: Addr::unchecked("factory_contract"),
             update_period: 121u64,
             remote_denom: "move/24a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
                 .to_string(),
@@ -463,37 +463,39 @@ fn test_sudo_response_ok() {
     deps.querier.add_stargate_query_response(
         "/ibc.core.channel.v1.Query/ChannelClientState",
         |_data| {
-            to_json_binary(&ChannelClientStateResponse {
-                identified_client_state: Some(IdentifiedClientState {
-                    client_id: "07-tendermint-0".to_string(),
-                    client_state: ClientState {
-                        chain_id: "test-1".to_string(),
-                        type_url: "type_url".to_string(),
-                        trust_level: Fraction {
-                            numerator: Uint64::from(1u64),
-                            denominator: Uint64::from(3u64),
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&ChannelClientStateResponse {
+                    identified_client_state: Some(IdentifiedClientState {
+                        client_id: "07-tendermint-0".to_string(),
+                        client_state: ClientState {
+                            chain_id: "test-1".to_string(),
+                            type_url: "type_url".to_string(),
+                            trust_level: Fraction {
+                                numerator: Uint64::from(1u64),
+                                denominator: Uint64::from(3u64),
+                            },
+                            trusting_period: Some("1000".to_string()),
+                            unbonding_period: Some("1500".to_string()),
+                            max_clock_drift: Some("1000".to_string()),
+                            frozen_height: None,
+                            latest_height: Some(Height {
+                                revision_number: Uint64::from(0u64),
+                                revision_height: Uint64::from(54321u64),
+                            }),
+                            proof_specs: vec![],
+                            upgrade_path: vec![],
+                            allow_update_after_expiry: true,
+                            allow_update_after_misbehaviour: true,
                         },
-                        trusting_period: Some("1000".to_string()),
-                        unbonding_period: Some("1500".to_string()),
-                        max_clock_drift: Some("1000".to_string()),
-                        frozen_height: None,
-                        latest_height: Some(Height {
-                            revision_number: Uint64::from(0u64),
-                            revision_height: Uint64::from(54321u64),
-                        }),
-                        proof_specs: vec![],
-                        upgrade_path: vec![],
-                        allow_update_after_expiry: true,
-                        allow_update_after_misbehaviour: true,
+                    }),
+                    proof: None,
+                    proof_height: Height {
+                        revision_number: Uint64::from(0u64),
+                        revision_height: Uint64::from(33333u64),
                     },
-                }),
-                proof: None,
-                proof_height: Height {
-                    revision_number: Uint64::from(0u64),
-                    revision_height: Uint64::from(33333u64),
-                },
-            })
-            .unwrap()
+                })
+                .unwrap(),
+            )
         },
     );
 
@@ -542,16 +544,9 @@ fn test_sudo_response_ok() {
                     Box::new(
                         drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Success(
                             drop_puppeteer_base::peripheral_hook::ResponseHookSuccessMsg {
-                                request_id: 1,
                                 local_height: 12345,
                                 remote_height: 54321,
-                                request,
                                 transaction,
-                                answers: vec![
-                                    drop_puppeteer_base::peripheral_hook::ResponseAnswer::IBCTransfer(
-                                        drop_puppeteer_base::proto::MsgIBCTransfer {}
-                                    )
-                                ]
                             }
                         )
                     )
@@ -633,8 +628,6 @@ fn test_sudo_response_error() {
                     Box::new(
                         drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(
                             drop_puppeteer_base::peripheral_hook::ResponseHookErrorMsg {
-                                request_id: 1,
-                                request,
                                 transaction,
                                 details: "some shit happened".to_string()
                             }
@@ -742,8 +735,6 @@ fn test_sudo_response_timeout() {
                     Box::new(
                         drop_puppeteer_base::peripheral_hook::ResponseHookMsg::Error(
                             drop_puppeteer_base::peripheral_hook::ResponseHookErrorMsg {
-                                request_id: 1,
-                                request,
                                 transaction,
                                 details: "Timeout".to_string()
                             }
@@ -770,6 +761,29 @@ fn test_sudo_response_timeout() {
             transaction: None,
         }
     );
+}
+
+#[test]
+fn test_migrate_wrong_contract() {
+    let mut deps = mock_dependencies(&[]);
+
+    let deps_mut = deps.as_mut();
+
+    cw2::set_contract_version(deps_mut.storage, "wrong_contract_name", "0.0.1").unwrap();
+
+    let res = crate::contract::migrate(
+        deps.as_mut(),
+        mock_env(),
+        drop_staking_base::msg::puppeteer::MigrateMsg {},
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::MigrationError {
+            storage_contract_name: "wrong_contract_name".to_string(),
+            contract_name: crate::contract::CONTRACT_NAME.to_string()
+        }
+    )
 }
 
 mod register_delegations_and_balance_query {
@@ -975,7 +989,7 @@ fn get_base_config() -> Config {
         delegations_queries_chunk_size: 2u32,
         port_id: "port_id".to_string(),
         connection_id: "connection_id".to_string(),
-        native_bond_provider: Addr::unchecked("native_bond_provider"),
+        factory_contract: Addr::unchecked("factory_contract"),
         update_period: 60u64,
         remote_denom: "move/14a0fe8bd05c1f7b5abff610a768418dbdf573d1674fda114ebe651d4e2d3d4a"
             .to_string(),

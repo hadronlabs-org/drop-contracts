@@ -1,7 +1,7 @@
 use crate::error::{ContractError, ContractResult};
 use cosmwasm_std::{
     attr, entry_point, to_json_binary, Binary, Decimal, Deps, DepsMut, Env, MessageInfo, Order,
-    Response, StdResult, SubMsg, WasmMsg,
+    Reply, Response, StdResult, SubMsg, WasmMsg,
 };
 use drop_helpers::answer::response;
 use drop_staking_base::{
@@ -16,6 +16,8 @@ use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 
 pub const CONTRACT_NAME: &str = env!("CARGO_PKG_NAME");
 pub const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+pub const EDIT_ON_TOP_REPLY_ID: u64 = 1;
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
@@ -89,16 +91,19 @@ fn execute_bond_hook(
                 &drop_staking_base::msg::core::QueryMsg::ExchangeRate {},
             )?;
             let on_top_increase = bond_hook.dasset_minted * exchange_rate;
-            messages.push(SubMsg::new(WasmMsg::Execute {
-                contract_addr: VALIDATORS_SET_ADDRESS.load(deps.storage)?.into_string(),
-                funds: vec![],
-                msg: to_json_binary(&ValidatorSetExecuteMsg::EditOnTop {
-                    operations: vec![OnTopEditOperation::Add {
-                        validator_address,
-                        amount: on_top_increase,
-                    }],
-                })?,
-            }));
+            messages.push(SubMsg::reply_on_error(
+                WasmMsg::Execute {
+                    contract_addr: VALIDATORS_SET_ADDRESS.load(deps.storage)?.into_string(),
+                    funds: vec![],
+                    msg: to_json_binary(&ValidatorSetExecuteMsg::EditOnTop {
+                        operations: vec![OnTopEditOperation::Add {
+                            validator_address,
+                            amount: on_top_increase,
+                        }],
+                    })?,
+                },
+                EDIT_ON_TOP_REPLY_ID,
+            ));
             attrs.push(attr("on_top_increase", on_top_increase));
         } else {
             attrs.push(attr("validator", "None"));
@@ -180,11 +185,31 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
     }
 }
 
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn reply(_deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
+    match msg.id {
+        EDIT_ON_TOP_REPLY_ID => Ok(response(
+            "reply",
+            CONTRACT_NAME,
+            [attr("edit_on_top_error", true.to_string())],
+        )),
+        id => Err(ContractError::UnknownReplyId { id }),
+    }
+}
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> ContractResult<Response<NeutronMsg>> {
+    let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
+    let storage_contract_name = contract_version_metadata.contract.as_str();
+    if storage_contract_name != CONTRACT_NAME {
+        return Err(ContractError::MigrationError {
+            storage_contract_name: storage_contract_name.to_string(),
+            contract_name: CONTRACT_NAME.to_string(),
+        });
+    }
+
+    let storage_version: semver::Version = contract_version_metadata.version.parse()?;
     let version: semver::Version = CONTRACT_VERSION.parse()?;
-    let storage_version: semver::Version =
-        cw2::get_contract_version(deps.storage)?.version.parse()?;
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;

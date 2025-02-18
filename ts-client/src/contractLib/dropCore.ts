@@ -12,20 +12,6 @@ export type ArrayOfString = string[];
  */
 export type Addr = string;
 export type ArrayOfAddr = Addr[];
-/**
- * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u128` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
- *
- * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
- *
- * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
- */
-export type Uint128 = string;
 export type ContractState = "idle" | "peripheral" | "claiming" | "unbonding";
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
@@ -40,7 +26,7 @@ export type ContractState = "idle" | "peripheral" | "claiming" | "unbonding";
  *
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
-export type Uint1281 = string;
+export type Uint128 = string;
 /**
  * A fixed-point decimal value with 18 fractional digits, i.e. Decimal(1_000_000_000_000_000_000) == 1.0
  *
@@ -54,50 +40,13 @@ export type ResponseHookMsg =
   | {
       error: ResponseHookErrorMsg;
     };
-export type ResponseAnswer =
-  | {
-      grant_delegate_response: MsgGrantResponse;
-    }
-  | {
-      delegate_response: MsgDelegateResponse;
-    }
-  | {
-      undelegate_response: MsgUndelegateResponse;
-    }
-  | {
-      begin_redelegate_response: MsgBeginRedelegateResponse;
-    }
-  | {
-      tokenize_shares_response: MsgTokenizeSharesResponse;
-    }
-  | {
-      redeem_tokensfor_shares_response: MsgRedeemTokensforSharesResponse;
-    }
-  | {
-      authz_exec_response: MsgExecResponse;
-    }
-  | {
-      i_b_c_transfer: MsgIBCTransfer;
-    }
-  | {
-      transfer_response: MsgSendResponse;
-    }
-  | {
-      unknown_response: {};
-    };
-/**
- * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
- *
- * This is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.
- */
-export type Binary = string;
 export type Transaction =
   | {
       undelegate: {
         batch_id: number;
         denom: string;
         interchain_account_id: string;
-        items: [string, Uint128][];
+        items: [string, Uint1281][];
       };
     }
   | {
@@ -147,7 +96,7 @@ export type Transaction =
     }
   | {
       stake: {
-        amount: Uint128;
+        amount: Uint1281;
       };
     }
   | {
@@ -162,6 +111,20 @@ export type Transaction =
         rewards_withdraw_address: string;
       };
     };
+/**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint1281 = string;
 export type IBCTransferReason = "l_s_m_share" | "delegate";
 export type String = string;
 /**
@@ -246,7 +209,7 @@ export type Expiration =
       at_height: number;
     }
   | {
-      at_time: Timestamp2;
+      at_time: Timestamp;
     }
   | {
       never: {};
@@ -262,7 +225,7 @@ export type Expiration =
  *
  * let ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```
  */
-export type Timestamp2 = Uint64;
+export type Timestamp = Uint64;
 
 export interface DropCoreSchema {
   responses:
@@ -270,7 +233,7 @@ export interface DropCoreSchema {
     | ArrayOfAddr
     | Config
     | ContractState
-    | Uint1281
+    | Uint128
     | Decimal
     | FailedBatchResponse
     | LastPuppeteerResponse
@@ -297,22 +260,15 @@ export interface DropCoreSchema {
 }
 export interface Config {
   base_denom: string;
-  bond_limit?: Uint128 | null;
   emergency_address?: string | null;
+  factory_contract: Addr;
   icq_update_delay: number;
   idle_min_interval: number;
   pump_ica_address?: string | null;
-  puppeteer_contract: Addr;
   remote_denom: string;
-  strategy_contract: Addr;
-  token_contract: Addr;
-  transfer_channel_id: string;
   unbond_batch_switch_time: number;
   unbonding_period: number;
   unbonding_safe_period: number;
-  validators_set_contract: Addr;
-  withdrawal_manager_contract: Addr;
-  withdrawal_voucher_contract: Addr;
 }
 export interface FailedBatchResponse {
   response?: number | null;
@@ -321,72 +277,28 @@ export interface LastPuppeteerResponse {
   response?: ResponseHookMsg | null;
 }
 export interface ResponseHookSuccessMsg {
-  answers: ResponseAnswer[];
   local_height: number;
   remote_height: number;
-  request: RequestPacket;
-  request_id: number;
   transaction: Transaction;
 }
-export interface MsgGrantResponse {}
-export interface MsgDelegateResponse {}
-export interface MsgUndelegateResponse {
-  completion_time?: Timestamp | null;
-}
-export interface Timestamp {
-  nanos: number;
-  seconds: number;
-}
-export interface MsgBeginRedelegateResponse {
-  completion_time?: Timestamp | null;
-}
-export interface MsgTokenizeSharesResponse {
-  amount?: Coin | null;
-}
-export interface Coin {
-  amount: Uint128;
-  denom: string;
-  [k: string]: unknown;
-}
-export interface MsgRedeemTokensforSharesResponse {
-  amount?: Coin | null;
-}
-export interface MsgExecResponse {
-  results: number[][];
-}
-export interface MsgIBCTransfer {}
-export interface MsgSendResponse {}
-export interface RequestPacket {
-  data?: Binary | null;
-  destination_channel?: string | null;
-  destination_port?: string | null;
-  sequence?: number | null;
-  source_channel?: string | null;
-  source_port?: string | null;
-  timeout_height?: RequestPacketTimeoutHeight | null;
-  timeout_timestamp?: number | null;
-  [k: string]: unknown;
-}
-export interface RequestPacketTimeoutHeight {
-  revision_height?: number | null;
-  revision_number?: number | null;
-  [k: string]: unknown;
-}
 export interface RedeemShareItem {
-  amount: Uint128;
+  amount: Uint1281;
   local_denom: string;
   remote_denom: string;
 }
 export interface TransferReadyBatchesMsg {
-  amount: Uint128;
+  amount: Uint1281;
   batch_ids: number[];
   emergency: boolean;
   recipient: string;
 }
+export interface Coin {
+  amount: Uint1281;
+  denom: string;
+  [k: string]: unknown;
+}
 export interface ResponseHookErrorMsg {
   details: string;
-  request: RequestPacket;
-  request_id: number;
   transaction: Transaction;
 }
 export interface Pause {
@@ -395,15 +307,15 @@ export interface Pause {
   unbond: boolean;
 }
 export interface UnbondBatch {
-  expected_native_asset_amount: Uint128;
+  expected_native_asset_amount: Uint1281;
   expected_release_time: number;
   slashing_effect?: Decimal1 | null;
   status: UnbondBatchStatus;
   status_timestamps: UnbondBatchStatusTimestamps;
-  total_dasset_amount_to_withdraw: Uint128;
+  total_dasset_amount_to_withdraw: Uint1281;
   total_unbond_items: number;
-  unbonded_amount?: Uint128 | null;
-  withdrawn_amount?: Uint128 | null;
+  unbonded_amount?: Uint1281 | null;
+  withdrawn_amount?: Uint1281 | null;
 }
 export interface UnbondBatchStatusTimestamps {
   new: number;
@@ -416,26 +328,26 @@ export interface UnbondBatchStatusTimestamps {
   withdrawn_emergency?: number | null;
 }
 export interface UnbondBatchesResponse {
-  next_page_key?: Uint128 | null;
+  next_page_key?: Uint1281 | null;
   unbond_batches: UnbondBatch1[];
 }
 export interface UnbondBatch1 {
-  expected_native_asset_amount: Uint128;
+  expected_native_asset_amount: Uint1281;
   expected_release_time: number;
   slashing_effect?: Decimal1 | null;
   status: UnbondBatchStatus;
   status_timestamps: UnbondBatchStatusTimestamps;
-  total_dasset_amount_to_withdraw: Uint128;
+  total_dasset_amount_to_withdraw: Uint1281;
   total_unbond_items: number;
-  unbonded_amount?: Uint128 | null;
-  withdrawn_amount?: Uint128 | null;
+  unbonded_amount?: Uint1281 | null;
+  withdrawn_amount?: Uint1281 | null;
 }
 export interface UnbondBatchArgs {
-  batch_id: Uint128;
+  batch_id: Uint1281;
 }
 export interface UnbondBatchesArgs {
   limit?: Uint64 | null;
-  page_key?: Uint128 | null;
+  page_key?: Uint1281 | null;
 }
 export interface BondArgs {
   receiver?: string | null;
@@ -452,31 +364,23 @@ export interface UpdateConfigArgs {
 }
 export interface ConfigOptional {
   base_denom?: string | null;
-  bond_limit?: Uint128 | null;
   emergency_address?: string | null;
+  factory_contract?: string | null;
   idle_min_interval?: number | null;
   pump_ica_address?: string | null;
-  puppeteer_contract?: string | null;
   remote_denom?: string | null;
   rewards_receiver?: string | null;
-  staker_contract?: string | null;
-  strategy_contract?: string | null;
-  token_contract?: string | null;
-  transfer_channel_id?: string | null;
   unbond_batch_switch_time?: number | null;
   unbonding_period?: number | null;
   unbonding_safe_period?: number | null;
-  validators_set_contract?: string | null;
-  withdrawal_manager_contract?: string | null;
-  withdrawal_voucher_contract?: string | null;
 }
 export interface UpdateWithdrawnAmountArgs {
   batch_id: number;
-  withdrawn_amount: Uint128;
+  withdrawn_amount: Uint1281;
 }
 export interface ProcessEmergencyBatchArgs {
   batch_id: number;
-  unbonded_amount: Uint128;
+  unbonded_amount: Uint1281;
 }
 export interface SetPauseArgs {
   type?: "object";
@@ -491,23 +395,16 @@ export interface SetBondHooksArgs {
 }
 export interface InstantiateMsg {
   base_denom: string;
-  bond_limit?: Uint128 | null;
   emergency_address?: string | null;
+  factory_contract: string;
   icq_update_delay: number;
   idle_min_interval: number;
   owner: string;
   pump_ica_address?: string | null;
-  puppeteer_contract: string;
   remote_denom: string;
-  strategy_contract: string;
-  token_contract: string;
-  transfer_channel_id: string;
   unbond_batch_switch_time: number;
   unbonding_period: number;
   unbonding_safe_period: number;
-  validators_set_contract: string;
-  withdrawal_manager_contract: string;
-  withdrawal_voucher_contract: string;
 }
 
 
@@ -629,10 +526,6 @@ export class Client {
   peripheralHook = async(sender:string, args: PeripheralHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { peripheral_hook: args }, fee || "auto", memo, funds);
-  }
-  resetBondedAmount = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { reset_bonded_amount: {} }, fee || "auto", memo, funds);
   }
   processEmergencyBatch = async(sender:string, args: ProcessEmergencyBatchArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

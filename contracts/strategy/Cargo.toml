@@ -37,3 +37,4 @@ semver = { workspace = true }
 [dev-dependencies]
 cw-multi-test = { workspace = true }
 drop-distribution = { path = "../distribution", default-features = false }
+drop-factory = { path = "../factory", default-features = false }

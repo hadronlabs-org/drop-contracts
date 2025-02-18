@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     attr, ensure, ensure_eq, from_json, to_json_binary, BankMsg, Binary, Coin, CosmosMsg, Deps,
-    DepsMut, Env, MessageInfo, Order, Reply, Response, SubMsg, WasmMsg,
+    DepsMut, Env, IbcQuery, MessageInfo, Order, Reply, Response, SubMsg, WasmMsg,
 };
 use cw_ownable::update_ownership;
 use drop_helpers::answer::response;
@@ -12,6 +12,7 @@ use drop_staking_base::state::mirror::{
 use drop_staking_base::{
     error::mirror::{ContractError, ContractResult},
     msg::mirror::{InstantiateMsg, MigrateMsg, QueryMsg},
+    state::mirror::TIMEOUT_RANGE,
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, TransferSudoMsg};
@@ -20,7 +21,7 @@ use std::marker::PhantomData;
 use std::str::FromStr;
 use std::{env, vec};
 
-const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
+pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const LOCAL_DENOM: &str = "untrn";
 
@@ -128,21 +129,36 @@ pub fn execute_update_config(
         attrs.push(attr("core_contract", &core_contract));
         config.core_contract = core_contract;
     }
-    if let Some(source_port) = new_config.source_port {
-        attrs.push(attr("source_port", &source_port));
-        config.source_port = source_port;
-    }
-    if let Some(source_channel) = new_config.source_channel {
-        attrs.push(attr("source_channel", &source_channel));
-        config.source_channel = source_channel;
-    }
     if let Some(ibc_timeout) = new_config.ibc_timeout {
+        if !(TIMEOUT_RANGE.from..=TIMEOUT_RANGE.to).contains(&ibc_timeout) {
+            return Err(ContractError::IbcTimeoutOutOfRange);
+        }
         attrs.push(attr("ibc_timeout", ibc_timeout.to_string()));
         config.ibc_timeout = ibc_timeout;
     }
     if let Some(prefix) = new_config.prefix {
         attrs.push(attr("prefix", &prefix));
         config.prefix = prefix;
+    }
+    {
+        if let Some(source_port) = new_config.source_port {
+            attrs.push(attr("source_port", &source_port));
+            config.source_port = source_port;
+        }
+        if let Some(source_channel) = new_config.source_channel {
+            attrs.push(attr("source_channel", &source_channel));
+            config.source_channel = source_channel;
+        }
+        let res: cosmwasm_std::ChannelResponse = deps
+            .querier
+            .query(&cosmwasm_std::QueryRequest::Ibc(IbcQuery::Channel {
+                channel_id: config.source_channel.clone(),
+                port_id: Some(config.source_port.clone()),
+            }))
+            .unwrap();
+        if res.channel.is_none() {
+            return Err(ContractError::SourceChannelNotFound);
+        }
     }
     CONFIG.save(deps.storage, &config)?;
     Ok(response("update_config", CONTRACT_NAME, attrs))
@@ -204,6 +220,10 @@ pub fn execute_update_bond(
     Ok(response("update_bond_state", CONTRACT_NAME, attrs))
 }
 
+/// The backup address is an optional address on the Neutron chain where the bond will
+/// be sent if it cannot be successfully delivered to the receiver on the remote chain.
+/// This option is particularly useful in scenarios where deriving a valid receiver
+/// address is challenging, such as with EVM-based chains like Initia, where the derivation path may differ
 pub fn execute_bond(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
@@ -449,9 +469,18 @@ pub fn migrate(
     _env: Env,
     _msg: MigrateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
+    let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
+    let storage_contract_name = contract_version_metadata.contract.as_str();
+    if storage_contract_name != CONTRACT_NAME {
+        return Err(ContractError::MigrationError {
+            storage_contract_name: storage_contract_name.to_string(),
+            contract_name: CONTRACT_NAME.to_string(),
+        });
+    }
+
+    let storage_version: semver::Version = contract_version_metadata.version.parse()?;
     let version: semver::Version = CONTRACT_VERSION.parse()?;
-    let storage_version: semver::Version =
-        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     }
