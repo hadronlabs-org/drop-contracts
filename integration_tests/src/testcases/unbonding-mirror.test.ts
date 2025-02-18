@@ -1463,7 +1463,6 @@ describe('Unbonding mirror', () => {
           [{ denom: denom, amount: '1' }],
         );
       }
-      await sleep(10000000000);
       await waitFor(
         async () =>
           (await gaiaClient.getBalance(gaiaUserAddress, 'stake')).amount !==
