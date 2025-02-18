@@ -1228,16 +1228,6 @@ fn test_execute_withdraw() {
                 .unwrap(),
             )
         });
-    deps.querier.add_custom_query_response(|_| {
-        to_json_binary(&MinIbcFeeResponse {
-            min_fee: IbcFee {
-                recv_fee: vec![],
-                ack_fee: cosmwasm_std::coins(100, "untrn"),
-                timeout_fee: cosmwasm_std::coins(200, "untrn"),
-            },
-        })
-        .unwrap()
-    });
     let res = execute(
         deps.as_mut(),
         mock_env(),
@@ -1678,7 +1668,185 @@ fn test_query_unbond_ready_false() {
 }
 
 #[test]
-fn test_reply_no_nft_minted() {
+fn test_reply_finalize_withdraw_no_nft_minted() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 10,
+            },
+        )
+        .unwrap();
+    REPLY_RECEIVERS
+        .save(
+            deps.as_mut().storage,
+            u64::MAX - 100,
+            &"receiver".to_string(),
+        )
+        .unwrap();
+    let res = reply(
+        deps.as_mut(),
+        mock_env(),
+        Reply {
+            id: u64::MAX - 100,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![],
+                data: None,
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::NoTransferEvent {});
+}
+
+#[test]
+fn test_reply_finalize_withdraw_no_nft_minted_found() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 10,
+            },
+        )
+        .unwrap();
+    REPLY_RECEIVERS
+        .save(
+            deps.as_mut().storage,
+            u64::MAX - 100,
+            &"receiver".to_string(),
+        )
+        .unwrap();
+    let res = reply(
+        deps.as_mut(),
+        mock_env(),
+        Reply {
+            id: u64::MAX - 100,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![Event::new("transfer")],
+                data: None,
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(res, ContractError::NoTransferAmountFound {});
+}
+
+#[test]
+fn test_reply_finalize_withdraw() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                withdrawal_manager: "withdrawal_manager".to_string(),
+                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+                ibc_denom: "ibc_denom".to_string(),
+                retry_limit: 10,
+            },
+        )
+        .unwrap();
+    REPLY_RECEIVERS
+        .save(
+            deps.as_mut().storage,
+            u64::MAX - 100,
+            &"receiver".to_string(),
+        )
+        .unwrap();
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: cosmwasm_std::coins(100, "untrn"),
+                timeout_fee: cosmwasm_std::coins(200, "untrn"),
+            },
+        })
+        .unwrap()
+    });
+    let res = reply(
+        deps.as_mut(),
+        mock_env(),
+        Reply {
+            id: u64::MAX - 100,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![Event::new("transfer").add_attribute("amount", "100denom")],
+                data: None,
+            }),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new()
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-unbonding-mirror-reply_finalize_unbond")
+                    .add_attributes(vec![
+                        attr("source_port", "source_port"),
+                        attr("source_channel", "source_channel"),
+                        attr("receiver", "receiver"),
+                        attr("timeout", "1571809764879305533"),
+                        attr("amount", "100denom"),
+                    ])
+            )
+            .add_submessages(vec![SubMsg {
+                id: 0,
+                msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
+                    source_port: "source_port".to_string(),
+                    source_channel: "source_channel".to_string(),
+                    token: Coin {
+                        denom: "ibc_denom".to_string(),
+                        amount: Uint128::from(100u128)
+                    },
+                    sender: "cosmos2contract".to_string(),
+                    receiver: "receiver".to_string(),
+                    timeout_height: RequestPacketTimeoutHeight {
+                        revision_number: None,
+                        revision_height: None
+                    },
+                    timeout_timestamp: 1571809764879305533,
+                    memo: "".to_string(),
+                    fee: IbcFee {
+                        recv_fee: vec![],
+                        ack_fee: vec![Coin {
+                            denom: "untrn".to_string(),
+                            amount: Uint128::from(100u128)
+                        }],
+                        timeout_fee: vec![Coin {
+                            denom: "untrn".to_string(),
+                            amount: Uint128::from(200u128)
+                        }]
+                    }
+                }),
+                gas_limit: None,
+                reply_on: ReplyOn::Never,
+            }])
+    );
+}
+
+#[test]
+fn test_reply_finalize_unbond_no_nft_minted() {
     let mut deps = mock_dependencies(&[]);
     CONFIG
         .save(
@@ -1715,7 +1883,7 @@ fn test_reply_no_nft_minted() {
 }
 
 #[test]
-fn test_reply_no_nft_minted_found() {
+fn test_reply_finalize_unbond_no_nft_minted_found() {
     let mut deps = mock_dependencies(&[]);
     CONFIG
         .save(
@@ -1752,7 +1920,7 @@ fn test_reply_no_nft_minted_found() {
 }
 
 #[test]
-fn test_reply() {
+fn test_reply_finalize_unbond() {
     let mut deps = mock_dependencies(&[]);
     CONFIG
         .save(

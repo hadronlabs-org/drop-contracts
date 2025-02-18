@@ -393,13 +393,13 @@ pub fn finalize_withdraw(
                 .events
                 .iter()
                 .find(|x| x.ty == "transfer")
-                .ok_or(ContractError::NoNFTMinted)?;
+                .ok_or(ContractError::NoTransferEvent)?;
             let coin_attr = Coin::from_str(
                 &transfer_event
                     .attributes
                     .iter()
                     .find(|x| x.key == "amount")
-                    .ok_or(ContractError::NoNFTMintedFound)?
+                    .ok_or(ContractError::NoTransferAmountFound)?
                     .value,
             )?;
             let ibc_send_msg = CosmosMsg::Custom(NeutronMsg::IbcTransfer {

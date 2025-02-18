@@ -31,14 +31,20 @@ pub enum ContractError {
     #[error("Wrong receiver address")]
     WrongReceiverAddress,
 
-    #[error("No nft minted")]
-    NoNFTMinted,
-
     #[error("Invalid prefix")]
     InvalidPrefix,
 
+    #[error("No nft minted")]
+    NoNFTMinted,
+
     #[error("No nft minted amount found from the event")]
     NoNFTMintedFound,
+
+    #[error("No transfer")]
+    NoTransferEvent,
+
+    #[error("No transfer amount found from the event")]
+    NoTransferAmountFound,
 
     #[error("Parsing nft error")]
     NFTParseError,
