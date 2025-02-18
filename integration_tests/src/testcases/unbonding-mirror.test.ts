@@ -904,7 +904,7 @@ describe('Unbonding mirror', () => {
   });
 
   describe('Expected behavior', () => {
-    const denomsMirror: Array<{ gaiaDenom: string; neutronDenom: string }> = [];
+    let denomsMirror: Array<{ gaiaDenom: string; neutronDenom: string }> = [];
     it('unbond 2 x 1k, wait for the new voucher on gaia', async () => {
       const {
         neutronUserAddress,
@@ -972,7 +972,7 @@ describe('Unbonding mirror', () => {
         await context.park.pauseRelayer('hermes', 0);
       });
 
-      it('unbond 2 x 1k, wait for the new voucher on gaia', async () => {
+      it('unbond 2 x 1k', async () => {
         const { neutronUserAddress, gaiaUserAddress, unbondingMirrorClient } =
           context;
         for (let i = 3; i <= 4; i += 1) {
@@ -1524,18 +1524,20 @@ describe('Unbonding mirror', () => {
       );
     });
 
-    it('withdraw', async () => {
+    it('withdraw 2 x 1k', async () => {
       const {
         unbondingMirrorClient,
         neutronUserAddress,
         gaiaUserAddress,
         gaiaClient,
       } = context;
-      const balanceBefore = (
-        await gaiaClient.getBalance(gaiaUserAddress, 'stake')
-      ).amount;
-      for (const denom of denomsMirror.map((denom) => denom.neutronDenom)) {
-        const { transactionHash } = await unbondingMirrorClient.withdraw(
+      for (const denom of denomsMirror
+        .map((denom) => denom.neutronDenom)
+        .slice(0, 2)) {
+        const balanceBefore = (
+          await gaiaClient.getBalance(gaiaUserAddress, 'stake')
+        ).amount;
+        await unbondingMirrorClient.withdraw(
           neutronUserAddress,
           {
             receiver: gaiaUserAddress,
@@ -1544,7 +1546,6 @@ describe('Unbonding mirror', () => {
           undefined,
           [{ denom: denom, amount: '1' }],
         );
-        console.log(transactionHash);
         await waitFor(
           async () =>
             (await gaiaClient.getBalance(gaiaUserAddress, 'stake')).amount !==
@@ -1552,6 +1553,122 @@ describe('Unbonding mirror', () => {
           60_000,
         );
       }
+      denomsMirror = denomsMirror.slice(2, 4);
+    });
+
+    describe('Turn off relayer for 2 x 1k withdraw vouchers', () => {
+      it('update config for unbonding mirror to provoke IBC timeout', async () => {
+        const { unbondingMirrorClient, neutronUserAddress } = context;
+        await unbondingMirrorClient.updateConfig(
+          neutronUserAddress,
+          {
+            new_config: {
+              ibc_timeout: 0, // it was 3600
+            },
+          },
+          1.5,
+        );
+      });
+
+      it('turn off relayer', async () => {
+        await context.park.pauseRelayer('hermes', 0);
+      });
+
+      it('withdraw 2 x 1k', async () => {
+        const { neutronUserAddress, gaiaUserAddress, unbondingMirrorClient } =
+          context;
+        for (const denom of denomsMirror.map((denom) => denom.neutronDenom)) {
+          const { transactionHash } = await unbondingMirrorClient.withdraw(
+            neutronUserAddress,
+            {
+              receiver: gaiaUserAddress,
+            },
+            1.5,
+            undefined,
+            [{ denom: denom, amount: '1' }],
+          );
+          console.log(transactionHash);
+        }
+        await sleep(10_000); // make these packets to outlive their validity
+      });
+
+      it("make sure failed receiver doesn't exist", async () => {
+        const { unbondingMirrorClient, gaiaUserAddress } = context;
+        expect(
+          await unbondingMirrorClient.queryFailedReceiver({
+            receiver: gaiaUserAddress,
+          }),
+        ).toBe(null);
+      });
+
+      it('resume relayer', async () => {
+        await context.park.resumeRelayer('hermes', 0);
+        await sleep(20_000); // sudo-timeout
+      });
+
+      it('restore IBC timeout back to 3600', async () => {
+        const { unbondingMirrorClient, neutronUserAddress } = context;
+        await unbondingMirrorClient.updateConfig(
+          neutronUserAddress,
+          {
+            new_config: {
+              ibc_timeout: 3600,
+            },
+          },
+          1.5,
+        );
+      });
+
+      it('make sure failed receiver had been written properly', async () => {
+        const { unbondingMirrorClient, gaiaUserAddress } = context;
+        const response = await unbondingMirrorClient.queryFailedReceiver({
+          receiver: gaiaUserAddress,
+        });
+        expect(
+          response.amount
+            .map((coin) => Number(coin.amount))
+            .reduce((a, b) => a + b, 0) / Math.pow(10, 2),
+        ).toBeCloseTo(20.0, 1); // it's the same denom
+      });
+
+      it('retry', async () => {
+        const {
+          unbondingMirrorClient,
+          neutronUserAddress,
+          gaiaUserAddress,
+          neutronIBCDenom,
+          client,
+        } = context;
+        console.log(
+          JSON.stringify(
+            await unbondingMirrorClient.queryFailedReceiver({
+              receiver: gaiaUserAddress,
+            }),
+            null,
+            2,
+          ),
+        );
+        console.log(
+          JSON.stringify(
+            await client.getBalance(
+              unbondingMirrorClient.contractAddress,
+              neutronIBCDenom,
+            ),
+          ),
+        );
+        await sleep(360_000);
+        await unbondingMirrorClient.retry(
+          neutronUserAddress,
+          { receiver: gaiaUserAddress },
+          1.5,
+        );
+        await sleep(10_000);
+        expect(
+          await unbondingMirrorClient.queryFailedReceiver({
+            receiver: gaiaUserAddress,
+          }),
+        ).toBe(null);
+      });
     });
   });
 });

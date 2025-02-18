@@ -1780,7 +1780,7 @@ fn test_reply_finalize_withdraw() {
         res,
         Response::new()
             .add_event(
-                Event::new("crates.io:drop-staking__drop-unbonding-mirror-reply_finalize_unbond")
+                Event::new("crates.io:drop-staking__drop-unbonding-mirror-reply_finalize_withdraw")
                     .add_attributes(vec![
                         attr("source_port", "source_port"),
                         attr("source_channel", "source_channel"),
