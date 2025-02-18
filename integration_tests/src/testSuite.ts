@@ -15,6 +15,7 @@ import {
 } from '@neutron-org/cosmopark/lib/types';
 import { Suite } from 'vitest';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
+
 const packageJSON = require(`${__dirname}/../package.json`);
 const VERSION = (process.env.CI ? '_' : ':') + packageJSON.version;
 const ORG = process.env.CI ? 'neutronorg/lionco-contracts:' : '';
@@ -400,7 +401,7 @@ export const setupPark = async (
     context,
     networks: {},
     master_mnemonic: wallets.master,
-    loglevel: 'debug',
+    loglevel: 'info',
     wallets: {
       demowallet1: {
         mnemonic: wallets.demowallet1,
