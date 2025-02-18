@@ -800,16 +800,12 @@ fn test_execute_retry_take_bigger() {
                 reply_on: ReplyOn::Never,
             },])
     );
-    assert_eq!(
-        FAILED_TRANSFERS
-            .load(
-                &deps.storage,
-                "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string()
-            )
-            .unwrap()
-            .len(),
-        0
-    );
+    FAILED_TRANSFERS
+        .load(
+            &deps.storage,
+            "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+        )
+        .unwrap_err();
 }
 
 #[test]
@@ -912,16 +908,12 @@ fn test_execute_retry_take_equal() {
                 reply_on: ReplyOn::Never,
             },])
     );
-    assert_eq!(
-        FAILED_TRANSFERS
-            .load(
-                &deps.storage,
-                "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string()
-            )
-            .unwrap()
-            .len(),
-        0
-    );
+    FAILED_TRANSFERS
+        .load(
+            &deps.storage,
+            "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+        )
+        .unwrap_err();
 }
 
 #[test]

@@ -261,7 +261,11 @@ fn execute_retry(
             attrs.push(attr("receiver", receiver.clone()));
             attrs.push(attr("amount", coin.to_string()));
         }
-        FAILED_TRANSFERS.save(deps.storage, receiver, &receiver_new_coins)?;
+        if receiver_new_coins.is_empty() {
+            FAILED_TRANSFERS.remove(deps.storage, receiver);
+        } else {
+            FAILED_TRANSFERS.save(deps.storage, receiver, &receiver_new_coins)?;
+        }
     }
     Ok(response("execute_retry", CONTRACT_NAME, attrs).add_messages(ibc_transfer_msgs))
 }
