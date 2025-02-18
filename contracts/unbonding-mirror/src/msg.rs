@@ -12,7 +12,6 @@ pub struct InstantiateMsg {
     pub source_port: String,
     pub source_channel: String,
     pub ibc_timeout: u64,
-    pub ibc_denom: String,
     pub prefix: String,
     pub retry_limit: u64,
 }

@@ -11,7 +11,6 @@ pub struct Config {
     pub source_channel: String,
     pub ibc_timeout: u64,
     pub prefix: String,
-    pub ibc_denom: String,
     pub retry_limit: u64,
 }
 
@@ -23,7 +22,6 @@ pub struct ConfigOptional {
     pub source_port: Option<String>,
     pub source_channel: Option<String>,
     pub ibc_timeout: Option<u64>,
-    pub ibc_denom: Option<String>,
     pub prefix: Option<String>,
     pub retry_limit: Option<u64>,
 }

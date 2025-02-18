@@ -56,7 +56,6 @@ fn test_instantiate() {
             source_port: "source_port".to_string(),
             source_channel: "source_channel".to_string(),
             ibc_timeout: 12345,
-            ibc_denom: "ibc_denom".to_string(),
             prefix: "prefix".to_string(),
             retry_limit: 10,
         },
@@ -75,7 +74,6 @@ fn test_instantiate() {
                     attr("source_port", "source_port"),
                     attr("source_channel", "source_channel"),
                     attr("ibc_timeout", "12345"),
-                    attr("ibc_denom", "ibc_denom"),
                     attr("prefix", "prefix"),
                     attr("retry_limit", "10"),
                 ]
@@ -92,7 +90,6 @@ fn test_instantiate() {
             source_channel: "source_channel".to_string(),
             ibc_timeout: 12345,
             prefix: "prefix".to_string(),
-            ibc_denom: "ibc_denom".to_string(),
             retry_limit: 10,
         }
     );
@@ -115,7 +112,6 @@ fn test_execute_update_config_source_channel_not_found() {
                 source_channel: "source_channel1".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix1".to_string(),
-                ibc_denom: "ibc_denom1".to_string(),
                 retry_limit: 10,
             },
         )
@@ -133,7 +129,6 @@ fn test_execute_update_config_source_channel_not_found() {
                 source_channel: Some("source_channel2".to_string()),
                 ibc_timeout: Some(54321),
                 prefix: Some("prefix2".to_string()),
-                ibc_denom: Some("ibc_denom2".to_string()),
                 retry_limit: Some(1),
             },
         },
@@ -160,7 +155,6 @@ fn test_execute_update_config_unauthrozied() {
                 source_channel: Some("source_channel2".to_string()),
                 ibc_timeout: Some(54321),
                 prefix: Some("prefix2".to_string()),
-                ibc_denom: Some("ibc_denom2".to_string()),
                 retry_limit: Some(1),
             },
         },
@@ -188,7 +182,6 @@ fn test_execute_update_config() {
                 source_channel: "source_channel1".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix1".to_string(),
-                ibc_denom: "ibc_denom1".to_string(),
                 retry_limit: 10,
             },
         )
@@ -225,7 +218,6 @@ fn test_execute_update_config() {
                 source_channel: Some("source_channel2".to_string()),
                 ibc_timeout: Some(54321),
                 prefix: Some("prefix2".to_string()),
-                ibc_denom: Some("ibc_denom2".to_string()),
                 retry_limit: Some(1),
             },
         },
@@ -242,7 +234,6 @@ fn test_execute_update_config() {
                     attr("withdrawal_manager", "withdrawal_manager2"),
                     attr("withdrawal_voucher", "withdrawal_voucher2"),
                     attr("ibc_timeout", "54321"),
-                    attr("ibc_denom", "ibc_denom2"),
                     attr("prefix", "prefix2"),
                     attr("source_port", "source_port2"),
                     attr("source_channel", "source_channel2"),
@@ -259,7 +250,6 @@ fn test_execute_update_config() {
             source_channel: "source_channel2".to_string(),
             ibc_timeout: 54321,
             prefix: "prefix2".to_string(),
-            ibc_denom: "ibc_denom2".to_string(),
             retry_limit: 1,
         }
     );
@@ -327,7 +317,6 @@ fn test_execute_unbond_invalid_prefix() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 10,
             },
         )
@@ -364,7 +353,6 @@ fn test_execute_unbond_wrong_receiver_address() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 10,
             },
         )
@@ -401,7 +389,6 @@ fn test_execute_unbond() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 10,
             },
         )
@@ -465,7 +452,6 @@ fn test_execute_retry_invalid_prefix() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 3,
             },
         )
@@ -496,7 +482,6 @@ fn test_execute_retry_wrong_receiver_address() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 3,
             },
         )
@@ -527,7 +512,6 @@ fn test_execute_retry_take_less() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 3,
             },
         )
@@ -726,7 +710,6 @@ fn test_execute_retry_take_bigger() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 3,
             },
         )
@@ -839,7 +822,6 @@ fn test_execute_retry_take_equal() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 1,
             },
         )
@@ -952,7 +934,6 @@ fn test_execute_retry_take_0() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 0,
             },
         )
@@ -1030,7 +1011,6 @@ fn test_execute_retry_none() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 0,
             },
         )
@@ -1115,7 +1095,6 @@ fn test_execute_withdraw_invalid_prefix() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 1,
             },
         )
@@ -1152,7 +1131,6 @@ fn test_execute_withdraw_wrong_receiver_address() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 1,
             },
         )
@@ -1189,7 +1167,6 @@ fn test_execute_withdraw() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 1,
             },
         )
@@ -1368,7 +1345,6 @@ fn test_query_config() {
         source_channel: "source_channel".to_string(),
         ibc_timeout: 12345,
         prefix: "prefix".to_string(),
-        ibc_denom: "ibc_denom".to_string(),
         retry_limit: 10,
     };
     CONFIG.save(deps.as_mut().storage, &config).unwrap();
@@ -1503,7 +1479,6 @@ fn test_query_unbond_ready_true() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 10,
             },
         )
@@ -1592,7 +1567,6 @@ fn test_query_unbond_ready_false() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 10,
             },
         )
@@ -1681,7 +1655,6 @@ fn test_reply_finalize_withdraw_no_nft_minted() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 10,
             },
         )
@@ -1722,7 +1695,6 @@ fn test_reply_finalize_withdraw_no_nft_minted_found() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 10,
             },
         )
@@ -1763,7 +1735,6 @@ fn test_reply_finalize_withdraw() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 10,
             },
         )
@@ -1791,7 +1762,7 @@ fn test_reply_finalize_withdraw() {
         Reply {
             id: u64::MAX - 100,
             result: SubMsgResult::Ok(SubMsgResponse {
-                events: vec![Event::new("transfer").add_attribute("amount", "100denom")],
+                events: vec![Event::new("transfer").add_attribute("amount", "100ibc_denom")],
                 data: None,
             }),
         },
@@ -1807,7 +1778,7 @@ fn test_reply_finalize_withdraw() {
                         attr("source_channel", "source_channel"),
                         attr("receiver", "receiver"),
                         attr("timeout", "1571809764879305533"),
-                        attr("amount", "100denom"),
+                        attr("amount", "100ibc_denom"),
                     ])
             )
             .add_submessages(vec![SubMsg {
@@ -1859,7 +1830,6 @@ fn test_reply_finalize_unbond_no_nft_minted() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 10,
             },
         )
@@ -1896,7 +1866,6 @@ fn test_reply_finalize_unbond_no_nft_minted_found() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 10,
             },
         )
@@ -1933,7 +1902,6 @@ fn test_reply_finalize_unbond() {
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                ibc_denom: "ibc_denom".to_string(),
                 retry_limit: 10,
             },
         )

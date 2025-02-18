@@ -53,7 +53,6 @@ pub fn instantiate(
             source_port: msg.source_port.clone(),
             source_channel: msg.source_channel.clone(),
             ibc_timeout: msg.ibc_timeout,
-            ibc_denom: msg.ibc_denom.clone(),
             prefix: msg.prefix.clone(),
             retry_limit: msg.retry_limit,
         },
@@ -69,7 +68,6 @@ pub fn instantiate(
         attr("source_port", msg.source_port),
         attr("source_channel", msg.source_channel),
         attr("ibc_timeout", msg.ibc_timeout.to_string()),
-        attr("ibc_denom", msg.ibc_denom),
         attr("prefix", msg.prefix),
         attr("retry_limit", msg.retry_limit.to_string()),
     ];
@@ -297,10 +295,6 @@ fn execute_update_config(
         attrs.push(attr("ibc_timeout", ibc_timeout.to_string()));
         config.ibc_timeout = ibc_timeout;
     }
-    if let Some(ibc_denom) = new_config.ibc_denom {
-        attrs.push(attr("ibc_denom", ibc_denom.to_string()));
-        config.ibc_denom = ibc_denom;
-    }
     if let Some(prefix) = new_config.prefix {
         attrs.push(attr("prefix", &prefix));
         config.prefix = prefix;
@@ -383,7 +377,6 @@ pub fn finalize_withdraw(
             let Config {
                 source_channel,
                 source_port,
-                ibc_denom,
                 ibc_timeout,
                 ..
             } = CONFIG.load(deps.storage)?;
@@ -405,10 +398,7 @@ pub fn finalize_withdraw(
             let ibc_send_msg = CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                 source_port: source_port.clone(),
                 source_channel: source_channel.clone(),
-                token: Coin {
-                    denom: ibc_denom.clone(),
-                    amount: coin_attr.amount,
-                },
+                token: coin_attr.clone(),
                 sender: env.contract.address.to_string(),
                 receiver: receiver.clone(),
                 timeout_height: RequestPacketTimeoutHeight {
