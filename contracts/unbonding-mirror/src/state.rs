@@ -37,6 +37,7 @@ pub struct TimeoutRange {
 const TIMEOUT_30D: u64 = 2592000;
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const UNBOND_REPLY_ID: Item<u64> = Item::new("unbond_reply_id");
+pub const WITHDRAW_REPLY_ID: Item<u64> = Item::new("withdraw_reply_id");
 pub const REPLY_RECEIVERS: Map<u64, String> = Map::new("reply_receivers");
 pub const FAILED_TRANSFERS: Map<String, Vec<Coin>> = Map::new("failed_transfers");
 pub const TF_DENOM_TO_NFT_ID: Map<String, String> = Map::new("tf_denom_to_nft_id");

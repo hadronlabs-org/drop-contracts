@@ -804,7 +804,7 @@ describe('Unbonding mirror', () => {
       },
     );
     expect(resFactory.transactionHash).toHaveLength(64);
-  });
+  }, 60_000);
 
   it('register native bond provider in the core', async () => {
     const res = await context.factoryContractClient.adminExecute(
@@ -1124,7 +1124,6 @@ describe('Unbonding mirror', () => {
           })) as any;
 
         expect(delegations.delegations.delegations).toHaveLength(2);
-        console.log(delegations.delegations.delegations);
         expect(
           parseInt(delegations.delegations.delegations[0].amount.amount, 10),
         ).toEqual(500000);
@@ -1450,12 +1449,18 @@ describe('Unbonding mirror', () => {
         neutronUserAddress,
         gaiaUserAddress,
         gaiaClient,
+        client,
       } = context;
       const balanceBefore = (
         await gaiaClient.getBalance(gaiaUserAddress, 'stake')
       ).amount;
-      console.log(await gaiaClient.getBalance(gaiaUserAddress, 'stake'));
       for (const denom of denomsMirror.map((denom) => denom.neutronDenom)) {
+        console.log(
+          await client.getBalance(
+            context.withdrawalManagerClient.contractAddress,
+            context.neutronIBCDenom,
+          ),
+        );
         await unbondingMirrorClient.withdraw(
           neutronUserAddress,
           {

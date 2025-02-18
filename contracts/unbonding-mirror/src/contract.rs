@@ -4,13 +4,13 @@ use crate::msg::{
 };
 use crate::state::{
     Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, REPLY_RECEIVERS, TF_DENOM_TO_NFT_ID,
-    TIMEOUT_RANGE, UNBOND_REPLY_ID,
+    TIMEOUT_RANGE, UNBOND_REPLY_ID, WITHDRAW_REPLY_ID,
 };
 use cosmwasm_std::{
     attr, ensure, from_json, to_json_binary, Attribute, Binary, Coin, CosmosMsg, Deps, DepsMut,
     Env, IbcQuery, MessageInfo, Reply, Response, SubMsg, Uint128, WasmMsg,
 };
-use drop_helpers::answer::{attr_coin, response};
+use drop_helpers::answer::response;
 use drop_helpers::ibc_fee::query_ibc_fee;
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, TransferSudoMsg};
@@ -59,6 +59,7 @@ pub fn instantiate(
         },
     )?;
     UNBOND_REPLY_ID.save(deps.storage, &0u64)?;
+    WITHDRAW_REPLY_ID.save(deps.storage, &(u32::MAX as u64))?;
     let attrs = vec![
         attr("action", "instantiate"),
         attr("owner", owner),
@@ -152,13 +153,12 @@ pub fn execute(
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
         ExecuteMsg::Unbond { receiver } => execute_unbond(deps, info, receiver),
         ExecuteMsg::Retry { receiver } => execute_retry(deps, env, receiver),
-        ExecuteMsg::Withdraw { receiver } => execute_withdraw(deps, env, info, receiver),
+        ExecuteMsg::Withdraw { receiver } => execute_withdraw(deps, info, receiver),
     }
 }
 
 fn execute_withdraw(
     deps: DepsMut<NeutronQuery>,
-    env: Env,
     info: MessageInfo,
     receiver: String,
 ) -> ContractResult<Response<NeutronMsg>> {
@@ -166,10 +166,6 @@ fn execute_withdraw(
     let Config {
         withdrawal_manager,
         withdrawal_voucher,
-        source_channel,
-        source_port,
-        ibc_timeout,
-        ibc_denom,
         prefix,
         ..
     } = CONFIG.load(deps.storage)?;
@@ -178,16 +174,6 @@ fn execute_withdraw(
     bech32::decode(&receiver).map_err(|_| ContractError::WrongReceiverAddress)?;
 
     let nft_id = TF_DENOM_TO_NFT_ID.load(deps.storage, coin.denom.clone())?;
-    let nft_response: cw721::AllNftInfoResponse<
-        drop_staking_base::msg::withdrawal_voucher::Extension,
-    > = deps.querier.query_wasm_smart(
-        withdrawal_voucher.clone(),
-        &drop_staking_base::msg::withdrawal_voucher::QueryMsg::AllNftInfo {
-            token_id: nft_id.clone(),
-            include_expired: None,
-        },
-    )?;
-    let nft_amount = nft_response.info.extension.unwrap().amount; // safe because we always have extension there
     let withdraw_msg: CosmosMsg<NeutronMsg> = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: withdrawal_voucher.clone(),
         msg: to_json_binary(
@@ -203,27 +189,13 @@ fn execute_withdraw(
         )?,
         funds: vec![],
     });
-    let ibc_send_msg = CosmosMsg::Custom(NeutronMsg::IbcTransfer {
-        source_port: source_port.clone(),
-        source_channel: source_channel.clone(),
-        token: Coin {
-            denom: ibc_denom.clone(),
-            amount: nft_amount,
-        },
-        sender: env.contract.address.to_string(),
-        receiver: receiver.clone(),
-        timeout_height: RequestPacketTimeoutHeight {
-            revision_number: None,
-            revision_height: None,
-        },
-        timeout_timestamp: env.block.time.plus_seconds(ibc_timeout).nanos(),
-        memo: "".to_string(),
-        fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
-    });
     let tf_burn_msg = CosmosMsg::Custom(NeutronMsg::submit_burn_tokens(
         coin.denom.clone(),
         coin.amount,
     ));
+    let withdraw_reply_id: u64 = WITHDRAW_REPLY_ID.load(deps.storage)? + 1;
+    WITHDRAW_REPLY_ID.save(deps.storage, &withdraw_reply_id)?;
+    REPLY_RECEIVERS.save(deps.storage, withdraw_reply_id, &receiver)?;
     // we successfully exchange tf denom back to NFT and NFT to native assets.
     // No need to keep this relation anymore
     TF_DENOM_TO_NFT_ID.remove(deps.storage, coin.denom.clone());
@@ -232,19 +204,10 @@ fn execute_withdraw(
         attr("voucher_amount", coin.to_string()),
         attr("withdrawal_manager", withdrawal_manager),
         attr("withdrawal_voucher", withdrawal_voucher),
-        attr("source_port", source_port),
-        attr("source_channel", source_channel),
-        attr("ibc_timeout", ibc_timeout.to_string()),
-        attr_coin("nft_amount", nft_amount, ibc_denom),
-        attr("receiver", receiver),
+        attr("burn", coin.to_string()),
     ];
-    Ok(
-        response("execute_withdraw", CONTRACT_NAME, attrs).add_messages(vec![
-            withdraw_msg,
-            ibc_send_msg,
-            tf_burn_msg,
-        ]),
-    )
+    Ok(response("execute_withdraw", CONTRACT_NAME, attrs)
+        .add_messages(vec![withdraw_msg, tf_burn_msg]))
 }
 
 fn execute_retry(
@@ -403,7 +366,74 @@ pub fn reply(
     env: Env,
     msg: Reply,
 ) -> ContractResult<Response<NeutronMsg>> {
-    finalize_unbond(deps, env, msg)
+    const U32_MAX_AS_U64: u64 = u32::MAX as u64;
+    match msg.id {
+        0..U32_MAX_AS_U64 => finalize_unbond(deps, env, msg),
+        _ => finalize_withdraw(deps, env, msg),
+    }
+}
+
+pub fn finalize_withdraw(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    msg: Reply,
+) -> ContractResult<Response<NeutronMsg>> {
+    match msg.result {
+        cosmwasm_std::SubMsgResult::Ok(res) => {
+            let Config {
+                source_channel,
+                source_port,
+                ibc_denom,
+                ibc_timeout,
+                ..
+            } = CONFIG.load(deps.storage)?;
+            let withdraw_reply_id: u64 = msg.id;
+            let receiver = REPLY_RECEIVERS.load(deps.storage, withdraw_reply_id)?;
+            let transfer_event = res
+                .events
+                .iter()
+                .find(|x| x.ty == "transfer")
+                .ok_or(ContractError::NoNFTMinted)?;
+            let coin_attr = Coin::from_str(
+                &transfer_event
+                    .attributes
+                    .iter()
+                    .find(|x| x.key == "amount")
+                    .ok_or(ContractError::NoNFTMintedFound)?
+                    .value,
+            )?;
+            let ibc_send_msg = CosmosMsg::Custom(NeutronMsg::IbcTransfer {
+                source_port: source_port.clone(),
+                source_channel: source_channel.clone(),
+                token: Coin {
+                    denom: ibc_denom.clone(),
+                    amount: coin_attr.amount,
+                },
+                sender: env.contract.address.to_string(),
+                receiver: receiver.clone(),
+                timeout_height: RequestPacketTimeoutHeight {
+                    revision_number: None,
+                    revision_height: None,
+                },
+                timeout_timestamp: env.block.time.plus_seconds(ibc_timeout).nanos(),
+                memo: "".to_string(),
+                fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
+            });
+            let attrs = vec![
+                attr("source_port", source_port),
+                attr("source_channel", source_channel),
+                attr("receiver", receiver),
+                attr(
+                    "timeout",
+                    env.block.time.plus_seconds(ibc_timeout).nanos().to_string(),
+                ),
+                attr("amount", coin_attr.to_string()),
+            ];
+            Ok(response("reply_finalize_unbond", CONTRACT_NAME, attrs)
+                .add_messages(vec![ibc_send_msg]))
+        }
+        cosmwasm_std::SubMsgResult::Err(_) => unreachable!(),
+    }
 }
 
 pub fn finalize_unbond(

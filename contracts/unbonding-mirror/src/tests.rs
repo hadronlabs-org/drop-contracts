@@ -5,7 +5,7 @@ use crate::msg::{
 };
 use crate::state::{
     Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, REPLY_RECEIVERS, TF_DENOM_TO_NFT_ID,
-    UNBOND_REPLY_ID,
+    UNBOND_REPLY_ID, WITHDRAW_REPLY_ID,
 };
 use cosmwasm_std::{
     attr, from_json,
@@ -1201,6 +1201,9 @@ fn test_execute_withdraw() {
             &"1_neutron1_123".to_string(),
         )
         .unwrap();
+    WITHDRAW_REPLY_ID
+        .save(deps.as_mut().storage, &(u32::MAX as u64))
+        .unwrap();
     deps.querier
         .add_wasm_query_response("withdrawal_voucher", |_| {
             cosmwasm_std::ContractResult::Ok(
@@ -1260,11 +1263,7 @@ fn test_execute_withdraw() {
                         attr("voucher_amount", "1denom"),
                         attr("withdrawal_manager", "withdrawal_manager"),
                         attr("withdrawal_voucher", "withdrawal_voucher"),
-                        attr("source_port", "source_port"),
-                        attr("source_channel", "source_channel"),
-                        attr("ibc_timeout", "12345"),
-                        attr("nft_amount", "100ibc_denom"),
-                        attr("receiver", "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc"),
+                        attr("burn", "1denom"),
                     ])
             )
             .add_submessages(vec![SubMsg {
@@ -1283,38 +1282,6 @@ fn test_execute_withdraw() {
                         },
                     ).unwrap(),
                     funds: vec![]
-                }),
-                gas_limit: None,
-                reply_on: ReplyOn::Never,
-            },
-            SubMsg {
-                id: 0,
-                msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
-                    source_port: "source_port".to_string(),
-                    source_channel: "source_channel".to_string(),
-                    token: Coin {
-                        denom: "ibc_denom".to_string(),
-                        amount: Uint128::from(100u128)
-                    },
-                    sender: MOCK_CONTRACT_ADDR.to_string(),
-                    receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
-                    timeout_height: RequestPacketTimeoutHeight {
-                        revision_number: None,
-                        revision_height: None,
-                    },
-                    timeout_timestamp: 1571809764879305533,
-                    memo: "".to_string(),
-                    fee: IbcFee {
-                        recv_fee: vec![],
-                        ack_fee: vec![Coin {
-                            denom: "untrn".to_string(),
-                            amount: Uint128::from(100u128)
-                        }],
-                        timeout_fee: vec![Coin {
-                            denom: "untrn".to_string(),
-                            amount: Uint128::from(200u128)
-                        }]
-                    }
                 }),
                 gas_limit: None,
                 reply_on: ReplyOn::Never,
