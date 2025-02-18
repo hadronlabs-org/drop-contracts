@@ -1825,6 +1825,7 @@ describe('Core', () => {
           'initia',
           `initiad tx move execute ${ownerAddress} liquidity_provider provide --from demo3 --home /opt --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --chain-id ${context.park.config.networks['initia'].chain_id} --keyring-backend test -y`,
         );
+        await sleep(10_000);
       });
 
       it('get rewards pump ICA balance', async () => {
