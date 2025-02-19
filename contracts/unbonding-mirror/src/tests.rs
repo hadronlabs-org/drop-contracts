@@ -16,6 +16,7 @@ use cosmwasm_std::{
     Reply, ReplyOn, Response, SubMsg, SubMsgResponse, SubMsgResult, Uint128, WasmMsg,
 };
 use drop_helpers::testing::mock_dependencies;
+use neutron_sdk::bindings::msg::MsgIbcTransferResponse;
 use neutron_sdk::sudo::msg::{RequestPacket, TransferSudoMsg};
 use neutron_sdk::{
     bindings::msg::{IbcFee, NeutronMsg},
@@ -2033,6 +2034,76 @@ fn test_reply_finalize_unbond() {
             amount: Uint128::from(1u128)
         }
     );
+}
+
+#[test]
+fn test_reply_store_seq_id_invalid_type() {
+    let mut deps = mock_dependencies(&[]);
+    REPLY_TRANSFER_COIN
+        .save(
+            deps.as_mut().storage,
+            &Coin {
+                denom: "reply_transfer_coin".to_string(),
+                amount: Uint128::from(1u128),
+            },
+        )
+        .unwrap();
+    let res = reply(
+        deps.as_mut(),
+        mock_env(),
+        Reply {
+            id: IBC_TRANSFER_SUDO_REPLY_ID,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![Event::new("wasm").add_attribute("token_id", "1_neutron..._123")],
+                data: Some(to_json_binary(&"wrong_data".to_string()).unwrap()),
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        ContractError::Std(cosmwasm_std::StdError::GenericErr {
+            msg: "failed to parse response: InvalidType".to_string()
+        })
+    )
+}
+
+#[test]
+fn test_reply_store_seq_id() {
+    let mut deps = mock_dependencies(&[]);
+    REPLY_TRANSFER_COIN
+        .save(
+            deps.as_mut().storage,
+            &Coin {
+                denom: "reply_transfer_coin".to_string(),
+                amount: Uint128::from(1u128),
+            },
+        )
+        .unwrap();
+    let res: Response<NeutronMsg> = reply(
+        deps.as_mut(),
+        mock_env(),
+        Reply {
+            id: IBC_TRANSFER_SUDO_REPLY_ID,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![Event::new("wasm").add_attribute("token_id", "1_neutron..._123")],
+                data: Some(
+                    to_json_binary(&MsgIbcTransferResponse {
+                        sequence_id: 0u64,
+                        channel: "channel".to_string(),
+                    })
+                    .unwrap(),
+                ),
+            }),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new().add_event(Event::new(
+            "crates.io:drop-staking__drop-unbonding-mirror-reply_store_seq_id"
+        ))
+    )
 }
 
 #[test]
