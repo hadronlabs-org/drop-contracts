@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use crate::contract::{execute, instantiate, query, reply, sudo};
 use crate::error::ContractError;
 use crate::msg::{
@@ -5,7 +7,7 @@ use crate::msg::{
 };
 use crate::state::{
     Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, IBC_TRANSFER_SUDO_REPLY_ID, REPLY_RECEIVERS,
-    REPLY_TRANSFER_COIN, SUDO_SEQ_ID_TO_COIN, TF_DENOM_TO_NFT_ID, UNBOND_REPLY_ID,
+    REPLY_TRANSFER_COINS, SUDO_SEQ_ID_TO_COIN, TF_DENOM_TO_NFT_ID, UNBOND_REPLY_ID,
     WITHDRAW_REPLY_ID,
 };
 use cosmwasm_std::{
@@ -546,6 +548,9 @@ fn test_execute_retry_take_less() {
             ],
         )
         .unwrap();
+    REPLY_TRANSFER_COINS
+        .save(deps.as_mut().storage, &VecDeque::new())
+        .unwrap();
     for _ in 0..FAILED_TRANSFERS
         .load(
             &deps.storage,
@@ -700,6 +705,27 @@ fn test_execute_retry_take_less() {
             amount: Uint128::from(4u128)
         }]
     );
+    assert_eq!(
+        REPLY_TRANSFER_COINS.load(&deps.storage).unwrap(),
+        VecDeque::from_iter(
+            vec![
+                Coin {
+                    denom: "denom1".to_string(),
+                    amount: Uint128::from(1u128)
+                },
+                Coin {
+                    denom: "denom2".to_string(),
+                    amount: Uint128::from(2u128)
+                },
+                Coin {
+                    denom: "denom3".to_string(),
+                    amount: Uint128::from(3u128)
+                }
+            ]
+            .iter()
+            .cloned()
+        )
+    )
 }
 
 #[test]
@@ -730,6 +756,9 @@ fn test_execute_retry_take_bigger() {
             }],
         )
         .unwrap();
+    REPLY_TRANSFER_COINS
+        .save(deps.as_mut().storage, &VecDeque::new())
+        .unwrap();
     for _ in 0..FAILED_TRANSFERS
         .load(
             &deps.storage,
@@ -808,6 +837,17 @@ fn test_execute_retry_take_bigger() {
             "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         )
         .unwrap_err();
+    assert_eq!(
+        REPLY_TRANSFER_COINS.load(&deps.storage).unwrap(),
+        VecDeque::from_iter(
+            vec![Coin {
+                denom: "denom1".to_string(),
+                amount: Uint128::from(1u128)
+            },]
+            .iter()
+            .cloned()
+        )
+    )
 }
 
 #[test]
@@ -838,6 +878,9 @@ fn test_execute_retry_take_equal() {
             }],
         )
         .unwrap();
+    REPLY_TRANSFER_COINS
+        .save(deps.as_mut().storage, &VecDeque::new())
+        .unwrap();
     for _ in 0..FAILED_TRANSFERS
         .load(
             &deps.storage,
@@ -916,6 +959,17 @@ fn test_execute_retry_take_equal() {
             "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         )
         .unwrap_err();
+    assert_eq!(
+        REPLY_TRANSFER_COINS.load(&deps.storage).unwrap(),
+        VecDeque::from_iter(
+            vec![Coin {
+                denom: "denom1".to_string(),
+                amount: Uint128::from(1u128)
+            },]
+            .iter()
+            .cloned()
+        )
+    )
 }
 
 #[test]
@@ -1756,6 +1810,9 @@ fn test_reply_finalize_withdraw() {
             &"receiver".to_string(),
         )
         .unwrap();
+    REPLY_TRANSFER_COINS
+        .save(deps.as_mut().storage, &VecDeque::new())
+        .unwrap();
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: IbcFee {
@@ -1825,7 +1882,11 @@ fn test_reply_finalize_withdraw() {
             }])
     );
     assert_eq!(
-        REPLY_TRANSFER_COIN.load(&deps.storage).unwrap(),
+        REPLY_TRANSFER_COINS
+            .load(&deps.storage)
+            .unwrap()
+            .pop_front()
+            .unwrap(),
         Coin {
             denom: "ibc_denom".to_string(),
             amount: Uint128::from(100u128)
@@ -1925,6 +1986,9 @@ fn test_reply_finalize_unbond() {
         .unwrap();
     REPLY_RECEIVERS
         .save(deps.as_mut().storage, 1u64, &"receiver".to_string())
+        .unwrap();
+    REPLY_TRANSFER_COINS
+        .save(deps.as_mut().storage, &VecDeque::new())
         .unwrap();
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
@@ -2028,7 +2092,11 @@ fn test_reply_finalize_unbond() {
         "1_neutron..._123".to_string()
     );
     assert_eq!(
-        REPLY_TRANSFER_COIN.load(&deps.storage).unwrap(),
+        REPLY_TRANSFER_COINS
+            .load(&deps.storage)
+            .unwrap()
+            .pop_front()
+            .unwrap(),
         Coin {
             denom: "factory/cosmos2contract/nft_1_123".to_string(),
             amount: Uint128::from(1u128)
@@ -2039,13 +2107,17 @@ fn test_reply_finalize_unbond() {
 #[test]
 fn test_reply_store_seq_id_invalid_type() {
     let mut deps = mock_dependencies(&[]);
-    REPLY_TRANSFER_COIN
+    REPLY_TRANSFER_COINS
         .save(
             deps.as_mut().storage,
-            &Coin {
-                denom: "reply_transfer_coin".to_string(),
-                amount: Uint128::from(1u128),
-            },
+            &VecDeque::from_iter(
+                vec![Coin {
+                    denom: "reply_transfer_coin".to_string(),
+                    amount: Uint128::from(1u128),
+                }]
+                .iter()
+                .cloned(),
+            ),
         )
         .unwrap();
     let res = reply(
@@ -2065,19 +2137,23 @@ fn test_reply_store_seq_id_invalid_type() {
         ContractError::Std(cosmwasm_std::StdError::GenericErr {
             msg: "failed to parse response: InvalidType".to_string()
         })
-    )
+    );
 }
 
 #[test]
 fn test_reply_store_seq_id() {
     let mut deps = mock_dependencies(&[]);
-    REPLY_TRANSFER_COIN
+    REPLY_TRANSFER_COINS
         .save(
             deps.as_mut().storage,
-            &Coin {
-                denom: "reply_transfer_coin".to_string(),
-                amount: Uint128::from(1u128),
-            },
+            &VecDeque::from_iter(
+                vec![Coin {
+                    denom: "reply_transfer_coin".to_string(),
+                    amount: Uint128::from(1u128),
+                }]
+                .iter()
+                .cloned(),
+            ),
         )
         .unwrap();
     let res: Response<NeutronMsg> = reply(
@@ -2086,7 +2162,7 @@ fn test_reply_store_seq_id() {
         Reply {
             id: IBC_TRANSFER_SUDO_REPLY_ID,
             result: SubMsgResult::Ok(SubMsgResponse {
-                events: vec![Event::new("wasm").add_attribute("token_id", "1_neutron..._123")],
+                events: vec![],
                 data: Some(
                     to_json_binary(&MsgIbcTransferResponse {
                         sequence_id: 0u64,
@@ -2103,7 +2179,73 @@ fn test_reply_store_seq_id() {
         Response::new().add_event(Event::new(
             "crates.io:drop-staking__drop-unbonding-mirror-reply_store_seq_id"
         ))
-    )
+    );
+    assert_eq!(
+        REPLY_TRANSFER_COINS.load(&deps.storage).unwrap(),
+        VecDeque::new()
+    );
+}
+
+#[test]
+fn test_reply_store_seq_id_take_from_queue() {
+    let mut deps = mock_dependencies(&[]);
+    REPLY_TRANSFER_COINS
+        .save(
+            deps.as_mut().storage,
+            &VecDeque::from_iter(
+                vec![
+                    Coin {
+                        denom: "denom1".to_string(),
+                        amount: Uint128::from(1u128),
+                    },
+                    Coin {
+                        denom: "denom2".to_string(),
+                        amount: Uint128::from(2u128),
+                    },
+                    Coin {
+                        denom: "denom3".to_string(),
+                        amount: Uint128::from(3u128),
+                    },
+                ]
+                .iter()
+                .cloned(),
+            ),
+        )
+        .unwrap();
+    for coin in REPLY_TRANSFER_COINS.load(deps.as_ref().storage).unwrap() {
+        let res: Response<NeutronMsg> = reply(
+            deps.as_mut(),
+            mock_env(),
+            Reply {
+                id: IBC_TRANSFER_SUDO_REPLY_ID,
+                result: SubMsgResult::Ok(SubMsgResponse {
+                    events: vec![],
+                    data: Some(
+                        to_json_binary(&MsgIbcTransferResponse {
+                            sequence_id: 0u64,
+                            channel: "channel".to_string(),
+                        })
+                        .unwrap(),
+                    ),
+                }),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            Response::new().add_event(
+                Event::new("crates.io:drop-staking__drop-unbonding-mirror-reply_store_seq_id")
+                    .add_attributes(vec![
+                        attr("action", "store_seq_id"),
+                        attr("popped", coin.to_string())
+                    ])
+            )
+        );
+    }
+    assert_eq!(
+        REPLY_TRANSFER_COINS.load(&deps.storage).unwrap(),
+        VecDeque::new()
+    );
 }
 
 #[test]

@@ -413,11 +413,11 @@ pub fn store_seq_id(
     let coin = coins.pop_front().unwrap(); // safe because it always has something inside
     REPLY_TRANSFER_COINS.save(deps.storage, &coins)?;
     SUDO_SEQ_ID_TO_COIN.save(deps.storage, seq_id, &coin)?;
-    Ok(response(
-        "reply_store_seq_id",
-        CONTRACT_NAME,
-        Vec::<Attribute>::new(),
-    ))
+    let attrs = vec![
+        attr("action", "store_seq_id"),
+        attr("popped", coin.to_string()),
+    ];
+    Ok(response("reply_store_seq_id", CONTRACT_NAME, attrs))
 }
 
 pub fn finalize_withdraw(
