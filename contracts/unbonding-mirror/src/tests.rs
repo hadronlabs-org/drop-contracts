@@ -2180,9 +2180,20 @@ fn test_reply_store_seq_id() {
     .unwrap();
     assert_eq!(
         res,
-        Response::new().add_event(Event::new(
-            "crates.io:drop-staking__drop-unbonding-mirror-reply_store_seq_id"
-        ))
+        Response::new().add_event(
+            Event::new("crates.io:drop-staking__drop-unbonding-mirror-reply_store_seq_id")
+                .add_attributes(vec![
+                    attr("action", "store_seq_id"),
+                    attr(
+                        "popped",
+                        Coin {
+                            denom: "reply_transfer_coin".to_string(),
+                            amount: Uint128::from(1u128),
+                        }
+                        .to_string()
+                    )
+                ])
+        )
     );
     assert_eq!(
         REPLY_TRANSFER_COINS.load(&deps.storage).unwrap(),
