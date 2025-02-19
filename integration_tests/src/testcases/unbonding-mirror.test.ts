@@ -1606,17 +1606,41 @@ describe('Unbonding mirror', () => {
         await sleep(20_000); // sudo-timeout
       });
 
-      it('restore IBC timeout back to 3600', async () => {
-        const { unbondingMirrorClient, neutronUserAddress } = context;
-        await unbondingMirrorClient.updateConfig(
+      it('make sure failed receiver had been written properly', async () => {
+        const { unbondingMirrorClient, gaiaUserAddress } = context;
+        const response = await unbondingMirrorClient.queryFailedReceiver({
+          receiver: gaiaUserAddress,
+        });
+        expect(
+          response.amount
+            .map((coin) => Number(coin.amount))
+            .reduce((a, b) => a + b, 0) / Math.pow(10, 2),
+        ).toBeCloseTo(20.0, 1); // it's the same denom
+      });
+
+      it('turn off relayer', async () => {
+        await context.park.pauseRelayer('hermes', 0);
+      });
+
+      it('retry', async () => {
+        const { unbondingMirrorClient, neutronUserAddress, gaiaUserAddress } =
+          context;
+        await unbondingMirrorClient.retry(
           neutronUserAddress,
-          {
-            new_config: {
-              ibc_timeout: 3600,
-            },
-          },
+          { receiver: gaiaUserAddress },
           1.5,
         );
+        expect(
+          await unbondingMirrorClient.queryFailedReceiver({
+            receiver: gaiaUserAddress,
+          }),
+        ).toBe(null);
+        await sleep(10_000); // make these packets to outlive their validity
+      });
+
+      it('resume relayer', async () => {
+        await context.park.resumeRelayer('hermes', 0);
+        await sleep(20_000); // sudo-timeout
       });
 
       it('make sure failed receiver had been written properly', async () => {
@@ -1631,13 +1655,39 @@ describe('Unbonding mirror', () => {
         ).toBeCloseTo(20.0, 1); // it's the same denom
       });
 
-      it('retry', async () => {
-        const { unbondingMirrorClient, neutronUserAddress, gaiaUserAddress } =
-          context;
+      it('restore IBC timeout back to 3600', async () => {
+        const { unbondingMirrorClient, neutronUserAddress } = context;
+        await unbondingMirrorClient.updateConfig(
+          neutronUserAddress,
+          {
+            new_config: {
+              ibc_timeout: 3600,
+            },
+          },
+          1.5,
+        );
+      });
+
+      it('proper retry', async () => {
+        const {
+          unbondingMirrorClient,
+          neutronUserAddress,
+          gaiaUserAddress,
+          gaiaClient,
+        } = context;
+        const balanceBefore = (
+          await gaiaClient.getBalance(gaiaUserAddress, 'stake')
+        ).amount;
         await unbondingMirrorClient.retry(
           neutronUserAddress,
           { receiver: gaiaUserAddress },
           1.5,
+        );
+        await waitFor(
+          async () =>
+            (await gaiaClient.getBalance(gaiaUserAddress, 'stake')).amount !==
+            balanceBefore,
+          60_000,
         );
         expect(
           await unbondingMirrorClient.queryFailedReceiver({
