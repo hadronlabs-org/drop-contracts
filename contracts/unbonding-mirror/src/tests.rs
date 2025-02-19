@@ -2266,12 +2266,22 @@ fn test_reply_store_seq_id_take_from_queue() {
 #[test]
 fn test_sudo_response() {
     let mut deps = mock_dependencies(&[]);
+    SUDO_SEQ_ID_TO_COIN
+        .save(
+            deps.as_mut().storage,
+            0u64,
+            &Coin {
+                denom: "denom".to_string(),
+                amount: Uint128::from(1u128),
+            },
+        )
+        .unwrap();
     let res = sudo(
         deps.as_mut(),
         mock_env(),
         TransferSudoMsg::Response {
             request: RequestPacket {
-                sequence: None,
+                sequence: Some(0u64),
                 source_port: None,
                 source_channel: None,
                 destination_port: None,
@@ -2290,6 +2300,7 @@ fn test_sudo_response() {
             "crates.io:drop-staking__drop-unbonding-mirror-sudo_response"
         ))
     );
+    SUDO_SEQ_ID_TO_COIN.load(&deps.storage, 0u64).unwrap_err();
 }
 
 #[test]

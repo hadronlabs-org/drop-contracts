@@ -385,7 +385,7 @@ pub fn reply(
     /*
        |         unbond         |                 withdraw                |   ibc_transfer_sudo_reply   |
        | 0 --- ... --- u32::MAX | u32::MAX + 1 --- ... --- (u64::MAX - 1) |           u64::MAX          |
-       <-------------------------------------- u64::MAX ----------------------------------------------->
+       <-------------------------------------- u64::MAX ------------------------------------------------>
     */
     match msg.id {
         IBC_TRANSFER_SUDO_REPLY_ID => store_seq_id(deps, env, msg),
@@ -576,7 +576,7 @@ pub fn sudo(
     msg: TransferSudoMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        TransferSudoMsg::Response { .. } => sudo_response(),
+        TransferSudoMsg::Response { request, .. } => sudo_response(deps, request),
         TransferSudoMsg::Error { request, .. } => sudo_error(deps, request, "sudo_error"),
         TransferSudoMsg::Timeout { request } => sudo_error(deps, request, "sudo_timeout"),
     }
@@ -644,7 +644,12 @@ fn sudo_error(
     Ok(response(ty, CONTRACT_NAME, Vec::<Attribute>::new()))
 }
 
-fn sudo_response() -> ContractResult<Response<NeutronMsg>> {
+fn sudo_response(
+    deps: DepsMut<NeutronQuery>,
+    req: RequestPacket,
+) -> ContractResult<Response<NeutronMsg>> {
+    let seq_id = req.sequence.unwrap();
+    SUDO_SEQ_ID_TO_COIN.remove(deps.storage, seq_id);
     Ok(response(
         "sudo_response",
         CONTRACT_NAME,
