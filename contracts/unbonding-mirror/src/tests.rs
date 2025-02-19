@@ -102,6 +102,10 @@ fn test_instantiate() {
         WITHDRAW_REPLY_ID.load(deps.as_ref().storage).unwrap(),
         u32::MAX as u64
     );
+    assert_eq!(
+        REPLY_TRANSFER_COINS.load(deps.as_ref().storage).unwrap(),
+        VecDeque::new()
+    );
 }
 
 #[test]
@@ -708,7 +712,7 @@ fn test_execute_retry_take_less() {
     assert_eq!(
         REPLY_TRANSFER_COINS.load(&deps.storage).unwrap(),
         VecDeque::from_iter(
-            vec![
+            [
                 Coin {
                     denom: "denom1".to_string(),
                     amount: Uint128::from(1u128)
@@ -840,7 +844,7 @@ fn test_execute_retry_take_bigger() {
     assert_eq!(
         REPLY_TRANSFER_COINS.load(&deps.storage).unwrap(),
         VecDeque::from_iter(
-            vec![Coin {
+            [Coin {
                 denom: "denom1".to_string(),
                 amount: Uint128::from(1u128)
             },]
@@ -962,7 +966,7 @@ fn test_execute_retry_take_equal() {
     assert_eq!(
         REPLY_TRANSFER_COINS.load(&deps.storage).unwrap(),
         VecDeque::from_iter(
-            vec![Coin {
+            [Coin {
                 denom: "denom1".to_string(),
                 amount: Uint128::from(1u128)
             },]
@@ -2111,7 +2115,7 @@ fn test_reply_store_seq_id_invalid_type() {
         .save(
             deps.as_mut().storage,
             &VecDeque::from_iter(
-                vec![Coin {
+                [Coin {
                     denom: "reply_transfer_coin".to_string(),
                     amount: Uint128::from(1u128),
                 }]
@@ -2147,7 +2151,7 @@ fn test_reply_store_seq_id() {
         .save(
             deps.as_mut().storage,
             &VecDeque::from_iter(
-                vec![Coin {
+                [Coin {
                     denom: "reply_transfer_coin".to_string(),
                     amount: Uint128::from(1u128),
                 }]
@@ -2193,7 +2197,7 @@ fn test_reply_store_seq_id_take_from_queue() {
         .save(
             deps.as_mut().storage,
             &VecDeque::from_iter(
-                vec![
+                [
                     Coin {
                         denom: "denom1".to_string(),
                         amount: Uint128::from(1u128),
