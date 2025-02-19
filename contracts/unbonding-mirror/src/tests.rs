@@ -4,8 +4,9 @@ use crate::msg::{
     ExecuteMsg, FailedReceiverResponse, FungibleTokenPacketData, InstantiateMsg, QueryMsg,
 };
 use crate::state::{
-    Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, REPLY_RECEIVERS, TF_DENOM_TO_NFT_ID,
-    UNBOND_REPLY_ID, WITHDRAW_REPLY_ID,
+    Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, IBC_TRANSFER_SUDO_REPLY_ID, REPLY_RECEIVERS,
+    REPLY_TRANSFER_COIN, SUDO_SEQ_ID_TO_COIN, TF_DENOM_TO_NFT_ID, UNBOND_REPLY_ID,
+    WITHDRAW_REPLY_ID,
 };
 use cosmwasm_std::{
     attr, from_json,
@@ -589,7 +590,7 @@ fn test_execute_retry_take_less() {
             )
             .add_submessages(vec![
                 SubMsg {
-                    id: 0,
+                    id: IBC_TRANSFER_SUDO_REPLY_ID,
                     msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                         source_port: "source_port".to_string(),
                         source_channel: "source_channel".to_string(),
@@ -618,10 +619,10 @@ fn test_execute_retry_take_less() {
                         }
                     }),
                     gas_limit: None,
-                    reply_on: ReplyOn::Never,
+                    reply_on: ReplyOn::Success,
                 },
                 SubMsg {
-                    id: 0,
+                    id: IBC_TRANSFER_SUDO_REPLY_ID,
                     msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                         source_port: "source_port".to_string(),
                         source_channel: "source_channel".to_string(),
@@ -650,10 +651,10 @@ fn test_execute_retry_take_less() {
                         }
                     }),
                     gas_limit: None,
-                    reply_on: ReplyOn::Never,
+                    reply_on: ReplyOn::Success,
                 },
                 SubMsg {
-                    id: 0,
+                    id: IBC_TRANSFER_SUDO_REPLY_ID,
                     msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                         source_port: "source_port".to_string(),
                         source_channel: "source_channel".to_string(),
@@ -682,7 +683,7 @@ fn test_execute_retry_take_less() {
                         }
                     }),
                     gas_limit: None,
-                    reply_on: ReplyOn::Never,
+                    reply_on: ReplyOn::Success,
                 }
             ])
     );
@@ -768,7 +769,7 @@ fn test_execute_retry_take_bigger() {
                     ])
             )
             .add_submessages(vec![SubMsg {
-                id: 0,
+                id: IBC_TRANSFER_SUDO_REPLY_ID,
                 msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: "source_port".to_string(),
                     source_channel: "source_channel".to_string(),
@@ -797,7 +798,7 @@ fn test_execute_retry_take_bigger() {
                     }
                 }),
                 gas_limit: None,
-                reply_on: ReplyOn::Never,
+                reply_on: ReplyOn::Success,
             },])
     );
     FAILED_TRANSFERS
@@ -876,7 +877,7 @@ fn test_execute_retry_take_equal() {
                     ])
             )
             .add_submessages(vec![SubMsg {
-                id: 0,
+                id: IBC_TRANSFER_SUDO_REPLY_ID,
                 msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: "source_port".to_string(),
                     source_channel: "source_channel".to_string(),
@@ -905,7 +906,7 @@ fn test_execute_retry_take_equal() {
                     }
                 }),
                 gas_limit: None,
-                reply_on: ReplyOn::Never,
+                reply_on: ReplyOn::Success,
             },])
     );
     FAILED_TRANSFERS
@@ -1790,7 +1791,7 @@ fn test_reply_finalize_withdraw() {
                     ])
             )
             .add_submessages(vec![SubMsg {
-                id: 0,
+                id: IBC_TRANSFER_SUDO_REPLY_ID,
                 msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: "source_port".to_string(),
                     source_channel: "source_channel".to_string(),
@@ -1819,8 +1820,15 @@ fn test_reply_finalize_withdraw() {
                     }
                 }),
                 gas_limit: None,
-                reply_on: ReplyOn::Never,
+                reply_on: ReplyOn::Success,
             }])
+    );
+    assert_eq!(
+        REPLY_TRANSFER_COIN.load(&deps.storage).unwrap(),
+        Coin {
+            denom: "ibc_denom".to_string(),
+            amount: Uint128::from(100u128)
+        }
     );
 }
 
@@ -1975,7 +1983,7 @@ fn test_reply_finalize_unbond() {
                     reply_on: ReplyOn::Never
                 },
                 SubMsg {
-                    id: 0,
+                    id: IBC_TRANSFER_SUDO_REPLY_ID,
                     msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                         source_port: "source_port".to_string(),
                         source_channel: "source_channel".to_string(),
@@ -2004,7 +2012,7 @@ fn test_reply_finalize_unbond() {
                         }
                     }),
                     gas_limit: None,
-                    reply_on: ReplyOn::Never
+                    reply_on: ReplyOn::Success
                 }
             ])
     );
@@ -2017,7 +2025,14 @@ fn test_reply_finalize_unbond() {
             )
             .unwrap(),
         "1_neutron..._123".to_string()
-    )
+    );
+    assert_eq!(
+        REPLY_TRANSFER_COIN.load(&deps.storage).unwrap(),
+        Coin {
+            denom: "factory/cosmos2contract/nft_1_123".to_string(),
+            amount: Uint128::from(1u128)
+        }
+    );
 }
 
 #[test]
@@ -2052,12 +2067,22 @@ fn test_sudo_response() {
 #[test]
 fn test_sudo_error_timeout_update_existing_denom_amount() {
     let mut deps = mock_dependencies(&[]);
+    SUDO_SEQ_ID_TO_COIN
+        .save(
+            deps.as_mut().storage,
+            0,
+            &Coin {
+                denom: "correct_denom".to_string(),
+                amount: Uint128::from(123u128),
+            },
+        )
+        .unwrap();
     FAILED_TRANSFERS
         .save(
             deps.as_mut().storage,
             "receiver".to_string(),
             &vec![Coin {
-                denom: "denom".to_string(),
+                denom: "correct_denom".to_string(),
                 amount: Uint128::from(100u128),
             }],
         )
@@ -2067,7 +2092,7 @@ fn test_sudo_error_timeout_update_existing_denom_amount() {
         mock_env(),
         TransferSudoMsg::Timeout {
             request: RequestPacket {
-                sequence: None,
+                sequence: Some(0u64),
                 source_port: None,
                 source_channel: None,
                 destination_port: None,
@@ -2099,7 +2124,7 @@ fn test_sudo_error_timeout_update_existing_denom_amount() {
             .load(&deps.storage, "receiver".to_string())
             .unwrap(),
         vec![Coin {
-            denom: "denom".to_string(),
+            denom: "correct_denom".to_string(),
             amount: Uint128::from(223u128),
         }]
     );
@@ -2108,12 +2133,22 @@ fn test_sudo_error_timeout_update_existing_denom_amount() {
 #[test]
 fn test_sudo_error_timeout_create_new_schedule() {
     let mut deps = mock_dependencies(&[]);
+    SUDO_SEQ_ID_TO_COIN
+        .save(
+            deps.as_mut().storage,
+            0,
+            &Coin {
+                denom: "correct_denom".to_string(),
+                amount: Uint128::from(123u128),
+            },
+        )
+        .unwrap();
     let res = sudo(
         deps.as_mut(),
         mock_env(),
         TransferSudoMsg::Timeout {
             request: RequestPacket {
-                sequence: None,
+                sequence: Some(0u64),
                 source_port: None,
                 source_channel: None,
                 destination_port: None,
@@ -2145,7 +2180,7 @@ fn test_sudo_error_timeout_create_new_schedule() {
             .load(&deps.storage, "receiver".to_string())
             .unwrap(),
         vec![Coin {
-            denom: "denom".to_string(),
+            denom: "correct_denom".to_string(),
             amount: Uint128::from(123u128),
         }]
     );
@@ -2154,6 +2189,16 @@ fn test_sudo_error_timeout_create_new_schedule() {
 #[test]
 fn test_sudo_error_timeout_add_new_denom() {
     let mut deps = mock_dependencies(&[]);
+    SUDO_SEQ_ID_TO_COIN
+        .save(
+            deps.as_mut().storage,
+            0,
+            &Coin {
+                denom: "correct_denom".to_string(),
+                amount: Uint128::from(123u128),
+            },
+        )
+        .unwrap();
     FAILED_TRANSFERS
         .save(
             deps.as_mut().storage,
@@ -2169,14 +2214,14 @@ fn test_sudo_error_timeout_add_new_denom() {
         mock_env(),
         TransferSudoMsg::Timeout {
             request: RequestPacket {
-                sequence: None,
+                sequence: Some(0u64),
                 source_port: None,
                 source_channel: None,
                 destination_port: None,
                 destination_channel: None,
                 data: Some(
                     to_json_binary(&FungibleTokenPacketData {
-                        denom: "denom2".to_string(),
+                        denom: "wrong_denom".to_string(),
                         amount: "123".to_string(),
                         sender: "sender".to_string(),
                         receiver: "receiver".to_string(),
@@ -2206,7 +2251,7 @@ fn test_sudo_error_timeout_add_new_denom() {
                 amount: Uint128::from(100u128),
             },
             Coin {
-                denom: "denom2".to_string(),
+                denom: "correct_denom".to_string(),
                 amount: Uint128::from(123u128),
             }
         ]
