@@ -22,7 +22,11 @@ import { join } from 'path';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
-import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
+import {
+  AccountData,
+  coin,
+  DirectSecp256k1HdWallet,
+} from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
 import { setupPark } from '../testSuite';
 import fs from 'fs';
@@ -35,6 +39,7 @@ import { instrumentCoreClass } from '../helpers/knot';
 import { sleep } from '../helpers/sleep';
 import { sha256 } from '@cosmjs/crypto';
 import { toHex } from '@cosmjs/encoding';
+import { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 
 const DropUnbondingMirrorClass = DropUnbondingMirror.Client;
 const DropFactoryClass = DropFactory.Client;

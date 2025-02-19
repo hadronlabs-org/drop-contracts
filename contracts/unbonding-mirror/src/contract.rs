@@ -3,16 +3,20 @@ use crate::msg::{
     ExecuteMsg, FailedReceiverResponse, FungibleTokenPacketData, InstantiateMsg, QueryMsg,
 };
 use crate::state::{
-    Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, REPLY_RECEIVERS, TF_DENOM_TO_NFT_ID,
-    TIMEOUT_RANGE, UNBOND_REPLY_ID, WITHDRAW_REPLY_ID,
+    Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, IBC_TRANSFER_SUDO_REPLY_ID, REPLY_RECEIVERS,
+    REPLY_TRANSFER_COIN, SUDO_SEQ_ID_TO_COIN, TF_DENOM_TO_NFT_ID, TIMEOUT_RANGE, UNBOND_REPLY_ID,
+    WITHDRAW_REPLY_ID,
 };
 use cosmwasm_std::{
     attr, ensure, from_json, to_json_binary, Attribute, Binary, Coin, CosmosMsg, Deps, DepsMut,
-    Env, IbcQuery, MessageInfo, Reply, Response, SubMsg, Uint128, WasmMsg,
+    Env, IbcQuery, MessageInfo, Reply, Response, StdError, SubMsg, Uint128, WasmMsg,
 };
 use drop_helpers::answer::response;
 use drop_helpers::ibc_fee::query_ibc_fee;
-use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
+use neutron_sdk::bindings::{
+    msg::{MsgIbcTransferResponse, NeutronMsg},
+    query::NeutronQuery,
+};
 use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, TransferSudoMsg};
 use std::env;
 use std::str::FromStr;
@@ -231,7 +235,7 @@ fn execute_retry(
     bech32::decode(&receiver).map_err(|_| ContractError::WrongReceiverAddress)?;
 
     let failed_transfers = FAILED_TRANSFERS.may_load(deps.storage, receiver.clone())?;
-    let mut ibc_transfer_msgs: Vec<CosmosMsg<NeutronMsg>> = vec![];
+    let mut ibc_transfer_submsgs: Vec<SubMsg<NeutronMsg>> = vec![];
     let mut attrs: Vec<Attribute> = vec![attr("action", "execute_retry")];
     if let Some(failed_transfers) = failed_transfers {
         let mut receiver_new_coins: Vec<Coin> = failed_transfers.clone();
@@ -239,20 +243,23 @@ fn execute_retry(
             .iter()
             .take(retry_limit.try_into().unwrap())
         {
-            ibc_transfer_msgs.push(CosmosMsg::Custom(NeutronMsg::IbcTransfer {
-                source_port: source_port.clone(),
-                source_channel: source_channel.clone(),
-                token: coin.clone(),
-                sender: env.contract.address.to_string(),
-                receiver: receiver.clone(),
-                timeout_height: RequestPacketTimeoutHeight {
-                    revision_number: None,
-                    revision_height: None,
+            ibc_transfer_submsgs.push(SubMsg::reply_on_success(
+                NeutronMsg::IbcTransfer {
+                    source_port: source_port.clone(),
+                    source_channel: source_channel.clone(),
+                    token: coin.clone(),
+                    sender: env.contract.address.to_string(),
+                    receiver: receiver.clone(),
+                    timeout_height: RequestPacketTimeoutHeight {
+                        revision_number: None,
+                        revision_height: None,
+                    },
+                    timeout_timestamp: env.block.time.plus_seconds(ibc_timeout).nanos(),
+                    memo: "".to_string(),
+                    fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
                 },
-                timeout_timestamp: env.block.time.plus_seconds(ibc_timeout).nanos(),
-                memo: "".to_string(),
-                fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
-            }));
+                IBC_TRANSFER_SUDO_REPLY_ID,
+            ));
             receiver_new_coins = receiver_new_coins
                 .iter()
                 .filter(|receiver_new_coin| receiver_new_coin.denom != coin.denom)
@@ -267,7 +274,7 @@ fn execute_retry(
             FAILED_TRANSFERS.save(deps.storage, receiver, &receiver_new_coins)?;
         }
     }
-    Ok(response("execute_retry", CONTRACT_NAME, attrs).add_messages(ibc_transfer_msgs))
+    Ok(response("execute_retry", CONTRACT_NAME, attrs).add_submessages(ibc_transfer_submsgs))
 }
 
 fn execute_update_config(
@@ -370,10 +377,40 @@ pub fn reply(
     msg: Reply,
 ) -> ContractResult<Response<NeutronMsg>> {
     const U32_MAX_AS_U64: u64 = u32::MAX as u64;
+    /*
+       |         unbond         |                 withdraw                |   ibc_transfer_sudo_reply   |
+       | 0 --- ... --- u32::MAX | u32::MAX + 1 --- ... --- (u64::MAX - 1) |           u64::MAX          |
+       <-------------------------------------- u64::MAX ----------------------------------------------->
+    */
     match msg.id {
+        IBC_TRANSFER_SUDO_REPLY_ID => store_seq_id(deps, env, msg),
         0..=U32_MAX_AS_U64 => finalize_unbond(deps, env, msg),
         _ => finalize_withdraw(deps, env, msg),
     }
+}
+
+pub fn store_seq_id(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    msg: Reply,
+) -> ContractResult<Response<NeutronMsg>> {
+    let msg_ibc_transfer_response: MsgIbcTransferResponse = serde_json_wasm::from_slice(
+        msg.result
+            .into_result()
+            .map_err(StdError::generic_err)?
+            .data
+            .ok_or_else(|| StdError::generic_err("no result"))?
+            .as_slice(),
+    )
+    .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?;
+    let seq_id = msg_ibc_transfer_response.sequence_id;
+    let coin = REPLY_TRANSFER_COIN.load(deps.storage)?;
+    SUDO_SEQ_ID_TO_COIN.save(deps.storage, seq_id, &coin)?;
+    Ok(response(
+        "reply_store_seq_id",
+        CONTRACT_NAME,
+        Vec::<Attribute>::new(),
+    ))
 }
 
 pub fn finalize_withdraw(
@@ -404,20 +441,23 @@ pub fn finalize_withdraw(
                     .ok_or(ContractError::NoTransferAmountFound)?
                     .value,
             )?;
-            let ibc_send_msg = CosmosMsg::Custom(NeutronMsg::IbcTransfer {
-                source_port: source_port.clone(),
-                source_channel: source_channel.clone(),
-                token: coin_attr.clone(),
-                sender: env.contract.address.to_string(),
-                receiver: receiver.clone(),
-                timeout_height: RequestPacketTimeoutHeight {
-                    revision_number: None,
-                    revision_height: None,
+            let ibc_send_submsg = SubMsg::reply_on_success(
+                NeutronMsg::IbcTransfer {
+                    source_port: source_port.clone(),
+                    source_channel: source_channel.clone(),
+                    token: coin_attr.clone(),
+                    sender: env.contract.address.to_string(),
+                    receiver: receiver.clone(),
+                    timeout_height: RequestPacketTimeoutHeight {
+                        revision_number: None,
+                        revision_height: None,
+                    },
+                    timeout_timestamp: env.block.time.plus_seconds(ibc_timeout).nanos(),
+                    memo: "".to_string(),
+                    fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
                 },
-                timeout_timestamp: env.block.time.plus_seconds(ibc_timeout).nanos(),
-                memo: "".to_string(),
-                fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
-            });
+                IBC_TRANSFER_SUDO_REPLY_ID,
+            );
             let attrs = vec![
                 attr("source_port", source_port),
                 attr("source_channel", source_channel),
@@ -428,8 +468,9 @@ pub fn finalize_withdraw(
                 ),
                 attr("amount", coin_attr.to_string()),
             ];
+            REPLY_TRANSFER_COIN.save(deps.storage, &coin_attr)?;
             Ok(response("reply_finalize_withdraw", CONTRACT_NAME, attrs)
-                .add_messages(vec![ibc_send_msg]))
+                .add_submessages(vec![ibc_send_submsg]))
         }
         cosmwasm_std::SubMsgResult::Err(_) => unreachable!(),
     }
@@ -475,14 +516,15 @@ pub fn finalize_unbond(
                     amount: Uint128::from(1u128),
                     mint_to_address: env.contract.address.to_string(),
                 });
-            let ibc_transfer_msg: CosmosMsg<NeutronMsg> =
-                CosmosMsg::Custom(NeutronMsg::IbcTransfer {
+            let coin = Coin {
+                denom: full_tf_denom.clone(),
+                amount: Uint128::from(1u128),
+            };
+            let ibc_transfer_submsg: SubMsg<NeutronMsg> = SubMsg::reply_on_success(
+                NeutronMsg::IbcTransfer {
                     source_port: source_port.clone(),
                     source_channel: source_channel.clone(),
-                    token: Coin {
-                        denom: full_tf_denom.clone(),
-                        amount: Uint128::from(1u128),
-                    },
+                    token: coin.clone(),
                     sender: env.contract.address.to_string(),
                     receiver: receiver.clone(),
                     timeout_height: RequestPacketTimeoutHeight {
@@ -492,7 +534,9 @@ pub fn finalize_unbond(
                     timeout_timestamp: env.block.time.plus_seconds(ibc_timeout).nanos(),
                     memo: "".to_string(),
                     fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
-                });
+                },
+                IBC_TRANSFER_SUDO_REPLY_ID,
+            );
             let attrs = vec![
                 attr("action", "reply_finalize_bond"),
                 attr("reply_id", unbond_reply_id.to_string()),
@@ -503,15 +547,12 @@ pub fn finalize_unbond(
                 attr("ibc_timeout", ibc_timeout.to_string()),
                 attr("tf_denom", full_tf_denom.clone()),
             ];
+            REPLY_TRANSFER_COIN.save(deps.storage, &coin)?;
             TF_DENOM_TO_NFT_ID.save(deps.storage, full_tf_denom, nft_name)?;
             REPLY_RECEIVERS.remove(deps.storage, unbond_reply_id);
-            Ok(
-                response("reply_finalize_unbond", CONTRACT_NAME, attrs).add_messages(vec![
-                    tf_create_denom_msg,
-                    tf_mint_voucher_msg,
-                    ibc_transfer_msg,
-                ]),
-            )
+            Ok(response("reply_finalize_unbond", CONTRACT_NAME, attrs)
+                .add_messages(vec![tf_create_denom_msg, tf_mint_voucher_msg])
+                .add_submessage(ibc_transfer_submsg))
         }
         cosmwasm_std::SubMsgResult::Err(_) => unreachable!(), // as there is only SubMsg::reply_on_success()
     }
@@ -535,6 +576,14 @@ fn sudo_error(
     req: RequestPacket,
     ty: &str,
 ) -> ContractResult<Response<NeutronMsg>> {
+    // https://github.com/cosmos/ibc/blob/main/spec/app/ics-020-fungible-token-transfer/README.md#data-structures
+    // Unfortunately, ics-20 says that if you transfer IBC denom, then in sudo handler you will get back a trace
+    // instead of the original denomination. 123ibc/... -> 123transfer/channel-0/denom. In order to handle this
+    // we're using a SUDO_SEQ_ID_TO_COIN map, where we store an IBC transfer sequence id with a denomination.
+    // We get sequence id from the reply handler, where IBC transfer message is constructed. And then unwrap it here
+    let actual_denom = SUDO_SEQ_ID_TO_COIN
+        .load(deps.storage, req.sequence.unwrap())?
+        .denom;
     let packet: FungibleTokenPacketData = from_json(req.data.unwrap())?;
     let packet_amount = Uint128::from_str(packet.amount.as_str())?;
 
@@ -547,11 +596,11 @@ fn sudo_error(
         |current_debt| match current_debt {
             Some(funds) => Ok::<Vec<Coin>, ContractError>(
                 // If given denom exist - just modify its amount
-                if funds.iter().any(|coin| coin.denom == packet.denom) {
+                if funds.iter().any(|coin| coin.denom == actual_denom) {
                     funds
                         .iter()
                         .map(|coin| {
-                            if coin.denom == packet.denom {
+                            if coin.denom == actual_denom {
                                 Coin {
                                     denom: coin.denom.clone(),
                                     amount: coin.amount + packet_amount,
@@ -567,14 +616,14 @@ fn sudo_error(
                         .iter()
                         .cloned()
                         .chain(std::iter::once(Coin {
-                            denom: packet.denom.clone(),
+                            denom: actual_denom.clone(),
                             amount: packet_amount,
                         }))
                         .collect()
                 },
             ),
             None => Ok(vec![Coin {
-                denom: packet.denom,
+                denom: actual_denom,
                 amount: packet_amount,
             }]), // if receiver doesn't have any pending coins yet
         },
