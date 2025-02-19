@@ -1025,17 +1025,56 @@ describe('Unbonding mirror', () => {
         await sleep(20_000); // sudo-timeout
       });
 
-      it('restore IBC timeout back to 3600', async () => {
-        const { unbondingMirrorClient, neutronUserAddress } = context;
-        await unbondingMirrorClient.updateConfig(
-          neutronUserAddress,
-          {
-            new_config: {
-              ibc_timeout: 3600,
+      it('make sure failed receiver had been written properly', async () => {
+        const { unbondingMirrorClient, gaiaUserAddress } = context;
+        const response = await unbondingMirrorClient.queryFailedReceiver({
+          receiver: gaiaUserAddress,
+        });
+        response.amount = response.amount.sort((coin1, coin2) =>
+          coin1.denom.localeCompare(coin2.denom),
+        );
+        expect(response).toEqual({
+          receiver: gaiaUserAddress,
+          amount: [
+            {
+              amount: '1',
+              denom: denomsMirror[denomsMirror.length - 1].neutronDenom,
             },
-          },
+            {
+              amount: '1',
+              denom: denomsMirror[denomsMirror.length - 2].neutronDenom,
+            },
+          ].sort((coin1, coin2) => coin1.denom.localeCompare(coin2.denom)),
+        });
+      });
+
+      it('turn off relayer', async () => {
+        await context.park.pauseRelayer('hermes', 0);
+      });
+
+      it('retry', async () => {
+        const { unbondingMirrorClient, neutronUserAddress, gaiaUserAddress } =
+          context;
+        await unbondingMirrorClient.retry(
+          neutronUserAddress,
+          { receiver: gaiaUserAddress },
           1.5,
         );
+        await sleep(10_000);
+      });
+
+      it("make sure failed receiver doesn't exist", async () => {
+        const { unbondingMirrorClient, gaiaUserAddress } = context;
+        expect(
+          await unbondingMirrorClient.queryFailedReceiver({
+            receiver: gaiaUserAddress,
+          }),
+        ).toBe(null);
+      });
+
+      it('resume relayer', async () => {
+        await context.park.resumeRelayer('hermes', 0);
+        await sleep(20_000); // sudo-timeout
       });
 
       it('make sure failed receiver had been written properly', async () => {
@@ -1061,9 +1100,38 @@ describe('Unbonding mirror', () => {
         });
       });
 
-      it('retry', async () => {
-        const { unbondingMirrorClient, neutronUserAddress, gaiaUserAddress } =
-          context;
+      it('restore IBC timeout back to 3600', async () => {
+        const { unbondingMirrorClient, neutronUserAddress } = context;
+        await unbondingMirrorClient.updateConfig(
+          neutronUserAddress,
+          {
+            new_config: {
+              ibc_timeout: 3600,
+            },
+          },
+          1.5,
+        );
+      });
+
+      it('proper retry', async () => {
+        const {
+          unbondingMirrorClient,
+          neutronUserAddress,
+          gaiaUserAddress,
+          gaiaClient,
+        } = context;
+        const balance1Before = (
+          await gaiaClient.getBalance(
+            gaiaUserAddress,
+            denomsMirror[denomsMirror.length - 1].gaiaDenom,
+          )
+        ).amount;
+        const balance2Before = (
+          await gaiaClient.getBalance(
+            gaiaUserAddress,
+            denomsMirror[denomsMirror.length - 1].gaiaDenom,
+          )
+        ).amount;
         await unbondingMirrorClient.retry(
           neutronUserAddress,
           { receiver: gaiaUserAddress },
@@ -1075,6 +1143,26 @@ describe('Unbonding mirror', () => {
             receiver: gaiaUserAddress,
           }),
         ).toBe(null);
+        await waitFor(
+          async () =>
+            (
+              await gaiaClient.getBalance(
+                gaiaUserAddress,
+                denomsMirror[denomsMirror.length - 1].gaiaDenom,
+              )
+            ).amount !== balance1Before,
+          60_000,
+        );
+        await waitFor(
+          async () =>
+            (
+              await gaiaClient.getBalance(
+                gaiaUserAddress,
+                denomsMirror[denomsMirror.length - 2].gaiaDenom,
+              )
+            ).amount !== balance2Before,
+          60_000,
+        );
       });
     });
 

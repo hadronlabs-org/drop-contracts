@@ -1,6 +1,7 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Coin;
 use cw_storage_plus::{Item, Map};
+use std::collections::VecDeque;
 
 #[cw_serde]
 pub struct Config {
@@ -37,7 +38,7 @@ pub const IBC_TRANSFER_SUDO_REPLY_ID: u64 = u64::MAX;
 
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const SUDO_SEQ_ID_TO_COIN: Map<u64, Coin> = Map::new("sudo_seq_id_to_coin");
-pub const REPLY_TRANSFER_COIN: Item<Coin> = Item::new("reply_transfer_coin");
+pub const REPLY_TRANSFER_COINS: Item<VecDeque<Coin>> = Item::new("reply_transfer_coins");
 pub const UNBOND_REPLY_ID: Item<u64> = Item::new("unbond_reply_id");
 pub const WITHDRAW_REPLY_ID: Item<u64> = Item::new("withdraw_reply_id");
 // Do we really need this map?

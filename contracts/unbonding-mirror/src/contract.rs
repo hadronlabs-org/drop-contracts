@@ -4,7 +4,7 @@ use crate::msg::{
 };
 use crate::state::{
     Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, IBC_TRANSFER_SUDO_REPLY_ID, REPLY_RECEIVERS,
-    REPLY_TRANSFER_COIN, SUDO_SEQ_ID_TO_COIN, TF_DENOM_TO_NFT_ID, TIMEOUT_RANGE, UNBOND_REPLY_ID,
+    REPLY_TRANSFER_COINS, SUDO_SEQ_ID_TO_COIN, TF_DENOM_TO_NFT_ID, TIMEOUT_RANGE, UNBOND_REPLY_ID,
     WITHDRAW_REPLY_ID,
 };
 use cosmwasm_std::{
@@ -18,6 +18,7 @@ use neutron_sdk::bindings::{
     query::NeutronQuery,
 };
 use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, TransferSudoMsg};
+use std::collections::VecDeque;
 use std::env;
 use std::str::FromStr;
 
@@ -63,6 +64,7 @@ pub fn instantiate(
     )?;
     UNBOND_REPLY_ID.save(deps.storage, &0u64)?;
     WITHDRAW_REPLY_ID.save(deps.storage, &(u32::MAX as u64))?;
+    REPLY_TRANSFER_COINS.save(deps.storage, &VecDeque::<Coin>::new())?;
     let attrs = vec![
         attr("action", "instantiate"),
         attr("owner", owner),
@@ -265,6 +267,9 @@ fn execute_retry(
                 .filter(|receiver_new_coin| receiver_new_coin.denom != coin.denom)
                 .cloned()
                 .collect::<Vec<Coin>>();
+            let mut coins = REPLY_TRANSFER_COINS.load(deps.storage)?;
+            coins.push_back(coin.clone());
+            REPLY_TRANSFER_COINS.save(deps.storage, &coins)?;
             attrs.push(attr("receiver", receiver.clone()));
             attrs.push(attr("amount", coin.to_string()));
         }
@@ -404,7 +409,9 @@ pub fn store_seq_id(
     )
     .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?;
     let seq_id = msg_ibc_transfer_response.sequence_id;
-    let coin = REPLY_TRANSFER_COIN.load(deps.storage)?;
+    let mut coins = REPLY_TRANSFER_COINS.load(deps.storage)?;
+    let coin = coins.pop_front().unwrap(); // safe because it always has something inside
+    REPLY_TRANSFER_COINS.save(deps.storage, &coins)?;
     SUDO_SEQ_ID_TO_COIN.save(deps.storage, seq_id, &coin)?;
     Ok(response(
         "reply_store_seq_id",
@@ -468,7 +475,9 @@ pub fn finalize_withdraw(
                 ),
                 attr("amount", coin_attr.to_string()),
             ];
-            REPLY_TRANSFER_COIN.save(deps.storage, &coin_attr)?;
+            let mut coins = REPLY_TRANSFER_COINS.load(deps.storage)?;
+            coins.push_back(coin_attr);
+            REPLY_TRANSFER_COINS.save(deps.storage, &coins)?;
             Ok(response("reply_finalize_withdraw", CONTRACT_NAME, attrs)
                 .add_submessages(vec![ibc_send_submsg]))
         }
@@ -547,7 +556,9 @@ pub fn finalize_unbond(
                 attr("ibc_timeout", ibc_timeout.to_string()),
                 attr("tf_denom", full_tf_denom.clone()),
             ];
-            REPLY_TRANSFER_COIN.save(deps.storage, &coin)?;
+            let mut coins = REPLY_TRANSFER_COINS.load(deps.storage)?;
+            coins.push_back(coin);
+            REPLY_TRANSFER_COINS.save(deps.storage, &coins)?;
             TF_DENOM_TO_NFT_ID.save(deps.storage, full_tf_denom, nft_name)?;
             REPLY_RECEIVERS.remove(deps.storage, unbond_reply_id);
             Ok(response("reply_finalize_unbond", CONTRACT_NAME, attrs)
@@ -583,12 +594,14 @@ fn sudo_error(
     // We get sequence id from the reply handler, where IBC transfer message is constructed. And then unwrap it here
     let seq_id = req.sequence.unwrap();
     let actual_denom = SUDO_SEQ_ID_TO_COIN.load(deps.storage, seq_id)?.denom;
+    deps.api
+        .debug(format!("WASMDEBUG sequence matcher {}{}", seq_id, actual_denom).as_str());
     let packet: FungibleTokenPacketData = from_json(req.data.unwrap())?;
     let packet_amount = Uint128::from_str(packet.amount.as_str())?;
 
     // If given ibc-transfer for given receiver on the remote chain fails then
     // current contract owns these tokens right now. Memorize in the map, that
-    // for given user our contract possess these failed-to-process tokens
+    // for given user our contract obtains these failed-to-process tokens
     FAILED_TRANSFERS.update(
         deps.storage,
         packet.receiver,
