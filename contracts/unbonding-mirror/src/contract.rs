@@ -475,9 +475,10 @@ pub fn finalize_withdraw(
                 ),
                 attr("amount", coin_attr.to_string()),
             ];
-            let mut coins = REPLY_TRANSFER_COINS.load(deps.storage)?;
-            coins.push_back(coin_attr);
-            REPLY_TRANSFER_COINS.save(deps.storage, &coins)?;
+            REPLY_TRANSFER_COINS.update(deps.storage, |mut reply_transfer_coins| {
+                reply_transfer_coins.push_back(coin_attr);
+                Ok::<VecDeque<Coin>, ContractError>(reply_transfer_coins)
+            })?;
             Ok(response("reply_finalize_withdraw", CONTRACT_NAME, attrs)
                 .add_submessages(vec![ibc_send_submsg]))
         }
@@ -556,9 +557,10 @@ pub fn finalize_unbond(
                 attr("ibc_timeout", ibc_timeout.to_string()),
                 attr("tf_denom", full_tf_denom.clone()),
             ];
-            let mut coins = REPLY_TRANSFER_COINS.load(deps.storage)?;
-            coins.push_back(coin);
-            REPLY_TRANSFER_COINS.save(deps.storage, &coins)?;
+            REPLY_TRANSFER_COINS.update(deps.storage, |mut reply_transfer_coins| {
+                reply_transfer_coins.push_back(coin);
+                Ok::<VecDeque<Coin>, ContractError>(reply_transfer_coins)
+            })?;
             TF_DENOM_TO_NFT_ID.save(deps.storage, full_tf_denom, nft_name)?;
             REPLY_RECEIVERS.remove(deps.storage, unbond_reply_id);
             Ok(response("reply_finalize_unbond", CONTRACT_NAME, attrs)
