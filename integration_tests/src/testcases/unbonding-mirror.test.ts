@@ -1632,37 +1632,13 @@ describe('Unbonding mirror', () => {
       });
 
       it('retry', async () => {
-        const {
-          unbondingMirrorClient,
-          neutronUserAddress,
-          gaiaUserAddress,
-          neutronIBCDenom,
-          client,
-        } = context;
-        console.log(
-          JSON.stringify(
-            await unbondingMirrorClient.queryFailedReceiver({
-              receiver: gaiaUserAddress,
-            }),
-            null,
-            2,
-          ),
-        );
-        console.log(
-          JSON.stringify(
-            await client.getBalance(
-              unbondingMirrorClient.contractAddress,
-              neutronIBCDenom,
-            ),
-          ),
-        );
-        await sleep(360_000);
+        const { unbondingMirrorClient, neutronUserAddress, gaiaUserAddress } =
+          context;
         await unbondingMirrorClient.retry(
           neutronUserAddress,
           { receiver: gaiaUserAddress },
           1.5,
         );
-        await sleep(10_000);
         expect(
           await unbondingMirrorClient.queryFailedReceiver({
             receiver: gaiaUserAddress,

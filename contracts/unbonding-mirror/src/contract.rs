@@ -537,13 +537,6 @@ fn sudo_error(
 ) -> ContractResult<Response<NeutronMsg>> {
     let packet: FungibleTokenPacketData = from_json(req.data.unwrap())?;
     let packet_amount = Uint128::from_str(packet.amount.as_str())?;
-    deps.api.debug(
-        format!(
-            "WASMDEBUG: contract denom is {}{}",
-            packet.denom, packet_amount
-        )
-        .as_str(),
-    );
 
     // If given ibc-transfer for given receiver on the remote chain fails then
     // current contract owns these tokens right now. Memorize in the map, that
