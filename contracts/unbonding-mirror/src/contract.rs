@@ -581,9 +581,8 @@ fn sudo_error(
     // instead of the original denomination. 123ibc/... -> 123transfer/channel-0/denom. In order to handle this
     // we're using a SUDO_SEQ_ID_TO_COIN map, where we store an IBC transfer sequence id with a denomination.
     // We get sequence id from the reply handler, where IBC transfer message is constructed. And then unwrap it here
-    let actual_denom = SUDO_SEQ_ID_TO_COIN
-        .load(deps.storage, req.sequence.unwrap())?
-        .denom;
+    let seq_id = req.sequence.unwrap();
+    let actual_denom = SUDO_SEQ_ID_TO_COIN.load(deps.storage, seq_id)?.denom;
     let packet: FungibleTokenPacketData = from_json(req.data.unwrap())?;
     let packet_amount = Uint128::from_str(packet.amount.as_str())?;
 
@@ -628,7 +627,7 @@ fn sudo_error(
             }]), // if receiver doesn't have any pending coins yet
         },
     )?;
-
+    SUDO_SEQ_ID_TO_COIN.remove(deps.storage, seq_id);
     Ok(response(ty, CONTRACT_NAME, Vec::<Attribute>::new()))
 }
 

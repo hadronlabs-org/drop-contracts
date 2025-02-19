@@ -2199,6 +2199,7 @@ fn test_sudo_error_timeout_update_existing_denom_amount() {
             amount: Uint128::from(223u128),
         }]
     );
+    SUDO_SEQ_ID_TO_COIN.load(&deps.storage, 0u64).unwrap_err();
 }
 
 #[test]
@@ -2255,6 +2256,7 @@ fn test_sudo_error_timeout_create_new_schedule() {
             amount: Uint128::from(123u128),
         }]
     );
+    SUDO_SEQ_ID_TO_COIN.load(&deps.storage, 0u64).unwrap_err();
 }
 
 #[test]
@@ -2327,4 +2329,5 @@ fn test_sudo_error_timeout_add_new_denom() {
             }
         ]
     );
+    SUDO_SEQ_ID_TO_COIN.load(&deps.storage, 0u64).unwrap_err();
 }
