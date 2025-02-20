@@ -1,6 +1,7 @@
 use crate::error::{ContractError, ContractResult};
 use crate::msg::{
-    ExecuteMsg, FailedReceiverResponse, FungibleTokenPacketData, InstantiateMsg, QueryMsg,
+    ExecuteMsg, FailedReceiverResponse, FungibleTokenPacketData, InstantiateMsg, MigrateMsg,
+    QueryMsg,
 };
 use crate::state::{
     Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, IBC_TRANSFER_SUDO_REPLY_ID,
@@ -328,13 +329,12 @@ fn execute_update_config(
             attrs.push(attr("source_channel", &source_channel));
             config.source_channel = source_channel;
         }
-        let res: cosmwasm_std::ChannelResponse = deps
-            .querier
-            .query(&cosmwasm_std::QueryRequest::Ibc(IbcQuery::Channel {
-                channel_id: config.source_channel.clone(),
-                port_id: Some(config.source_port.clone()),
-            }))
-            .unwrap();
+        let res: cosmwasm_std::ChannelResponse =
+            deps.querier
+                .query(&cosmwasm_std::QueryRequest::Ibc(IbcQuery::Channel {
+                    channel_id: config.source_channel.clone(),
+                    port_id: Some(config.source_port.clone()),
+                }))?;
         if res.channel.is_none() {
             return Err(ContractError::SourceChannelNotFound);
         }
@@ -419,13 +419,17 @@ pub fn finalize_withdraw(
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg.result {
         cosmwasm_std::SubMsgResult::Ok(res) => {
+            let receiver_opt = WITHDRAW_REPLY_RECEIVER.may_load(deps.storage)?;
+            if receiver_opt.is_none() {
+                return Err(ContractError::ReceiverNotSet {});
+            }
+            let receiver = receiver_opt.unwrap(); // safe because of if-block above
             let Config {
                 source_channel,
                 source_port,
                 ibc_timeout,
                 ..
             } = CONFIG.load(deps.storage)?;
-            let receiver = WITHDRAW_REPLY_RECEIVER.load(deps.storage)?;
             let transfer_event = res
                 .events
                 .iter()
@@ -470,6 +474,7 @@ pub fn finalize_withdraw(
                 reply_transfer_coins.push_back(coin_attr);
                 Ok::<VecDeque<Coin>, ContractError>(reply_transfer_coins)
             })?;
+            WITHDRAW_REPLY_RECEIVER.remove(deps.storage);
             Ok(response("reply_finalize_withdraw", CONTRACT_NAME, attrs)
                 .add_submessages(vec![ibc_send_submsg]))
         }
@@ -484,13 +489,17 @@ pub fn finalize_unbond(
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg.result {
         cosmwasm_std::SubMsgResult::Ok(res) => {
+            let receiver_opt = UNBOND_REPLY_RECEIVER.may_load(deps.storage)?;
+            if receiver_opt.is_none() {
+                return Err(ContractError::ReceiverNotSet {});
+            }
+            let receiver = receiver_opt.unwrap(); // safe because of if-block above
             let Config {
                 source_port,
                 source_channel,
                 ibc_timeout,
                 ..
             } = CONFIG.load(deps.storage)?;
-            let receiver = UNBOND_REPLY_RECEIVER.load(deps.storage)?;
             let nft_mint_event = res
                 .events
                 .iter()
@@ -551,6 +560,7 @@ pub fn finalize_unbond(
                 Ok::<VecDeque<Coin>, ContractError>(reply_transfer_coins)
             })?;
             TF_DENOM_TO_NFT_ID.save(deps.storage, full_tf_denom, nft_name)?;
+            UNBOND_REPLY_RECEIVER.remove(deps.storage);
             Ok(response("reply_finalize_unbond", CONTRACT_NAME, attrs)
                 .add_messages(vec![tf_create_denom_msg, tf_mint_voucher_msg])
                 .add_submessage(ibc_transfer_submsg))
@@ -626,4 +636,21 @@ fn parse_nft(nft_id: String) -> Result<(u64, u64), ContractError> {
         }
     }
     Err(ContractError::NFTParseError {})
+}
+
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    _msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
+    let storage_contract_name = contract_version_metadata.contract.as_str();
+    if storage_contract_name != CONTRACT_NAME {
+        return Err(ContractError::MigrationError {
+            storage_contract_name: storage_contract_name.to_string(),
+            contract_name: CONTRACT_NAME.to_string(),
+        });
+    }
+    Ok(Response::new())
 }

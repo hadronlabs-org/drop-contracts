@@ -58,6 +58,9 @@ pub enum ContractError {
     #[error("IBC timeout out of range")]
     IbcTimeoutOutOfRange,
 
+    #[error("Receiver wasn't set properly")]
+    ReceiverNotSet,
+
     #[error("Can't migrate from {storage_contract_name} to {contract_name}")]
     MigrationError {
         storage_contract_name: String,
