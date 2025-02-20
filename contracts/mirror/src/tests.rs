@@ -18,7 +18,7 @@ use cosmwasm_std::{
 use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use drop_helpers::testing::mock_dependencies;
-use neutron_sdk::bindings::msg::{IbcFee, NeutronMsg};
+use neutron_sdk::bindings::msg::{IbcFee, MsgIbcTransferResponse, NeutronMsg};
 use neutron_sdk::query::min_ibc_fee::MinIbcFeeResponse;
 use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, TransferSudoMsg};
 
@@ -1207,6 +1207,162 @@ fn test_execute_reply_finalize_bond_no_tokens_minted_amount_found() {
     )
     .unwrap_err();
     assert_eq!(res, ContractError::NoTokensMintedAmountFound {});
+}
+
+#[test]
+fn test_reply_store_seq_id_invalid_type() {
+    let mut deps = mock_dependencies(&[]);
+    REPLY_TRANSFER_COINS
+        .save(
+            deps.as_mut().storage,
+            &VecDeque::from_iter(
+                [Coin {
+                    denom: "reply_transfer_coin".to_string(),
+                    amount: Uint128::from(1u128),
+                }]
+                .iter()
+                .cloned(),
+            ),
+        )
+        .unwrap();
+    let res = reply(
+        deps.as_mut(),
+        mock_env(),
+        Reply {
+            id: IBC_TRANSFER_SUDO_REPLY_ID,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![Event::new("wasm").add_attribute("token_id", "1_neutron..._123")],
+                data: Some(to_json_binary(&"wrong_data".to_string()).unwrap()),
+            }),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        ContractError::Std(cosmwasm_std::StdError::GenericErr {
+            msg: "failed to parse response: InvalidType".to_string()
+        })
+    );
+}
+
+#[test]
+fn test_reply_store_seq_id() {
+    let mut deps = mock_dependencies(&[]);
+    REPLY_TRANSFER_COINS
+        .save(
+            deps.as_mut().storage,
+            &VecDeque::from_iter(
+                [Coin {
+                    denom: "reply_transfer_coin".to_string(),
+                    amount: Uint128::from(1u128),
+                }]
+                .iter()
+                .cloned(),
+            ),
+        )
+        .unwrap();
+    let res: Response<NeutronMsg> = reply(
+        deps.as_mut(),
+        mock_env(),
+        Reply {
+            id: IBC_TRANSFER_SUDO_REPLY_ID,
+            result: SubMsgResult::Ok(SubMsgResponse {
+                events: vec![],
+                data: Some(
+                    to_json_binary(&MsgIbcTransferResponse {
+                        sequence_id: 0u64,
+                        channel: "channel".to_string(),
+                    })
+                    .unwrap(),
+                ),
+            }),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new().add_event(
+            Event::new("crates.io:drop-staking__drop-mirror-reply_store_seq_id").add_attributes(
+                vec![
+                    attr("action", "store_seq_id"),
+                    attr(
+                        "popped",
+                        Coin {
+                            denom: "reply_transfer_coin".to_string(),
+                            amount: Uint128::from(1u128),
+                        }
+                        .to_string()
+                    )
+                ]
+            )
+        )
+    );
+    assert_eq!(
+        REPLY_TRANSFER_COINS.load(&deps.storage).unwrap(),
+        VecDeque::new()
+    );
+}
+
+#[test]
+fn test_reply_store_seq_id_take_from_queue() {
+    let mut deps = mock_dependencies(&[]);
+    REPLY_TRANSFER_COINS
+        .save(
+            deps.as_mut().storage,
+            &VecDeque::from_iter(
+                [
+                    Coin {
+                        denom: "denom1".to_string(),
+                        amount: Uint128::from(1u128),
+                    },
+                    Coin {
+                        denom: "denom2".to_string(),
+                        amount: Uint128::from(2u128),
+                    },
+                    Coin {
+                        denom: "denom3".to_string(),
+                        amount: Uint128::from(3u128),
+                    },
+                ]
+                .iter()
+                .cloned(),
+            ),
+        )
+        .unwrap();
+    for coin in REPLY_TRANSFER_COINS.load(deps.as_ref().storage).unwrap() {
+        let res: Response<NeutronMsg> = reply(
+            deps.as_mut(),
+            mock_env(),
+            Reply {
+                id: IBC_TRANSFER_SUDO_REPLY_ID,
+                result: SubMsgResult::Ok(SubMsgResponse {
+                    events: vec![],
+                    data: Some(
+                        to_json_binary(&MsgIbcTransferResponse {
+                            sequence_id: 0u64,
+                            channel: "channel".to_string(),
+                        })
+                        .unwrap(),
+                    ),
+                }),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            res,
+            Response::new().add_event(
+                Event::new("crates.io:drop-staking__drop-mirror-reply_store_seq_id")
+                    .add_attributes(vec![
+                        attr("action", "store_seq_id"),
+                        attr("popped", coin.to_string())
+                    ])
+            )
+        );
+    }
+    assert_eq!(
+        REPLY_TRANSFER_COINS.load(&deps.storage).unwrap(),
+        VecDeque::new()
+    );
 }
 
 #[test]
