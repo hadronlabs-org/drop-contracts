@@ -1030,7 +1030,7 @@ describe('Unbonding mirror', () => {
         const response = await unbondingMirrorClient.queryFailedReceiver({
           receiver: gaiaUserAddress,
         });
-        response.amount = response.amount.sort((coin1, coin2) =>
+        response.debt = response.debt.sort((coin1, coin2) =>
           coin1.denom.localeCompare(coin2.denom),
         );
         expect(response).toEqual({
@@ -1082,7 +1082,7 @@ describe('Unbonding mirror', () => {
         const response = await unbondingMirrorClient.queryFailedReceiver({
           receiver: gaiaUserAddress,
         });
-        response.amount = response.amount.sort((coin1, coin2) =>
+        response.debt = response.debt.sort((coin1, coin2) =>
           coin1.denom.localeCompare(coin2.denom),
         );
         expect(response).toEqual({
@@ -1699,11 +1699,11 @@ describe('Unbonding mirror', () => {
           receiver: gaiaUserAddress,
         });
         expect(
-          response.amount
+          response.debt
             .map((coin) => Number(coin.amount))
             .reduce((a, b) => a + b, 0) / Math.pow(10, 2),
         ).toBeCloseTo(20.0, 1); // it's the same denom
-        expect(response.amount).toHaveLength(2);
+        expect(response.debt).toHaveLength(2);
       });
 
       it('turn off relayer', async () => {
@@ -1737,11 +1737,11 @@ describe('Unbonding mirror', () => {
           receiver: gaiaUserAddress,
         });
         expect(
-          response.amount
+          response.debt
             .map((coin) => Number(coin.amount))
             .reduce((a, b) => a + b, 0) / Math.pow(10, 2),
         ).toBeCloseTo(20.0, 1); // it's the same denom
-        expect(response.amount).toHaveLength(2);
+        expect(response.debt).toHaveLength(2);
       });
 
       it('restore IBC timeout back to 3600', async () => {

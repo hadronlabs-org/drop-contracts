@@ -14,7 +14,7 @@ import { StdFee } from "@cosmjs/amino";
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type ArrayOfTupleOfStringAndArrayOfCoin = [string, Coin[]][];
+export type ArrayOfFailedReceiverResponse = FailedReceiverResponse[];
 export type NullableFailedReceiverResponse = FailedReceiverResponse | null;
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
@@ -68,16 +68,15 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropUnbondingMirrorSchema {
-  responses:
-    | ArrayOfTupleOfStringAndArrayOfCoin
-    | Config
-    | NullableFailedReceiverResponse
-    | OwnershipForString
-    | Boolean;
+  responses: ArrayOfFailedReceiverResponse | Config | NullableFailedReceiverResponse | OwnershipForString | Boolean;
   query: FailedReceiverArgs | UnbondReadyArgs;
   execute: UpdateConfigArgs | WithdrawArgs | UnbondArgs | RetryArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
+}
+export interface FailedReceiverResponse {
+  debt: Coin[];
+  receiver: string;
 }
 export interface Coin {
   amount: Uint128;
@@ -93,10 +92,6 @@ export interface Config {
   source_port: string;
   withdrawal_manager: string;
   withdrawal_voucher: string;
-}
-export interface FailedReceiverResponse {
-  amount: Coin[];
-  receiver: string;
 }
 /**
  * The contract's ownership info
@@ -207,7 +202,7 @@ export class Client {
   queryFailedReceiver = async(args: FailedReceiverArgs): Promise<NullableFailedReceiverResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { failed_receiver: args });
   }
-  queryAllFailed = async(): Promise<ArrayOfTupleOfStringAndArrayOfCoin> => {
+  queryAllFailed = async(): Promise<ArrayOfFailedReceiverResponse> => {
     return this.client.queryContractSmart(this.contractAddress, { all_failed: {} });
   }
   queryUnbondReady = async(args: UnbondReadyArgs): Promise<Boolean> => {
