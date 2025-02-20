@@ -1666,7 +1666,7 @@ describe('Unbonding mirror', () => {
         const { neutronUserAddress, gaiaUserAddress, unbondingMirrorClient } =
           context;
         for (const denom of denomsMirror.map((denom) => denom.neutronDenom)) {
-          const { transactionHash } = await unbondingMirrorClient.withdraw(
+          await unbondingMirrorClient.withdraw(
             neutronUserAddress,
             {
               receiver: gaiaUserAddress,
@@ -1675,7 +1675,6 @@ describe('Unbonding mirror', () => {
             undefined,
             [{ denom: denom, amount: '1' }],
           );
-          console.log(transactionHash);
         }
         await sleep(10_000); // make these packets to outlive their validity
       });

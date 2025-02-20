@@ -3,9 +3,9 @@ use crate::msg::{
     ExecuteMsg, FailedReceiverResponse, FungibleTokenPacketData, InstantiateMsg, QueryMsg,
 };
 use crate::state::{
-    Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, IBC_TRANSFER_SUDO_REPLY_ID, REPLY_RECEIVERS,
+    Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, IBC_TRANSFER_SUDO_REPLY_ID,
     REPLY_TRANSFER_COINS, SUDO_SEQ_ID_TO_COIN, TF_DENOM_TO_NFT_ID, TIMEOUT_RANGE, UNBOND_REPLY_ID,
-    WITHDRAW_REPLY_ID,
+    UNBOND_REPLY_RECEIVER, WITHDRAW_REPLY_ID, WITHDRAW_REPLY_RECEIVER,
 };
 use cosmwasm_std::{
     attr, ensure, from_json, to_json_binary, Attribute, Binary, Coin, CosmosMsg, Deps, DepsMut,
@@ -62,8 +62,6 @@ pub fn instantiate(
             retry_limit: msg.retry_limit,
         },
     )?;
-    UNBOND_REPLY_ID.save(deps.storage, &0u64)?;
-    WITHDRAW_REPLY_ID.save(deps.storage, &(u32::MAX as u64))?;
     REPLY_TRANSFER_COINS.save(deps.storage, &VecDeque::<Coin>::new())?;
     let attrs = vec![
         attr("action", "instantiate"),
@@ -178,7 +176,6 @@ fn execute_withdraw(
     bech32::decode(&receiver).map_err(|_| ContractError::WrongReceiverAddress)?;
 
     let nft_id = TF_DENOM_TO_NFT_ID.load(deps.storage, coin.denom.clone())?;
-    let withdraw_reply_id: u64 = WITHDRAW_REPLY_ID.load(deps.storage)? + 1;
     let withdraw_submsg: SubMsg<NeutronMsg> = SubMsg::reply_on_success(
         CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: withdrawal_voucher.clone(),
@@ -195,15 +192,16 @@ fn execute_withdraw(
             )?,
             funds: vec![],
         }),
-        withdraw_reply_id,
+        WITHDRAW_REPLY_ID,
     );
     let tf_burn_msg = CosmosMsg::Custom(NeutronMsg::submit_burn_tokens(
         coin.denom.clone(),
         coin.amount,
     ));
-    WITHDRAW_REPLY_ID.save(deps.storage, &withdraw_reply_id)?;
-    REPLY_RECEIVERS.save(deps.storage, withdraw_reply_id, &receiver)?;
-    // we successfully exchange tf denom back to NFT and NFT to native assets.
+    // We can't pass receiver directly to reply from withdraw execution
+    // The only way to pass it is to overwrite receiver here and then read in reply
+    WITHDRAW_REPLY_RECEIVER.save(deps.storage, &receiver)?;
+    // We successfully exchange tf denom back to NFT and NFT to native assets.
     // No need to keep this relation anymore
     TF_DENOM_TO_NFT_ID.remove(deps.storage, coin.denom.clone());
     let attrs: Vec<Attribute> = vec![
@@ -211,7 +209,7 @@ fn execute_withdraw(
         attr("voucher_amount", coin.to_string()),
         attr("withdrawal_manager", withdrawal_manager),
         attr("withdrawal_voucher", withdrawal_voucher),
-        attr("withdraw_reply_id", withdraw_reply_id.to_string()),
+        attr("withdraw_reply_receiver", receiver.to_string()),
         attr("burn", coin.to_string()),
     ];
     Ok(response("execute_withdraw", CONTRACT_NAME, attrs)
@@ -358,19 +356,17 @@ fn execute_unbond(
     );
     bech32::decode(&receiver).map_err(|_| ContractError::WrongReceiverAddress)?;
 
-    // We can't pass receiver directly to reply from unbond execution
-    // The only way to pass it is to overwrite receiver here and then read in reply
-    let unbond_reply_id: u64 = UNBOND_REPLY_ID.load(deps.storage)? + 1;
-    UNBOND_REPLY_ID.save(deps.storage, &unbond_reply_id)?;
-    REPLY_RECEIVERS.save(deps.storage, unbond_reply_id, &receiver)?;
     let submsg: SubMsg<NeutronMsg> = SubMsg::reply_on_success(
         WasmMsg::Execute {
             contract_addr: config.core_contract,
             msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::Unbond {})?,
             funds: vec![coin.clone()],
         },
-        unbond_reply_id,
+        UNBOND_REPLY_ID,
     );
+    // We can't pass receiver directly to reply from unbond execution
+    // The only way to pass it is to overwrite receiver here and then read in reply
+    UNBOND_REPLY_RECEIVER.save(deps.storage, &receiver.to_string())?;
     let attrs = vec![attr("receiver", receiver)];
     Ok(response("execute_unbond", CONTRACT_NAME, attrs).add_submessage(submsg))
 }
@@ -381,16 +377,11 @@ pub fn reply(
     env: Env,
     msg: Reply,
 ) -> ContractResult<Response<NeutronMsg>> {
-    const U32_MAX_AS_U64: u64 = u32::MAX as u64;
-    /*
-       |         unbond         |                 withdraw                |   ibc_transfer_sudo_reply   |
-       | 0 --- ... --- u32::MAX | u32::MAX + 1 --- ... --- (u64::MAX - 1) |           u64::MAX          |
-       <-------------------------------------- u64::MAX ------------------------------------------------>
-    */
     match msg.id {
         IBC_TRANSFER_SUDO_REPLY_ID => store_seq_id(deps, env, msg),
-        0..=U32_MAX_AS_U64 => finalize_unbond(deps, env, msg),
-        _ => finalize_withdraw(deps, env, msg),
+        UNBOND_REPLY_ID => finalize_unbond(deps, env, msg),
+        WITHDRAW_REPLY_ID => finalize_withdraw(deps, env, msg),
+        _ => unimplemented!(),
     }
 }
 
@@ -433,8 +424,7 @@ pub fn finalize_withdraw(
                 ibc_timeout,
                 ..
             } = CONFIG.load(deps.storage)?;
-            let withdraw_reply_id: u64 = msg.id;
-            let receiver = REPLY_RECEIVERS.load(deps.storage, withdraw_reply_id)?;
+            let receiver = WITHDRAW_REPLY_RECEIVER.load(deps.storage)?;
             let transfer_event = res
                 .events
                 .iter()
@@ -499,8 +489,7 @@ pub fn finalize_unbond(
                 ibc_timeout,
                 ..
             } = CONFIG.load(deps.storage)?;
-            let unbond_reply_id: u64 = msg.id;
-            let receiver = REPLY_RECEIVERS.load(deps.storage, unbond_reply_id)?;
+            let receiver = UNBOND_REPLY_RECEIVER.load(deps.storage)?;
             let nft_mint_event = res
                 .events
                 .iter()
@@ -549,7 +538,6 @@ pub fn finalize_unbond(
             );
             let attrs = vec![
                 attr("action", "reply_finalize_bond"),
-                attr("reply_id", unbond_reply_id.to_string()),
                 attr("nft", nft_name),
                 attr("to_address", receiver.clone()),
                 attr("source_port", source_port.to_string()),
@@ -562,7 +550,6 @@ pub fn finalize_unbond(
                 Ok::<VecDeque<Coin>, ContractError>(reply_transfer_coins)
             })?;
             TF_DENOM_TO_NFT_ID.save(deps.storage, full_tf_denom, nft_name)?;
-            REPLY_RECEIVERS.remove(deps.storage, unbond_reply_id);
             Ok(response("reply_finalize_unbond", CONTRACT_NAME, attrs)
                 .add_messages(vec![tf_create_denom_msg, tf_mint_voucher_msg])
                 .add_submessage(ibc_transfer_submsg))

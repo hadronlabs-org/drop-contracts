@@ -34,15 +34,16 @@ pub struct TimeoutRange {
 }
 
 const TIMEOUT_30D: u64 = 2592000;
-pub const IBC_TRANSFER_SUDO_REPLY_ID: u64 = u64::MAX;
+pub const IBC_TRANSFER_SUDO_REPLY_ID: u64 = 0;
+pub const WITHDRAW_REPLY_ID: u64 = 1;
+pub const UNBOND_REPLY_ID: u64 = 2;
 
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const SUDO_SEQ_ID_TO_COIN: Map<u64, Coin> = Map::new("sudo_seq_id_to_coin");
 pub const REPLY_TRANSFER_COINS: Item<VecDeque<Coin>> = Item::new("reply_transfer_coins");
-pub const UNBOND_REPLY_ID: Item<u64> = Item::new("unbond_reply_id");
-pub const WITHDRAW_REPLY_ID: Item<u64> = Item::new("withdraw_reply_id");
-// Do we really need this map?
-pub const REPLY_RECEIVERS: Map<u64, String> = Map::new("reply_receivers");
+pub const UNBOND_REPLY_RECEIVER: Item<String> = Item::new("unbond_reply_receiver");
+pub const WITHDRAW_REPLY_RECEIVER: Item<String> = Item::new("withdraw_reply_receiver");
+
 pub const FAILED_TRANSFERS: Map<String, Vec<Coin>> = Map::new("failed_transfers");
 pub const TF_DENOM_TO_NFT_ID: Map<String, String> = Map::new("tf_denom_to_nft_id");
 pub const TIMEOUT_RANGE: TimeoutRange = TimeoutRange {
