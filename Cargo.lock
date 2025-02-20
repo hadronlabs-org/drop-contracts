@@ -766,6 +766,7 @@ dependencies = [
  "drop-staking-base",
  "neutron-sdk",
  "semver",
+ "serde-json-wasm 1.0.1",
  "thiserror",
 ]
 

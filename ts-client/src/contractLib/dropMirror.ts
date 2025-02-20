@@ -77,6 +77,7 @@ export interface Config {
   core_contract: string;
   ibc_timeout: number;
   prefix: string;
+  retry_limit: number;
   source_channel: string;
   source_port: string;
 }
@@ -120,6 +121,7 @@ export interface ConfigOptional {
   core_contract?: string | null;
   ibc_timeout?: number | null;
   prefix?: string | null;
+  retry_limit?: number | null;
   source_channel?: string | null;
   source_port?: string | null;
 }
@@ -131,6 +133,7 @@ export interface InstantiateMsg {
   ibc_timeout: number;
   owner?: string | null;
   prefix: string;
+  retry_limit: number;
   source_channel: string;
   source_port: string;
 }

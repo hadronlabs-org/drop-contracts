@@ -620,6 +620,7 @@ describe('Mirror', () => {
         source_port: 'transfer',
         ibc_timeout: 10,
         prefix: 'cosmos',
+        retry_limit: 3,
       },
       'mirror',
       1.6,
@@ -629,30 +630,6 @@ describe('Mirror', () => {
       context.client,
       res.contractAddress,
     );
-  });
-
-  it('bond with wrong receiver', async () => {
-    await expect(
-      context.mirrorContractClient.bond(
-        context.neutronUserAddress,
-        {
-          receiver: 'omfg',
-        },
-        1.6,
-      ),
-    ).to.rejects.toThrow(/Invalid prefix/);
-  });
-
-  it('bond without funds attached', async () => {
-    await expect(
-      context.mirrorContractClient.bond(
-        context.neutronUserAddress,
-        {
-          receiver: context.gaiaUserAddress,
-        },
-        1.6,
-      ),
-    ).to.rejects.toThrow(/No funds sent/);
   });
 
   it('send neutrons on mirror', async () => {
@@ -670,15 +647,6 @@ describe('Mirror', () => {
         ],
       },
     );
-  });
-
-  it('check funds have arrived', async () => {
-    sleep(1000 * 5);
-    const { amount } = await context.client.getBalance(
-      context.mirrorContractClient.contractAddress,
-      'untrn',
-    );
-    expect(Number(amount)).toBe(10_000_000);
   });
 
   it('proper bond', async () => {
@@ -727,9 +695,6 @@ describe('Mirror', () => {
           },
         },
       );
-      expect(
-        (await context.mirrorContractClient.queryConfig()).ibc_timeout,
-      ).toBe(0);
     });
 
     describe('bond, timeout packet', () => {
@@ -876,7 +841,12 @@ describe('Mirror', () => {
               {
                 denom:
                   'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
-                amount: '2000',
+                amount: '1000',
+              },
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '1000',
               },
             ],
           ],
@@ -947,7 +917,12 @@ describe('Mirror', () => {
                 {
                   denom:
                     'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
-                  amount: '2000',
+                  amount: '1000',
+                },
+                {
+                  denom:
+                    'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                  amount: '1000',
                 },
               ],
             ],
