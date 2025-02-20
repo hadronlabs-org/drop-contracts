@@ -265,9 +265,10 @@ fn execute_retry(
                 .filter(|receiver_new_coin| receiver_new_coin.denom != coin.denom)
                 .cloned()
                 .collect::<Vec<Coin>>();
-            let mut coins = REPLY_TRANSFER_COINS.load(deps.storage)?;
-            coins.push_back(coin.clone());
-            REPLY_TRANSFER_COINS.save(deps.storage, &coins)?;
+            REPLY_TRANSFER_COINS.update(deps.storage, |mut reply_transfer_coins| {
+                reply_transfer_coins.push_back(coin.clone());
+                Ok::<VecDeque<Coin>, ContractError>(reply_transfer_coins)
+            })?;
             attrs.push(attr("receiver", receiver.clone()));
             attrs.push(attr("amount", coin.to_string()));
         }
