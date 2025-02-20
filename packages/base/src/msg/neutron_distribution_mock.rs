@@ -5,7 +5,7 @@ pub struct InstantiateMsg {}
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    ClaimRewards { receiver: Option<String> },
+    ClaimRewards { to_address: Option<String> },
 }
 
 #[cw_serde]

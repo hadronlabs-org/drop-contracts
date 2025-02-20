@@ -403,7 +403,7 @@ fn execute_claim_rewards_and_optionaly_transfer(
         contract_addr: config.distribution_module_contract.to_string(),
         msg: to_json_binary(
             &drop_staking_base::msg::neutron_distribution_mock::ExecuteMsg::ClaimRewards {
-                receiver: Some(rewards_withdraw_addr.to_string()),
+                to_address: Some(rewards_withdraw_addr.to_string()),
             },
         )?,
         funds: vec![],

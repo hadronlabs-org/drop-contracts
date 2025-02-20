@@ -30,9 +30,9 @@ pub fn execute(
 ) -> ContractResult<Response<NeutronMsg>> {
     let mut response = Response::new();
     match msg {
-        ExecuteMsg::ClaimRewards { receiver } => {
-            let user = if let Some(receiver) = receiver {
-                deps.api.addr_validate(&receiver)?
+        ExecuteMsg::ClaimRewards { to_address } => {
+            let user = if let Some(to_address) = to_address {
+                deps.api.addr_validate(&to_address)?
             } else {
                 info.sender
             };
