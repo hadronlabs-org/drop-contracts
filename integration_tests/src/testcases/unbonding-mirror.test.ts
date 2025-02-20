@@ -1703,6 +1703,7 @@ describe('Unbonding mirror', () => {
             .map((coin) => Number(coin.amount))
             .reduce((a, b) => a + b, 0) / Math.pow(10, 2),
         ).toBeCloseTo(20.0, 1); // it's the same denom
+        expect(response.amount).toHaveLength(2);
       });
 
       it('turn off relayer', async () => {
@@ -1740,6 +1741,7 @@ describe('Unbonding mirror', () => {
             .map((coin) => Number(coin.amount))
             .reduce((a, b) => a + b, 0) / Math.pow(10, 2),
         ).toBeCloseTo(20.0, 1); // it's the same denom
+        expect(response.amount).toHaveLength(2);
       });
 
       it('restore IBC timeout back to 3600', async () => {

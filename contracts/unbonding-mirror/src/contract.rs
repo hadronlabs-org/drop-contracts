@@ -583,52 +583,20 @@ fn sudo_error(
     // We get sequence id from the reply handler, where IBC transfer message is constructed. And then unwrap it here
     let seq_id = req.sequence.unwrap();
     let actual_denom = SUDO_SEQ_ID_TO_COIN.load(deps.storage, seq_id)?.denom;
-    deps.api
-        .debug(format!("WASMDEBUG sequence matcher {}{}", seq_id, actual_denom).as_str());
     let packet: FungibleTokenPacketData = from_json(req.data.unwrap())?;
     let packet_amount = Uint128::from_str(packet.amount.as_str())?;
 
     // If given ibc-transfer for given receiver on the remote chain fails then
     // current contract owns these tokens right now. Memorize in the map, that
     // for given user our contract obtains these failed-to-process tokens
-    FAILED_TRANSFERS.update(
-        deps.storage,
-        packet.receiver,
-        |current_debt| match current_debt {
-            Some(funds) => Ok::<Vec<Coin>, ContractError>(
-                // If given denom exist - just modify its amount
-                if funds.iter().any(|coin| coin.denom == actual_denom) {
-                    funds
-                        .iter()
-                        .map(|coin| {
-                            if coin.denom == actual_denom {
-                                Coin {
-                                    denom: coin.denom.clone(),
-                                    amount: coin.amount + packet_amount,
-                                }
-                            } else {
-                                coin.clone()
-                            }
-                        })
-                        .collect()
-                // If it doesn't exist - push it at the end
-                } else {
-                    funds
-                        .iter()
-                        .cloned()
-                        .chain(std::iter::once(Coin {
-                            denom: actual_denom.clone(),
-                            amount: packet_amount,
-                        }))
-                        .collect()
-                },
-            ),
-            None => Ok(vec![Coin {
-                denom: actual_denom,
-                amount: packet_amount,
-            }]), // if receiver doesn't have any pending coins yet
-        },
-    )?;
+    FAILED_TRANSFERS.update(deps.storage, packet.receiver, |current_debt| {
+        let mut new_debt = current_debt.unwrap_or_default();
+        new_debt.push(Coin {
+            denom: actual_denom,
+            amount: packet_amount,
+        });
+        Ok::<Vec<Coin>, ContractError>(new_debt)
+    })?;
     SUDO_SEQ_ID_TO_COIN.remove(deps.storage, seq_id);
     Ok(response(ty, CONTRACT_NAME, Vec::<Attribute>::new()))
 }
