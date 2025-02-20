@@ -2350,10 +2350,16 @@ fn test_sudo_error_timeout_update_existing_denom_amount() {
         FAILED_TRANSFERS
             .load(&deps.storage, "receiver".to_string())
             .unwrap(),
-        vec![Coin {
-            denom: "correct_denom".to_string(),
-            amount: Uint128::from(223u128),
-        }]
+        vec![
+            Coin {
+                denom: "correct_denom".to_string(),
+                amount: Uint128::from(100u128),
+            },
+            Coin {
+                denom: "correct_denom".to_string(),
+                amount: Uint128::from(123u128),
+            }
+        ]
     );
     SUDO_SEQ_ID_TO_COIN.load(&deps.storage, 0u64).unwrap_err();
 }
