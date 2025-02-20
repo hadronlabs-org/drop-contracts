@@ -729,16 +729,16 @@ describe('Mirror', () => {
     it("expect new assets to appear in contract's state", async () => {
       expect(await context.mirrorContractClient.queryAllFailed()).toStrictEqual(
         [
-          [
-            context.gaiaUserAddress,
-            [
+          {
+            receiver: context.gaiaUserAddress,
+            debt: [
               {
                 denom:
                   'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
                 amount: '1000',
               },
             ],
-          ],
+          },
         ],
       );
     });
@@ -773,31 +773,29 @@ describe('Mirror', () => {
     });
 
     it("expect new assets to appear in contract's state", async () => {
-      expect(
-        (await context.mirrorContractClient.queryAllFailed()).sort(),
-      ).toStrictEqual(
-        [
-          [
-            context.gaiaUserAddress,
-            [
+      expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+        expect.arrayContaining([
+          {
+            receiver: context.gaiaUserAddress2,
+            debt: [
               {
                 denom:
                   'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
                 amount: '1000',
               },
             ],
-          ],
-          [
-            context.gaiaUserAddress2,
-            [
+          },
+          {
+            receiver: context.gaiaUserAddress,
+            debt: [
               {
                 denom:
                   'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
                 amount: '1000',
               },
             ],
-          ],
-        ].sort(),
+          },
+        ]),
       );
     });
 
@@ -831,13 +829,11 @@ describe('Mirror', () => {
     });
 
     it("expect new assets to appear in contract's state", async () => {
-      expect(
-        (await context.mirrorContractClient.queryAllFailed()).sort(),
-      ).toStrictEqual(
-        [
-          [
-            context.gaiaUserAddress,
-            [
+      expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+        expect.arrayContaining([
+          {
+            receiver: context.gaiaUserAddress,
+            debt: [
               {
                 denom:
                   'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
@@ -849,18 +845,18 @@ describe('Mirror', () => {
                 amount: '1000',
               },
             ],
-          ],
-          [
-            context.gaiaUserAddress2,
-            [
+          },
+          {
+            receiver: context.gaiaUserAddress2,
+            debt: [
               {
                 denom:
                   'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
                 amount: '1000',
               },
             ],
-          ],
-        ].sort(),
+          },
+        ]),
       );
     });
 
@@ -881,16 +877,16 @@ describe('Mirror', () => {
         expect(
           await context.mirrorContractClient.queryAllFailed(),
         ).toStrictEqual([
-          [
-            context.gaiaUserAddress2,
-            [
+          {
+            receiver: context.gaiaUserAddress2,
+            debt: [
               {
                 denom:
                   'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
                 amount: '1000',
               },
             ],
-          ],
+          },
         ]);
         await sleep(10_000); // make this packet to outlive it's validity
       });
@@ -907,13 +903,11 @@ describe('Mirror', () => {
           30_000,
           5_000,
         );
-        expect(
-          (await context.mirrorContractClient.queryAllFailed()).sort(),
-        ).toStrictEqual(
-          [
-            [
-              context.gaiaUserAddress,
-              [
+        expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+          expect.arrayContaining([
+            {
+              receiver: context.gaiaUserAddress,
+              debt: [
                 {
                   denom:
                     'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
@@ -925,18 +919,18 @@ describe('Mirror', () => {
                   amount: '1000',
                 },
               ],
-            ],
-            [
-              context.gaiaUserAddress2,
-              [
+            },
+            {
+              receiver: context.gaiaUserAddress2,
+              debt: [
                 {
                   denom:
                     'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
                   amount: '1000',
                 },
               ],
-            ],
-          ].sort(),
+            },
+          ]),
         );
       });
     });
@@ -962,16 +956,16 @@ describe('Mirror', () => {
       );
       expect(await context.mirrorContractClient.queryAllFailed()).toStrictEqual(
         [
-          [
-            context.gaiaUserAddress2,
-            [
+          {
+            receiver: context.gaiaUserAddress2,
+            debt: [
               {
                 denom:
                   'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
                 amount: '1000',
               },
             ],
-          ],
+          },
         ],
       );
     });

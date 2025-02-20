@@ -977,15 +977,21 @@ fn test_query_all_failed() {
             &funds_in_debt,
         )
         .unwrap();
-    let res: Vec<(String, Vec<Coin>)> =
+    let res: Vec<FailedReceiverResponse> =
         from_json(query(deps.as_ref(), mock_env(), QueryMsg::AllFailed {}).unwrap()).unwrap();
-    assert_eq!(res, vec![("receiver".to_string(), funds_in_debt)]);
+    assert_eq!(
+        res,
+        vec![FailedReceiverResponse {
+            receiver: "receiver".to_string(),
+            debt: funds_in_debt
+        }]
+    );
 }
 
 #[test]
 fn test_query_all_failed_empty() {
     let deps = mock_dependencies(&[]);
-    let res: Vec<(String, Vec<Coin>)> =
+    let res: Vec<FailedReceiverResponse> =
         from_json(query(deps.as_ref(), mock_env(), QueryMsg::AllFailed {}).unwrap()).unwrap();
     assert_eq!(res, vec![]);
 }
@@ -1025,7 +1031,7 @@ fn test_query_failed_receiver() {
         res,
         Some(FailedReceiverResponse {
             receiver: "receiver".to_string(),
-            amount: funds_in_debt
+            debt: funds_in_debt
         })
     );
 }
@@ -1422,25 +1428,25 @@ fn test_execute_sudo_response() {
             "crates.io:drop-staking__drop-mirror-sudo_response"
         ))
     );
-    let all_failed: Vec<(String, Vec<Coin>)> =
+    let all_failed: Vec<FailedReceiverResponse> =
         from_json(query(deps.as_ref(), mock_env(), QueryMsg::AllFailed {}).unwrap()).unwrap();
     assert_eq!(
         all_failed,
         vec![
-            (
-                "receiver1".to_string(),
-                vec![Coin {
+            FailedReceiverResponse {
+                receiver: "receiver1".to_string(),
+                debt: vec![Coin {
                     denom: "denom".to_string(),
                     amount: Uint128::from(100u128),
                 }]
-            ),
-            (
-                "receiver2".to_string(),
-                vec![Coin {
+            },
+            FailedReceiverResponse {
+                receiver: "receiver2".to_string(),
+                debt: vec![Coin {
                     denom: "denom".to_string(),
                     amount: Uint128::from(100u128),
                 }]
-            )
+            },
         ]
     );
     SUDO_SEQ_ID_TO_COIN.load(&deps.storage, 0u64).unwrap_err();
@@ -1493,17 +1499,17 @@ fn test_execute_sudo_timeout() {
                 "crates.io:drop-staking__drop-mirror-sudo_timeout"
             ))
         );
-        let all_failed: Vec<(String, Vec<Coin>)> =
+        let all_failed: Vec<FailedReceiverResponse> =
             from_json(query(deps.as_ref(), mock_env(), QueryMsg::AllFailed {}).unwrap()).unwrap();
         assert_eq!(
             all_failed,
-            vec![(
-                "receiver1".to_string(),
-                vec![Coin {
+            vec![FailedReceiverResponse {
+                receiver: "receiver1".to_string(),
+                debt: vec![Coin {
                     denom: "denom1".to_string(),
                     amount: Uint128::from(100u128),
                 }]
-            )]
+            }]
         );
     }
     {
@@ -1549,13 +1555,13 @@ fn test_execute_sudo_timeout() {
                 "crates.io:drop-staking__drop-mirror-sudo_timeout"
             ))
         );
-        let all_failed: Vec<(String, Vec<Coin>)> =
+        let all_failed: Vec<FailedReceiverResponse> =
             from_json(query(deps.as_ref(), mock_env(), QueryMsg::AllFailed {}).unwrap()).unwrap();
         assert_eq!(
             all_failed,
-            vec![(
-                "receiver1".to_string(),
-                vec![
+            vec![FailedReceiverResponse {
+                receiver: "receiver1".to_string(),
+                debt: vec![
                     Coin {
                         denom: "denom1".to_string(),
                         amount: Uint128::from(100u128),
@@ -1565,7 +1571,7 @@ fn test_execute_sudo_timeout() {
                         amount: Uint128::from(100u128),
                     }
                 ]
-            )]
+            }]
         );
     }
     {
@@ -1611,13 +1617,13 @@ fn test_execute_sudo_timeout() {
                 "crates.io:drop-staking__drop-mirror-sudo_timeout"
             ))
         );
-        let all_failed: Vec<(String, Vec<Coin>)> =
+        let all_failed: Vec<FailedReceiverResponse> =
             from_json(query(deps.as_ref(), mock_env(), QueryMsg::AllFailed {}).unwrap()).unwrap();
         assert_eq!(
             all_failed,
-            vec![(
-                "receiver1".to_string(),
-                vec![
+            vec![FailedReceiverResponse {
+                receiver: "receiver1".to_string(),
+                debt: vec![
                     Coin {
                         denom: "denom1".to_string(),
                         amount: Uint128::from(100u128),
@@ -1631,7 +1637,7 @@ fn test_execute_sudo_timeout() {
                         amount: Uint128::from(200u128),
                     }
                 ]
-            )]
+            }]
         );
     }
     {
@@ -1677,14 +1683,14 @@ fn test_execute_sudo_timeout() {
                 "crates.io:drop-staking__drop-mirror-sudo_timeout"
             ))
         );
-        let all_failed: Vec<(String, Vec<Coin>)> =
+        let all_failed: Vec<FailedReceiverResponse> =
             from_json(query(deps.as_ref(), mock_env(), QueryMsg::AllFailed {}).unwrap()).unwrap();
         assert_eq!(
             all_failed,
             vec![
-                (
-                    "receiver1".to_string(),
-                    vec![
+                FailedReceiverResponse {
+                    receiver: "receiver1".to_string(),
+                    debt: vec![
                         Coin {
                             denom: "denom1".to_string(),
                             amount: Uint128::from(100u128),
@@ -1698,14 +1704,14 @@ fn test_execute_sudo_timeout() {
                             amount: Uint128::from(200u128),
                         }
                     ]
-                ),
-                (
-                    "receiver2".to_string(),
-                    vec![Coin {
+                },
+                FailedReceiverResponse {
+                    receiver: "receiver2".to_string(),
+                    debt: vec![Coin {
                         denom: "denom1".to_string(),
                         amount: Uint128::from(300u128),
                     },]
-                ),
+                },
             ]
         );
     }
@@ -1752,14 +1758,14 @@ fn test_execute_sudo_timeout() {
                 "crates.io:drop-staking__drop-mirror-sudo_timeout"
             ))
         );
-        let all_failed: Vec<(String, Vec<Coin>)> =
+        let all_failed: Vec<FailedReceiverResponse> =
             from_json(query(deps.as_ref(), mock_env(), QueryMsg::AllFailed {}).unwrap()).unwrap();
         assert_eq!(
             all_failed,
             vec![
-                (
-                    "receiver1".to_string(),
-                    vec![
+                FailedReceiverResponse {
+                    receiver: "receiver1".to_string(),
+                    debt: vec![
                         Coin {
                             denom: "denom1".to_string(),
                             amount: Uint128::from(100u128),
@@ -1773,10 +1779,10 @@ fn test_execute_sudo_timeout() {
                             amount: Uint128::from(200u128),
                         }
                     ]
-                ),
-                (
-                    "receiver2".to_string(),
-                    vec![
+                },
+                FailedReceiverResponse {
+                    receiver: "receiver2".to_string(),
+                    debt: vec![
                         Coin {
                             denom: "denom1".to_string(),
                             amount: Uint128::from(300u128),
@@ -1786,7 +1792,7 @@ fn test_execute_sudo_timeout() {
                             amount: Uint128::from(200u128),
                         }
                     ]
-                ),
+                },
             ]
         );
     }

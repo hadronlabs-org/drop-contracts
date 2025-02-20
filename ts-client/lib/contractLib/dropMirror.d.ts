@@ -14,7 +14,7 @@ import { StdFee } from "@cosmjs/amino";
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-export type ArrayOfTupleOfStringAndUint128 = [string, Uint128][];
+export type ArrayOfFailedReceiverResponse = FailedReceiverResponse[];
 export type NullableFailedReceiverResponse = FailedReceiverResponse | null;
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
@@ -60,10 +60,19 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropMirrorSchema {
-    responses: ArrayOfTupleOfStringAndUint128 | Config | NullableFailedReceiverResponse | OwnershipForString;
+    responses: ArrayOfFailedReceiverResponse | Config | NullableFailedReceiverResponse | OwnershipForString;
     query: FailedReceiverArgs;
     execute: BondArgs | UpdateConfigArgs | RetryArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
+    [k: string]: unknown;
+}
+export interface FailedReceiverResponse {
+    debt: Coin[];
+    receiver: string;
+}
+export interface Coin {
+    amount: Uint128;
+    denom: string;
     [k: string]: unknown;
 }
 export interface Config {
@@ -73,15 +82,6 @@ export interface Config {
     retry_limit: number;
     source_channel: string;
     source_port: string;
-}
-export interface FailedReceiverResponse {
-    amount: Coin[];
-    receiver: string;
-}
-export interface Coin {
-    amount: Uint128;
-    denom: string;
-    [k: string]: unknown;
 }
 /**
  * The contract's ownership info
@@ -139,7 +139,7 @@ export declare class Client {
     static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
     queryConfig: () => Promise<Config>;
     queryFailedReceiver: (args: FailedReceiverArgs) => Promise<NullableFailedReceiverResponse>;
-    queryAllFailed: () => Promise<ArrayOfTupleOfStringAndUint128>;
+    queryAllFailed: () => Promise<ArrayOfFailedReceiverResponse>;
     queryOwnership: () => Promise<OwnershipForString>;
     bond: (sender: string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
