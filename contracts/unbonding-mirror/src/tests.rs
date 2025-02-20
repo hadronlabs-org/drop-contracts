@@ -1451,7 +1451,7 @@ fn test_query_failed_receiver() {
         res,
         Some(FailedReceiverResponse {
             receiver: "failed_receiver".to_string(),
-            amount: vec![Coin {
+            debt: vec![Coin {
                 denom: "denom".to_string(),
                 amount: Uint128::from(100u128)
             }]
@@ -1488,21 +1488,21 @@ fn test_query_all_failed() {
             ],
         )
         .unwrap();
-    let res: Vec<(String, Vec<Coin>)> =
+    let res: Vec<FailedReceiverResponse> =
         from_json(query(deps.as_ref(), mock_env(), QueryMsg::AllFailed {}).unwrap()).unwrap();
     assert_eq!(
         res,
-        vec![
-            (
-                "failed_receiver1".to_string(),
-                vec![Coin {
+        [
+            FailedReceiverResponse {
+                receiver: "failed_receiver1".to_string(),
+                debt: vec![Coin {
                     denom: "denom1".to_string(),
                     amount: Uint128::from(100u128)
                 }]
-            ),
-            (
-                "failed_receiver2".to_string(),
-                vec![
+            },
+            FailedReceiverResponse {
+                receiver: "failed_receiver2".to_string(),
+                debt: vec![
                     Coin {
                         denom: "denom1".to_string(),
                         amount: Uint128::from(300u128)
@@ -1512,7 +1512,7 @@ fn test_query_all_failed() {
                         amount: Uint128::from(100u128)
                     }
                 ]
-            )
+            }
         ]
     );
 }

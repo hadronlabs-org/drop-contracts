@@ -28,7 +28,7 @@ pub enum ExecuteMsg {
 #[cw_serde]
 pub struct FailedReceiverResponse {
     pub receiver: String,
-    pub amount: Vec<Coin>,
+    pub debt: Vec<Coin>,
 }
 
 #[cw_ownable_query]
@@ -39,7 +39,7 @@ pub enum QueryMsg {
     Config {},
     #[returns(Option<FailedReceiverResponse>)]
     FailedReceiver { receiver: String },
-    #[returns(Vec<(String, Vec<Coin>)>)]
+    #[returns(Vec<FailedReceiverResponse>)]
     AllFailed {},
     #[returns(bool)]
     UnbondReady { id: String },
