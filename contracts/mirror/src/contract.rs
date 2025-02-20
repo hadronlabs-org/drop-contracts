@@ -161,11 +161,15 @@ fn execute_retry(
             attrs.push(attr("receiver", receiver.clone()));
             attrs.push(attr("amount", coin.to_string()));
         }
+        // During the IBC transfers we need to remove these funds from state so we can't call retry again for the same user
+        // If any IBC transaction fails then we restore failed transfers for given user in sudo-error
+        // It doesn't throw any exception if given key doesn't exist
+        if receiver_new_coins.is_empty() {
+            FAILED_TRANSFERS.remove(deps.storage, receiver);
+        } else {
+            FAILED_TRANSFERS.save(deps.storage, receiver, &receiver_new_coins)?;
+        }
     }
-    // During the IBC transfers we need to remove these funds from state so we can't call retry again for the same user
-    // If any IBC transaction fails then we restore failed transfers for given user in sudo-error
-    // It doesn't throw any exception if given key doesn't exist
-    FAILED_TRANSFERS.remove(deps.storage, receiver);
     Ok(response("execute_retry", CONTRACT_NAME, attrs).add_submessages(ibc_transfer_submsgs))
 }
 
@@ -250,7 +254,7 @@ pub fn execute_bond(
         BOND_REPLY_ID,
     );
     let attrs = vec![
-        attr("action", "bond"),
+        attr("action", "execute_bond"),
         attr("receiver", receiver.to_string()),
         attr("ref", r#ref.clone().unwrap_or_default()),
         attr("coin", coin.to_string()),
@@ -258,7 +262,7 @@ pub fn execute_bond(
     // We can't pass receiver directly to reply from bond execution
     // The only way to pass it is to overwrite receiver here and then read in reply
     BOND_REPLY_RECEIVER.save(deps.storage, &receiver)?;
-    Ok(response("bond", CONTRACT_NAME, attrs).add_submessage(msg))
+    Ok(response("execute_bond", CONTRACT_NAME, attrs).add_submessage(msg))
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
@@ -328,7 +332,6 @@ pub fn finalize_bond(
             )?;
             let attrs = vec![
                 attr("action", "reply_finalize_bond"),
-                attr("id", msg.id.to_string()),
                 attr("amount", coin.to_string()),
                 attr("to_address", receiver.clone()),
                 attr("source_port", source_port.to_string()),
