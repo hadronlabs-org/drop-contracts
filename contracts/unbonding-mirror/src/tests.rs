@@ -6,9 +6,9 @@ use crate::msg::{
     ExecuteMsg, FailedReceiverResponse, FungibleTokenPacketData, InstantiateMsg, QueryMsg,
 };
 use crate::state::{
-    Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, IBC_TRANSFER_SUDO_REPLY_ID, REPLY_RECEIVERS,
+    Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, IBC_TRANSFER_SUDO_REPLY_ID,
     REPLY_TRANSFER_COINS, SUDO_SEQ_ID_TO_COIN, TF_DENOM_TO_NFT_ID, UNBOND_REPLY_ID,
-    WITHDRAW_REPLY_ID,
+    UNBOND_REPLY_RECEIVER, WITHDRAW_REPLY_ID, WITHDRAW_REPLY_RECEIVER,
 };
 use cosmwasm_std::{
     attr, from_json,
@@ -96,11 +96,6 @@ fn test_instantiate() {
             prefix: "prefix".to_string(),
             retry_limit: 10,
         }
-    );
-    assert_eq!(UNBOND_REPLY_ID.load(deps.as_ref().storage).unwrap(), 0u64);
-    assert_eq!(
-        WITHDRAW_REPLY_ID.load(deps.as_ref().storage).unwrap(),
-        u32::MAX as u64
     );
     assert_eq!(
         REPLY_TRANSFER_COINS.load(deps.as_ref().storage).unwrap(),
@@ -405,7 +400,6 @@ fn test_execute_unbond() {
             },
         )
         .unwrap();
-    UNBOND_REPLY_ID.save(deps.as_mut().storage, &0u64).unwrap();
     let res = execute(
         deps.as_mut(),
         mock_env(),
@@ -429,7 +423,7 @@ fn test_execute_unbond() {
                     .add_attribute("receiver", "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc")
             )
             .add_submessage(SubMsg {
-                id: 1,
+                id: UNBOND_REPLY_ID,
                 msg: CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "core_contract".to_string(),
                     msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::Unbond {})
@@ -443,9 +437,8 @@ fn test_execute_unbond() {
                 reply_on: cosmwasm_std::ReplyOn::Success
             })
     );
-    assert_eq!(UNBOND_REPLY_ID.load(&deps.storage).unwrap(), 1u64);
     assert_eq!(
-        REPLY_RECEIVERS.load(&deps.storage, 1u64).unwrap(),
+        UNBOND_REPLY_RECEIVER.load(&deps.storage).unwrap(),
         "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string()
     );
 }
@@ -1234,9 +1227,6 @@ fn test_execute_withdraw() {
             &"1_neutron1_123".to_string(),
         )
         .unwrap();
-    WITHDRAW_REPLY_ID
-        .save(deps.as_mut().storage, &(u32::MAX as u64))
-        .unwrap();
     deps.querier
         .add_wasm_query_response("withdrawal_voucher", |_| {
             cosmwasm_std::ContractResult::Ok(
@@ -1286,7 +1276,7 @@ fn test_execute_withdraw() {
                         attr("voucher_amount", "1denom"),
                         attr("withdrawal_manager", "withdrawal_manager"),
                         attr("withdrawal_voucher", "withdrawal_voucher"),
-                        attr("withdraw_reply_id", "4294967296"),
+                        attr("withdraw_reply_receiver", "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc"),
                         attr("burn", "1denom"),
                     ])
             )
@@ -1302,7 +1292,7 @@ fn test_execute_withdraw() {
                     reply_on: ReplyOn::Never,
                 },
                 SubMsg {
-                    id: 4294967296,
+                    id: WITHDRAW_REPLY_ID,
                     msg: CosmosMsg::Wasm(WasmMsg::Execute {
                         contract_addr: "withdrawal_voucher".to_string(),
                         msg: to_json_binary(
@@ -1326,13 +1316,7 @@ fn test_execute_withdraw() {
         .load(&deps.storage, "denom".to_string())
         .unwrap_err();
     assert_eq!(
-        WITHDRAW_REPLY_ID.load(&deps.storage).unwrap(),
-        (u32::MAX as u64 + 1)
-    );
-    assert_eq!(
-        REPLY_RECEIVERS
-            .load(&deps.storage, u32::MAX as u64 + 1)
-            .unwrap(),
+        WITHDRAW_REPLY_RECEIVER.load(&deps.storage).unwrap(),
         "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string()
     );
 }
@@ -1710,7 +1694,7 @@ fn test_query_unbond_ready_false() {
 }
 
 #[test]
-fn test_reply_finalize_withdraw_no_nft_minted() {
+fn test_reply_finalize_withdraw_no_transfer_amount() {
     let mut deps = mock_dependencies(&[]);
     CONFIG
         .save(
@@ -1727,18 +1711,17 @@ fn test_reply_finalize_withdraw_no_nft_minted() {
             },
         )
         .unwrap();
-    REPLY_RECEIVERS
+    WITHDRAW_REPLY_RECEIVER
         .save(
             deps.as_mut().storage,
-            u64::MAX - 100,
-            &"receiver".to_string(),
+            &"withdraw_reply_receiver".to_string(),
         )
         .unwrap();
     let res = reply(
         deps.as_mut(),
         mock_env(),
         Reply {
-            id: u64::MAX - 100,
+            id: WITHDRAW_REPLY_ID,
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![],
                 data: None,
@@ -1750,7 +1733,7 @@ fn test_reply_finalize_withdraw_no_nft_minted() {
 }
 
 #[test]
-fn test_reply_finalize_withdraw_no_nft_minted_found() {
+fn test_reply_finalize_withdraw_no_transfer_amount_found() {
     let mut deps = mock_dependencies(&[]);
     CONFIG
         .save(
@@ -1767,18 +1750,17 @@ fn test_reply_finalize_withdraw_no_nft_minted_found() {
             },
         )
         .unwrap();
-    REPLY_RECEIVERS
+    WITHDRAW_REPLY_RECEIVER
         .save(
             deps.as_mut().storage,
-            u64::MAX - 100,
-            &"receiver".to_string(),
+            &"withdraw_reply_receiver".to_string(),
         )
         .unwrap();
     let res = reply(
         deps.as_mut(),
         mock_env(),
         Reply {
-            id: u64::MAX - 100,
+            id: WITHDRAW_REPLY_ID,
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![Event::new("transfer")],
                 data: None,
@@ -1807,11 +1789,10 @@ fn test_reply_finalize_withdraw() {
             },
         )
         .unwrap();
-    REPLY_RECEIVERS
+    WITHDRAW_REPLY_RECEIVER
         .save(
             deps.as_mut().storage,
-            u64::MAX - 100,
-            &"receiver".to_string(),
+            &"withdraw_reply_receiver".to_string(),
         )
         .unwrap();
     REPLY_TRANSFER_COINS
@@ -1831,7 +1812,7 @@ fn test_reply_finalize_withdraw() {
         deps.as_mut(),
         mock_env(),
         Reply {
-            id: u64::MAX - 100,
+            id: WITHDRAW_REPLY_ID,
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![Event::new("transfer").add_attribute("amount", "100ibc_denom")],
                 data: None,
@@ -1847,7 +1828,7 @@ fn test_reply_finalize_withdraw() {
                     .add_attributes(vec![
                         attr("source_port", "source_port"),
                         attr("source_channel", "source_channel"),
-                        attr("receiver", "receiver"),
+                        attr("receiver", "withdraw_reply_receiver"),
                         attr("timeout", "1571809764879305533"),
                         attr("amount", "100ibc_denom"),
                     ])
@@ -1862,7 +1843,7 @@ fn test_reply_finalize_withdraw() {
                         amount: Uint128::from(100u128)
                     },
                     sender: "cosmos2contract".to_string(),
-                    receiver: "receiver".to_string(),
+                    receiver: "withdraw_reply_receiver".to_string(),
                     timeout_height: RequestPacketTimeoutHeight {
                         revision_number: None,
                         revision_height: None
@@ -1916,14 +1897,17 @@ fn test_reply_finalize_unbond_no_nft_minted() {
             },
         )
         .unwrap();
-    REPLY_RECEIVERS
-        .save(deps.as_mut().storage, 1u64, &"receiver".to_string())
+    UNBOND_REPLY_RECEIVER
+        .save(
+            deps.as_mut().storage,
+            &"withdraw_reply_receiver".to_string(),
+        )
         .unwrap();
     let res = reply(
         deps.as_mut(),
         mock_env(),
         Reply {
-            id: 1,
+            id: UNBOND_REPLY_ID,
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![],
                 data: None,
@@ -1952,14 +1936,17 @@ fn test_reply_finalize_unbond_no_nft_minted_found() {
             },
         )
         .unwrap();
-    REPLY_RECEIVERS
-        .save(deps.as_mut().storage, 1u64, &"receiver".to_string())
+    UNBOND_REPLY_RECEIVER
+        .save(
+            deps.as_mut().storage,
+            &"withdraw_reply_receiver".to_string(),
+        )
         .unwrap();
     let res = reply(
         deps.as_mut(),
         mock_env(),
         Reply {
-            id: 1,
+            id: UNBOND_REPLY_ID,
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![Event::new("wasm")],
                 data: None,
@@ -1988,8 +1975,11 @@ fn test_reply_finalize_unbond() {
             },
         )
         .unwrap();
-    REPLY_RECEIVERS
-        .save(deps.as_mut().storage, 1u64, &"receiver".to_string())
+    UNBOND_REPLY_RECEIVER
+        .save(
+            deps.as_mut().storage,
+            &"withdraw_reply_receiver".to_string(),
+        )
         .unwrap();
     REPLY_TRANSFER_COINS
         .save(deps.as_mut().storage, &VecDeque::new())
@@ -2008,7 +1998,7 @@ fn test_reply_finalize_unbond() {
         deps.as_mut(),
         mock_env(),
         Reply {
-            id: 1,
+            id: UNBOND_REPLY_ID,
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![Event::new("wasm").add_attribute("token_id", "1_neutron..._123")],
                 data: None,
@@ -2023,9 +2013,8 @@ fn test_reply_finalize_unbond() {
                 Event::new("crates.io:drop-staking__drop-unbonding-mirror-reply_finalize_unbond")
                     .add_attributes(vec![
                         attr("action", "reply_finalize_bond"),
-                        attr("reply_id", "1"),
                         attr("nft", "1_neutron..._123"),
-                        attr("to_address", "receiver"),
+                        attr("to_address", "withdraw_reply_receiver"),
                         attr("source_port", "source_port"),
                         attr("source_channel", "source_channel"),
                         attr("ibc_timeout", "12345"),
@@ -2061,7 +2050,7 @@ fn test_reply_finalize_unbond() {
                             amount: Uint128::from(1u128)
                         },
                         sender: "cosmos2contract".to_string(),
-                        receiver: "receiver".to_string(),
+                        receiver: "withdraw_reply_receiver".to_string(),
                         timeout_height: RequestPacketTimeoutHeight {
                             revision_height: None,
                             revision_number: None,
@@ -2085,7 +2074,6 @@ fn test_reply_finalize_unbond() {
                 }
             ])
     );
-    REPLY_RECEIVERS.load(&deps.storage, 1u64).unwrap_err();
     assert_eq!(
         TF_DENOM_TO_NFT_ID
             .load(
