@@ -1035,7 +1035,7 @@ describe('Unbonding mirror', () => {
         );
         expect(response).toEqual({
           receiver: gaiaUserAddress,
-          amount: [
+          debt: [
             {
               amount: '1',
               denom: denomsMirror[denomsMirror.length - 1].neutronDenom,
@@ -1087,7 +1087,7 @@ describe('Unbonding mirror', () => {
         );
         expect(response).toEqual({
           receiver: gaiaUserAddress,
-          amount: [
+          debt: [
             {
               amount: '1',
               denom: denomsMirror[denomsMirror.length - 1].neutronDenom,
