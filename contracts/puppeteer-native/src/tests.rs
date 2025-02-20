@@ -345,7 +345,7 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
                 contract_addr: "distribution_module".to_string(),
                 msg: to_json_binary(
                     &drop_staking_base::msg::neutron_distribution_mock::ExecuteMsg::ClaimRewards {
-                        receiver: Some("rewards_withdraw_address".to_string())
+                        to_address: Some("rewards_withdraw_address".to_string())
                     }
                 )
                 .unwrap(),
