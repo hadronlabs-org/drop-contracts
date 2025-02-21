@@ -1030,12 +1030,12 @@ describe('Unbonding mirror', () => {
         const response = await unbondingMirrorClient.queryFailedReceiver({
           receiver: gaiaUserAddress,
         });
-        response.debt = response.debt.sort((coin1, coin2) =>
-          coin1.denom.localeCompare(coin2.denom),
+        response.failed_transfers = response.failed_transfers.sort(
+          (coin1, coin2) => coin1.denom.localeCompare(coin2.denom),
         );
         expect(response).toEqual({
           receiver: gaiaUserAddress,
-          debt: [
+          failed_transfers: [
             {
               amount: '1',
               denom: denomsMirror[denomsMirror.length - 1].neutronDenom,
@@ -1082,12 +1082,12 @@ describe('Unbonding mirror', () => {
         const response = await unbondingMirrorClient.queryFailedReceiver({
           receiver: gaiaUserAddress,
         });
-        response.debt = response.debt.sort((coin1, coin2) =>
-          coin1.denom.localeCompare(coin2.denom),
+        response.failed_transfers = response.failed_transfers.sort(
+          (coin1, coin2) => coin1.denom.localeCompare(coin2.denom),
         );
         expect(response).toEqual({
           receiver: gaiaUserAddress,
-          debt: [
+          failed_transfers: [
             {
               amount: '1',
               denom: denomsMirror[denomsMirror.length - 1].neutronDenom,
@@ -1699,11 +1699,11 @@ describe('Unbonding mirror', () => {
           receiver: gaiaUserAddress,
         });
         expect(
-          response.debt
+          response.failed_transfers
             .map((coin) => Number(coin.amount))
             .reduce((a, b) => a + b, 0) / Math.pow(10, 2),
         ).toBeCloseTo(20.0, 1); // it's the same denom
-        expect(response.debt).toHaveLength(2);
+        expect(response.failed_transfers).toHaveLength(2);
       });
 
       it('turn off relayer', async () => {
@@ -1737,11 +1737,11 @@ describe('Unbonding mirror', () => {
           receiver: gaiaUserAddress,
         });
         expect(
-          response.debt
+          response.failed_transfers
             .map((coin) => Number(coin.amount))
             .reduce((a, b) => a + b, 0) / Math.pow(10, 2),
         ).toBeCloseTo(20.0, 1); // it's the same denom
-        expect(response.debt).toHaveLength(2);
+        expect(response.failed_transfers).toHaveLength(2);
       });
 
       it('restore IBC timeout back to 3600', async () => {

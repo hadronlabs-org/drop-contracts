@@ -95,7 +95,7 @@ fn query_failed_receiver(deps: Deps<NeutronQuery>, receiver: String) -> Contract
     if let Some(failed_transfers) = failed_transfers {
         return Ok(to_json_binary(&Some(FailedReceiverResponse {
             receiver,
-            debt: failed_transfers,
+            failed_transfers,
         }))?);
     }
     Ok(to_json_binary::<Option<FailedReceiverResponse>>(&None)?)
@@ -105,10 +105,10 @@ fn query_all_failed(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
     let failed_transfers: Vec<FailedReceiverResponse> = FAILED_TRANSFERS
         .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
         .map(|pair| {
-            let (r, d) = pair.unwrap(); // safe because it's range's map
+            let (r, fts) = pair.unwrap(); // safe because it's range's map
             FailedReceiverResponse {
                 receiver: r,
-                debt: d,
+                failed_transfers: fts,
             }
         })
         .collect();

@@ -28,7 +28,7 @@ pub enum ExecuteMsg {
 #[cw_serde]
 pub struct FailedReceiverResponse {
     pub receiver: String,
-    pub debt: Vec<Coin>,
+    pub failed_transfers: Vec<Coin>,
 }
 
 #[cw_ownable_query]

@@ -1451,7 +1451,7 @@ fn test_query_failed_receiver() {
         res,
         Some(FailedReceiverResponse {
             receiver: "failed_receiver".to_string(),
-            debt: vec![Coin {
+            failed_transfers: vec![Coin {
                 denom: "denom".to_string(),
                 amount: Uint128::from(100u128)
             }]
@@ -1495,14 +1495,14 @@ fn test_query_all_failed() {
         [
             FailedReceiverResponse {
                 receiver: "failed_receiver1".to_string(),
-                debt: vec![Coin {
+                failed_transfers: vec![Coin {
                     denom: "denom1".to_string(),
                     amount: Uint128::from(100u128)
                 }]
             },
             FailedReceiverResponse {
                 receiver: "failed_receiver2".to_string(),
-                debt: vec![
+                failed_transfers: vec![
                     Coin {
                         denom: "denom1".to_string(),
                         amount: Uint128::from(300u128)

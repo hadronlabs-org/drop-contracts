@@ -75,7 +75,7 @@ export interface DropUnbondingMirrorSchema {
   [k: string]: unknown;
 }
 export interface FailedReceiverResponse {
-  debt: Coin[];
+  failed_transfers: Coin[];
   receiver: string;
 }
 export interface Coin {
