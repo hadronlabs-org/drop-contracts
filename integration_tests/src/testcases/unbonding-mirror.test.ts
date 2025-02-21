@@ -1735,8 +1735,17 @@ describe('Unbonding mirror', () => {
       });
 
       it('resume relayer', async () => {
+        const { unbondingMirrorClient, gaiaUserAddress } = context;
         await context.park.resumeRelayer('hermes', 0);
-        await sleep(20_000); // sudo-timeout
+        await waitFor(async () => {
+          const response = await unbondingMirrorClient.queryFailedReceiver({
+            receiver: gaiaUserAddress,
+          });
+          if (response == null) {
+            return false;
+          }
+          return response.failed_transfers.length === 2;
+        }, 320_000);
       });
 
       it('make sure failed receiver had been written properly', async () => {
@@ -1764,17 +1773,52 @@ describe('Unbonding mirror', () => {
           { receiver: gaiaUserAddress },
           1.5,
         );
+        await sleep(10_000); // make these packets to outlive their validity
+      });
+
+      it('make sure receiver failed receiver only has 1 item', async () => {
+        const { unbondingMirrorClient, gaiaUserAddress } = context;
+        expect(
+          (
+            await unbondingMirrorClient.queryFailedReceiver({
+              receiver: gaiaUserAddress,
+            })
+          ).failed_transfers,
+        ).toHaveLength(1);
+      });
+
+      it('retry x2', async () => {
+        const { unbondingMirrorClient, neutronUserAddress, gaiaUserAddress } =
+          context;
+        await unbondingMirrorClient.retry(
+          neutronUserAddress,
+          { receiver: gaiaUserAddress },
+          1.5,
+        );
+        await sleep(10_000); // make these packets to outlive their validity
+      });
+
+      it("make sure receiver failed receiver doesn't exist", async () => {
+        const { unbondingMirrorClient, gaiaUserAddress } = context;
         expect(
           await unbondingMirrorClient.queryFailedReceiver({
             receiver: gaiaUserAddress,
           }),
         ).toBe(null);
-        await sleep(10_000); // make these packets to outlive their validity
       });
 
       it('resume relayer', async () => {
+        const { unbondingMirrorClient, gaiaUserAddress } = context;
         await context.park.resumeRelayer('hermes', 0);
-        await sleep(20_000); // sudo-timeout
+        await waitFor(async () => {
+          const response = await unbondingMirrorClient.queryFailedReceiver({
+            receiver: gaiaUserAddress,
+          });
+          if (response == null) {
+            return false;
+          }
+          return response.failed_transfers.length === 2;
+        }, 320_000);
       });
 
       it('make sure failed receiver had been written properly', async () => {
@@ -1804,6 +1848,36 @@ describe('Unbonding mirror', () => {
       });
 
       it('proper retry', async () => {
+        const {
+          unbondingMirrorClient,
+          neutronUserAddress,
+          gaiaUserAddress,
+          gaiaClient,
+        } = context;
+        const balanceBefore = (
+          await gaiaClient.getBalance(gaiaUserAddress, 'stake')
+        ).amount;
+        await unbondingMirrorClient.retry(
+          neutronUserAddress,
+          { receiver: gaiaUserAddress },
+          1.5,
+        );
+        await waitFor(
+          async () =>
+            (await gaiaClient.getBalance(gaiaUserAddress, 'stake')).amount !==
+            balanceBefore,
+          60_000,
+        );
+        expect(
+          (
+            await unbondingMirrorClient.queryFailedReceiver({
+              receiver: gaiaUserAddress,
+            })
+          ).failed_transfers,
+        ).toHaveLength(1);
+      });
+
+      it('proper retry x2', async () => {
         const {
           unbondingMirrorClient,
           neutronUserAddress,
