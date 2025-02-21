@@ -1,7 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Coin;
 use cw_storage_plus::{Item, Map};
-use std::collections::VecDeque;
 
 #[cw_serde]
 pub struct Config {
@@ -12,7 +11,6 @@ pub struct Config {
     pub source_channel: String,
     pub ibc_timeout: u64,
     pub prefix: String,
-    pub retry_limit: u64,
 }
 
 #[cw_serde]
@@ -24,7 +22,6 @@ pub struct ConfigOptional {
     pub source_channel: Option<String>,
     pub ibc_timeout: Option<u64>,
     pub prefix: Option<String>,
-    pub retry_limit: Option<u64>,
 }
 
 #[cw_serde]
@@ -40,7 +37,7 @@ pub const UNBOND_REPLY_ID: u64 = 2;
 
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const SUDO_SEQ_ID_TO_COIN: Map<u64, Coin> = Map::new("sudo_seq_id_to_coin");
-pub const REPLY_TRANSFER_COINS: Item<VecDeque<Coin>> = Item::new("reply_transfer_coins");
+pub const REPLY_TRANSFER_COIN: Item<Coin> = Item::new("reply_transfer_coins");
 pub const UNBOND_REPLY_RECEIVER: Item<String> = Item::new("unbond_reply_receiver");
 pub const WITHDRAW_REPLY_RECEIVER: Item<String> = Item::new("withdraw_reply_receiver");
 

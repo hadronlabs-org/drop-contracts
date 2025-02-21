@@ -13,7 +13,6 @@ pub struct InstantiateMsg {
     pub source_channel: String,
     pub ibc_timeout: u64,
     pub prefix: String,
-    pub retry_limit: u64,
 }
 
 #[cw_ownable_execute]
