@@ -11,7 +11,7 @@
     "test:core": "REMOTE_CHAIN_OPTS=./dockerfiles/gaia/options.json vitest --run core.test.ts --bail 1",
     "test:core:slashing": "vitest --run core-slashing.test.ts --bail 1",
     "test:pump": "vitest --run pump.test.ts --bail 1",
-    "test:mirror": "vitest --run mirror.test.ts --bail 1",
+    "test:bond-mirror": "vitest --run bond-mirror.test.ts --bail 1",
     "test:pump-multi": "vitest --run pump-multi.test.ts --bail 1",
     "test:validators-stats": "vitest --run validators-stats.test.ts --bail 1",
     "test:validator-set": "vitest --run validator-set.test.ts --bail 1",
