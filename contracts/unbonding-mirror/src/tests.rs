@@ -512,6 +512,10 @@ fn test_execute_retry_take_1_from_3() {
                     denom: "denom1".to_string(),
                     amount: Uint128::from(1u128),
                 },
+                Coin {
+                    denom: "denom2".to_string(),
+                    amount: Uint128::from(1u128),
+                },
             ],
         )
         .unwrap();
@@ -542,7 +546,7 @@ fn test_execute_retry_take_1_from_3() {
                     .add_attributes(vec![
                         attr("action", "execute_retry"),
                         attr("receiver", "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc"),
-                        attr("amount", "1denom1"),
+                        attr("amount", "1denom2"),
                     ])
             )
             .add_submessages(vec![SubMsg {
@@ -551,7 +555,7 @@ fn test_execute_retry_take_1_from_3() {
                     source_port: "source_port".to_string(),
                     source_channel: "source_channel".to_string(),
                     token: Coin {
-                        denom: "denom1".to_string(),
+                        denom: "denom2".to_string(),
                         amount: Uint128::from(1u128)
                     },
                     sender: MOCK_CONTRACT_ADDR.to_string(),
@@ -585,15 +589,21 @@ fn test_execute_retry_take_1_from_3() {
                 "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
             )
             .unwrap(),
-        [Coin {
-            denom: "denom1".to_string(),
-            amount: Uint128::from(1u128)
-        }]
+        [
+            Coin {
+                denom: "denom1".to_string(),
+                amount: Uint128::from(1u128)
+            },
+            Coin {
+                denom: "denom1".to_string(),
+                amount: Uint128::from(1u128)
+            }
+        ]
     );
     assert_eq!(
         REPLY_TRANSFER_COIN.load(&deps.storage).unwrap(),
         Coin {
-            denom: "denom1".to_string(),
+            denom: "denom2".to_string(),
             amount: Uint128::from(1u128)
         }
     )
