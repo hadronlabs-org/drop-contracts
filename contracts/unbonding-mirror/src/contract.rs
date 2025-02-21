@@ -4,9 +4,9 @@ use crate::msg::{
     QueryMsg,
 };
 use crate::state::{
-    Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, IBC_TRANSFER_SUDO_REPLY_ID,
-    REPLY_TRANSFER_COIN, SUDO_SEQ_ID_TO_COIN, TF_DENOM_TO_NFT_ID, TIMEOUT_RANGE, UNBOND_REPLY_ID,
-    UNBOND_REPLY_RECEIVER, WITHDRAW_REPLY_ID, WITHDRAW_REPLY_RECEIVER,
+    Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, IBC_TRANSFER_REPLY_ID, REPLY_TRANSFER_COIN,
+    SUDO_SEQ_ID_TO_COIN, TF_DENOM_TO_NFT_ID, TIMEOUT_RANGE, UNBOND_REPLY_ID, UNBOND_REPLY_RECEIVER,
+    WITHDRAW_REPLY_ID, WITHDRAW_REPLY_RECEIVER,
 };
 use cosmwasm_std::{
     attr, ensure, from_json, to_json_binary, Attribute, Binary, Coin, CosmosMsg, Deps, DepsMut,
@@ -257,7 +257,7 @@ fn execute_retry(
                     memo: "".to_string(),
                     fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
                 },
-                IBC_TRANSFER_SUDO_REPLY_ID,
+                IBC_TRANSFER_REPLY_ID,
             ));
             REPLY_TRANSFER_COIN.save(deps.storage, &receiver_latest_coin)?;
             attrs.push(attr("receiver", receiver.clone()));
@@ -365,7 +365,7 @@ pub fn reply(
     msg: Reply,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg.id {
-        IBC_TRANSFER_SUDO_REPLY_ID => store_seq_id(deps, env, msg),
+        IBC_TRANSFER_REPLY_ID => store_seq_id(deps, env, msg),
         UNBOND_REPLY_ID => finalize_unbond(deps, env, msg),
         WITHDRAW_REPLY_ID => finalize_withdraw(deps, env, msg),
         _ => unimplemented!(),
@@ -442,7 +442,7 @@ pub fn finalize_withdraw(
                     memo: "".to_string(),
                     fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
                 },
-                IBC_TRANSFER_SUDO_REPLY_ID,
+                IBC_TRANSFER_REPLY_ID,
             );
             let attrs = vec![
                 attr("source_port", source_port),
@@ -525,7 +525,7 @@ pub fn finalize_unbond(
                     memo: "".to_string(),
                     fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
                 },
-                IBC_TRANSFER_SUDO_REPLY_ID,
+                IBC_TRANSFER_REPLY_ID,
             );
             let attrs = vec![
                 attr("action", "reply_finalize_bond"),

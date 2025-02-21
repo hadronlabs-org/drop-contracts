@@ -31,7 +31,7 @@ pub struct TimeoutRange {
 }
 
 const TIMEOUT_30D: u64 = 2592000;
-pub const IBC_TRANSFER_SUDO_REPLY_ID: u64 = 0;
+pub const IBC_TRANSFER_REPLY_ID: u64 = 0;
 pub const WITHDRAW_REPLY_ID: u64 = 1;
 pub const UNBOND_REPLY_ID: u64 = 2;
 

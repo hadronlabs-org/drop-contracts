@@ -4,9 +4,9 @@ use crate::msg::{
     ExecuteMsg, FailedReceiverResponse, FungibleTokenPacketData, InstantiateMsg, QueryMsg,
 };
 use crate::state::{
-    Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, IBC_TRANSFER_SUDO_REPLY_ID,
-    REPLY_TRANSFER_COIN, SUDO_SEQ_ID_TO_COIN, TF_DENOM_TO_NFT_ID, UNBOND_REPLY_ID,
-    UNBOND_REPLY_RECEIVER, WITHDRAW_REPLY_ID, WITHDRAW_REPLY_RECEIVER,
+    Config, ConfigOptional, CONFIG, FAILED_TRANSFERS, IBC_TRANSFER_REPLY_ID, REPLY_TRANSFER_COIN,
+    SUDO_SEQ_ID_TO_COIN, TF_DENOM_TO_NFT_ID, UNBOND_REPLY_ID, UNBOND_REPLY_RECEIVER,
+    WITHDRAW_REPLY_ID, WITHDRAW_REPLY_RECEIVER,
 };
 use cosmwasm_std::{
     attr, from_json,
@@ -546,7 +546,7 @@ fn test_execute_retry_take_1_from_3() {
                     ])
             )
             .add_submessages(vec![SubMsg {
-                id: IBC_TRANSFER_SUDO_REPLY_ID,
+                id: IBC_TRANSFER_REPLY_ID,
                 msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: "source_port".to_string(),
                     source_channel: "source_channel".to_string(),
@@ -657,7 +657,7 @@ fn test_execute_retry_take_one() {
                     ])
             )
             .add_submessages(vec![SubMsg {
-                id: IBC_TRANSFER_SUDO_REPLY_ID,
+                id: IBC_TRANSFER_REPLY_ID,
                 msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: "source_port".to_string(),
                     source_channel: "source_channel".to_string(),
@@ -1556,7 +1556,7 @@ fn test_reply_finalize_withdraw() {
                     ])
             )
             .add_submessages(vec![SubMsg {
-                id: IBC_TRANSFER_SUDO_REPLY_ID,
+                id: IBC_TRANSFER_REPLY_ID,
                 msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: "source_port".to_string(),
                     source_channel: "source_channel".to_string(),
@@ -1753,7 +1753,7 @@ fn test_reply_finalize_unbond() {
                     reply_on: ReplyOn::Never
                 },
                 SubMsg {
-                    id: IBC_TRANSFER_SUDO_REPLY_ID,
+                    id: IBC_TRANSFER_REPLY_ID,
                     msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                         source_port: "source_port".to_string(),
                         source_channel: "source_channel".to_string(),
@@ -1820,7 +1820,7 @@ fn test_reply_store_seq_id_invalid_type() {
         deps.as_mut(),
         mock_env(),
         Reply {
-            id: IBC_TRANSFER_SUDO_REPLY_ID,
+            id: IBC_TRANSFER_REPLY_ID,
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![Event::new("wasm").add_attribute("token_id", "1_neutron..._123")],
                 data: Some(to_json_binary(&"wrong_data".to_string()).unwrap()),
@@ -1852,7 +1852,7 @@ fn test_reply_store_seq_id() {
         deps.as_mut(),
         mock_env(),
         Reply {
-            id: IBC_TRANSFER_SUDO_REPLY_ID,
+            id: IBC_TRANSFER_REPLY_ID,
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![],
                 data: Some(
