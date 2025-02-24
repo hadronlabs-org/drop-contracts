@@ -76,7 +76,7 @@ fn query_all_failed(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
             let (r, d) = pair.unwrap(); // safe because it's a range map
             FailedReceiverResponse {
                 receiver: r,
-                debt: d,
+                failed_transfers: d,
             }
         })
         .collect();
@@ -88,7 +88,7 @@ fn query_failed_receiver(deps: Deps<NeutronQuery>, receiver: String) -> Contract
     if let Some(failed_transfers) = failed_transfers {
         return Ok(to_json_binary(&Some(FailedReceiverResponse {
             receiver,
-            debt: failed_transfers,
+            failed_transfers,
         }))?);
     }
     Ok(to_json_binary::<Option<FailedReceiverResponse>>(&None)?)

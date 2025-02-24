@@ -730,7 +730,7 @@ describe('Mirror', () => {
         [
           {
             receiver: context.gaiaUserAddress,
-            debt: [
+            failed_transfers: [
               {
                 denom:
                   'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
@@ -776,7 +776,7 @@ describe('Mirror', () => {
         expect.arrayContaining([
           {
             receiver: context.gaiaUserAddress2,
-            debt: [
+            failed_transfers: [
               {
                 denom:
                   'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
@@ -786,7 +786,7 @@ describe('Mirror', () => {
           },
           {
             receiver: context.gaiaUserAddress,
-            debt: [
+            failed_transfers: [
               {
                 denom:
                   'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
@@ -832,7 +832,7 @@ describe('Mirror', () => {
         expect.arrayContaining([
           {
             receiver: context.gaiaUserAddress,
-            debt: [
+            failed_transfers: [
               {
                 denom:
                   'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
@@ -847,7 +847,7 @@ describe('Mirror', () => {
           },
           {
             receiver: context.gaiaUserAddress2,
-            debt: [
+            failed_transfers: [
               {
                 denom:
                   'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
@@ -877,7 +877,7 @@ describe('Mirror', () => {
           expect.arrayContaining([
             {
               receiver: context.gaiaUserAddress,
-              debt: [
+              failed_transfers: [
                 {
                   denom:
                     'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
@@ -887,7 +887,7 @@ describe('Mirror', () => {
             },
             {
               receiver: context.gaiaUserAddress2,
-              debt: [
+              failed_transfers: [
                 {
                   denom:
                     'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
@@ -916,7 +916,7 @@ describe('Mirror', () => {
           expect.arrayContaining([
             {
               receiver: context.gaiaUserAddress,
-              debt: [
+              failed_transfers: [
                 {
                   denom:
                     'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
@@ -931,7 +931,7 @@ describe('Mirror', () => {
             },
             {
               receiver: context.gaiaUserAddress2,
-              debt: [
+              failed_transfers: [
                 {
                   denom:
                     'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
@@ -967,7 +967,7 @@ describe('Mirror', () => {
         expect.arrayContaining([
           {
             receiver: context.gaiaUserAddress,
-            debt: [
+            failed_transfers: [
               {
                 denom:
                   'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
@@ -977,7 +977,7 @@ describe('Mirror', () => {
           },
           {
             receiver: context.gaiaUserAddress2,
-            debt: [
+            failed_transfers: [
               {
                 denom:
                   'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
@@ -1012,7 +1012,7 @@ describe('Mirror', () => {
         expect.arrayContaining([
           {
             receiver: context.gaiaUserAddress,
-            debt: [
+            failed_transfers: [
               {
                 denom:
                   'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',

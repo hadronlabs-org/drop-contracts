@@ -811,7 +811,7 @@ fn test_query_config() {
 #[test]
 fn test_query_all_failed() {
     let mut deps = mock_dependencies(&[]);
-    let funds_in_debt = vec![
+    let funds_in_failed_transfers = vec![
         Coin {
             denom: "token_denom1".to_string(),
             amount: Uint128::from(100u128),
@@ -825,7 +825,7 @@ fn test_query_all_failed() {
         .save(
             deps.as_mut().storage,
             "receiver".to_string(),
-            &funds_in_debt,
+            &funds_in_failed_transfers,
         )
         .unwrap();
     let res: Vec<FailedReceiverResponse> =
@@ -834,7 +834,7 @@ fn test_query_all_failed() {
         res,
         vec![FailedReceiverResponse {
             receiver: "receiver".to_string(),
-            debt: funds_in_debt
+            failed_transfers: funds_in_failed_transfers
         }]
     );
 }
@@ -850,7 +850,7 @@ fn test_query_all_failed_empty() {
 #[test]
 fn test_query_failed_receiver() {
     let mut deps = mock_dependencies(&[]);
-    let funds_in_debt = vec![
+    let funds_in_failed_transfers = vec![
         Coin {
             denom: "token_denom1".to_string(),
             amount: Uint128::from(100u128),
@@ -864,7 +864,7 @@ fn test_query_failed_receiver() {
         .save(
             deps.as_mut().storage,
             "receiver".to_string(),
-            &funds_in_debt,
+            &funds_in_failed_transfers,
         )
         .unwrap();
     let res: Option<FailedReceiverResponse> = from_json(
@@ -882,7 +882,7 @@ fn test_query_failed_receiver() {
         res,
         Some(FailedReceiverResponse {
             receiver: "receiver".to_string(),
-            debt: funds_in_debt
+            failed_transfers: funds_in_failed_transfers
         })
     );
 }
@@ -1206,14 +1206,14 @@ fn test_execute_sudo_response() {
         vec![
             FailedReceiverResponse {
                 receiver: "receiver1".to_string(),
-                debt: vec![Coin {
+                failed_transfers: vec![Coin {
                     denom: "denom".to_string(),
                     amount: Uint128::from(100u128),
                 }]
             },
             FailedReceiverResponse {
                 receiver: "receiver2".to_string(),
-                debt: vec![Coin {
+                failed_transfers: vec![Coin {
                     denom: "denom".to_string(),
                     amount: Uint128::from(100u128),
                 }]
@@ -1276,7 +1276,7 @@ fn test_execute_sudo_timeout() {
             all_failed,
             vec![FailedReceiverResponse {
                 receiver: "receiver1".to_string(),
-                debt: vec![Coin {
+                failed_transfers: vec![Coin {
                     denom: "denom1".to_string(),
                     amount: Uint128::from(100u128),
                 }]
@@ -1332,7 +1332,7 @@ fn test_execute_sudo_timeout() {
             all_failed,
             vec![FailedReceiverResponse {
                 receiver: "receiver1".to_string(),
-                debt: vec![
+                failed_transfers: vec![
                     Coin {
                         denom: "denom1".to_string(),
                         amount: Uint128::from(100u128),
@@ -1394,7 +1394,7 @@ fn test_execute_sudo_timeout() {
             all_failed,
             vec![FailedReceiverResponse {
                 receiver: "receiver1".to_string(),
-                debt: vec![
+                failed_transfers: vec![
                     Coin {
                         denom: "denom1".to_string(),
                         amount: Uint128::from(100u128),
@@ -1461,7 +1461,7 @@ fn test_execute_sudo_timeout() {
             vec![
                 FailedReceiverResponse {
                     receiver: "receiver1".to_string(),
-                    debt: vec![
+                    failed_transfers: vec![
                         Coin {
                             denom: "denom1".to_string(),
                             amount: Uint128::from(100u128),
@@ -1478,7 +1478,7 @@ fn test_execute_sudo_timeout() {
                 },
                 FailedReceiverResponse {
                     receiver: "receiver2".to_string(),
-                    debt: vec![Coin {
+                    failed_transfers: vec![Coin {
                         denom: "denom1".to_string(),
                         amount: Uint128::from(300u128),
                     },]
@@ -1536,7 +1536,7 @@ fn test_execute_sudo_timeout() {
             vec![
                 FailedReceiverResponse {
                     receiver: "receiver1".to_string(),
-                    debt: vec![
+                    failed_transfers: vec![
                         Coin {
                             denom: "denom1".to_string(),
                             amount: Uint128::from(100u128),
@@ -1553,7 +1553,7 @@ fn test_execute_sudo_timeout() {
                 },
                 FailedReceiverResponse {
                     receiver: "receiver2".to_string(),
-                    debt: vec![
+                    failed_transfers: vec![
                         Coin {
                             denom: "denom1".to_string(),
                             amount: Uint128::from(300u128),

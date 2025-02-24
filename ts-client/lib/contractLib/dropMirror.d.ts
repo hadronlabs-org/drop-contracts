@@ -67,7 +67,7 @@ export interface DropMirrorSchema {
     [k: string]: unknown;
 }
 export interface FailedReceiverResponse {
-    debt: Coin[];
+    failed_transfers: Coin[];
     receiver: string;
 }
 export interface Coin {
