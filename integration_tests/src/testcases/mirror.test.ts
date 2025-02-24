@@ -50,6 +50,7 @@ describe('Mirror', () => {
     icaAddress?: string;
     rewardsPumpIcaAddress?: string;
     client?: SigningCosmWasmClient;
+    neutronStargateClient?: SigningStargateClient;
     gaiaClient?: SigningStargateClient;
     gaiaUserAddress?: string;
     gaiaUserAddress2?: string;
@@ -145,6 +146,14 @@ describe('Mirror', () => {
         gasPrice: GasPrice.fromString('0.025stake'),
       },
     );
+    context.neutronStargateClient =
+      await SigningStargateClient.connectWithSigner(
+        `http://127.0.0.1:${context.park.ports.neutron.rpc}`,
+        context.wallet,
+        {
+          gasPrice: GasPrice.fromString('0.025untrn'),
+        },
+      );
     const tmClient = await Tendermint34Client.connect(
       `http://127.0.0.1:${context.park.ports.gaia.rpc}`,
     );
@@ -622,232 +631,421 @@ describe('Mirror', () => {
     );
   });
 
-  it('bond with wrong receiver', async () => {
-    await expect(
-      context.mirrorContractClient.bond(
-        context.neutronUserAddress,
-        {
-          receiver: 'omfg',
-        },
-        1.6,
-      ),
-    ).to.rejects.toThrow(/Invalid prefix/);
-  });
-
-  it('bond without funds attached', async () => {
-    await expect(
-      context.mirrorContractClient.bond(
-        context.neutronUserAddress,
-        {
-          receiver: context.gaiaUserAddress,
-        },
-        1.6,
-      ),
-    ).to.rejects.toThrow(/No funds sent/);
-  });
-  it('bond with wrong denom', async () => {
-    await expect(
-      context.mirrorContractClient.bond(
-        context.neutronUserAddress,
-        {
-          receiver: context.gaiaUserAddress,
-        },
-        1.6,
-        '',
-        [
+  it('send neutrons on mirror', async () => {
+    await context.client.sendTokens(
+      context.account.address,
+      context.mirrorContractClient.contractAddress,
+      [{ denom: 'untrn', amount: '10000000' }],
+      {
+        gas: '200000',
+        amount: [
           {
             denom: 'untrn',
-            amount: '1000',
+            amount: '10000',
           },
         ],
-      ),
-    ).to.rejects.toThrow(/No sufficient bond provider found/);
+      },
+    );
   });
 
-  it('bond', async () => {
-    const res = await context.mirrorContractClient.bond(
+  it('proper bond', async () => {
+    await context.mirrorContractClient.bond(
       context.neutronUserAddress,
       {
         receiver: context.gaiaUserAddress,
       },
       1.6,
-      '',
+      undefined,
       [
         {
           denom: context.neutronIBCDenom,
-          amount: '10000',
+          amount: '1000',
         },
       ],
     );
-    expect(res.transactionHash).toHaveLength(64);
+    await waitFor(
+      async () =>
+        (
+          await context.gaiaClient.getBalance(
+            context.gaiaUserAddress,
+            'ibc/1C3BF59376B26C1AC4E7BB85230733C373A0F2DC366FF9A4B1BD74B578F6A946',
+          )
+        ).amount !== '0',
+      20000,
+      1000,
+    );
+    expect(
+      (
+        await context.gaiaClient.getBalance(
+          context.gaiaUserAddress,
+          'ibc/1C3BF59376B26C1AC4E7BB85230733C373A0F2DC366FF9A4B1BD74B578F6A946',
+        )
+      ).amount,
+    ).toBe('1000');
   });
 
-  it('verify one query', async () => {
-    const res = await context.mirrorContractClient.queryOne({ id: 1 });
-    expect(res).toEqual({
-      amount: '10000',
-      backup: null,
-      received: {
-        amount: '10000',
-        denom: context.ldDenom,
-      },
-      receiver: context.gaiaUserAddress,
-      return_type: 'remote',
-      state: 'bonded',
-    });
-  });
-  it('verify all query', async () => {
-    const res = await context.mirrorContractClient.queryAll({});
-    expect(res).toEqual([
-      [
-        1,
-        {
-          amount: '10000',
-          backup: null,
-          received: {
-            amount: '10000',
-            denom: context.ldDenom,
-          },
-          receiver: context.gaiaUserAddress,
-          return_type: 'remote',
-          state: 'bonded',
-        },
-      ],
-    ]);
-  });
-  it('complete', async () => {
-    const res = await context.mirrorContractClient.complete(
-      context.neutronUserAddress,
-      { items: [1] },
-      1.6,
-      '',
-      [
-        {
-          denom: 'untrn',
-          amount: '100000',
-        },
-      ],
-    );
-    expect(res.transactionHash).toHaveLength(64);
-  });
-  it('wait for the transfer', async () => {
-    await waitFor(async () => {
-      const balances = await context.gaiaQueryClient.bank.allBalances(
-        context.gaiaUserAddress,
-      );
-      return balances.length > 1;
-    });
-  });
-  it('verify bond result', async () => {
-    const balances = await context.gaiaQueryClient.bank.allBalances(
-      context.gaiaUserAddress,
-    );
-    expect(balances.find((b) => b.denom.startsWith('ibc/'))?.amount).toEqual(
-      '10000',
-    );
-  });
-  it('verify bond is gone from the mirror contract', async () => {
-    await sleep(10_000);
-    await expect(
-      context.mirrorContractClient.queryOne({ id: 1 }),
-    ).to.rejects.toThrow(/not found/);
-  });
-  describe('bond with wrong receiver', () => {
-    it('bond', async () => {
-      const res = await context.mirrorContractClient.bond(
+  describe('wrong behaviour', () => {
+    it('set timeout to 0', async () => {
+      await context.mirrorContractClient.updateConfig(
         context.neutronUserAddress,
         {
-          receiver:
-            'cosmos1yvququ0g6q2qm4arevf22nsvm6y2zmvza8pwggcpcpc735q5pht68jcj548qeh5g59kc96wzus3szckscyg',
-          backup: context.neutronSecondUserAddress,
-        },
-        1.6,
-        '',
-        [
-          {
-            denom: context.neutronIBCDenom,
-            amount: '10000',
+          new_config: {
+            ibc_timeout: 0,
           },
-        ],
-      );
-      expect(res.transactionHash).toHaveLength(64);
-      await sleep(3_000);
-    });
-    it('complete', async () => {
-      const res = await context.mirrorContractClient.complete(
-        context.neutronUserAddress,
-        { items: [2] },
-        1.6,
-        '',
-        [
-          {
-            denom: 'untrn',
-            amount: '100000',
-          },
-        ],
-      );
-      expect(res.transactionHash).toHaveLength(64);
-    });
-    it('verify state', async () => {
-      await sleep(15_000);
-      const res = await context.mirrorContractClient.queryOne({ id: 2 });
-      expect(res.state).toEqual('bonded');
-    });
-    it('switch return type', async () => {
-      // we need another account here
-      const secondWallet = await DirectSecp256k1HdWallet.fromMnemonic(
-        context.park.config.wallets.demo2.mnemonic,
-        {
-          prefix: 'neutron',
         },
       );
-      const client = await SigningCosmWasmClient.connectWithSigner(
-        context.neutronRPCEndpoint,
-        secondWallet,
-        {
-          gasPrice: GasPrice.fromString('0.025untrn'),
-        },
-      );
-      const mirrorContractClient = new DropMirror.Client(
-        client,
-        context.mirrorContractClient.contractAddress,
-      );
-      const res = await mirrorContractClient.changeReturnType(
-        context.neutronSecondUserAddress,
-        { id: 2, return_type: 'local' },
-        1.6,
-      );
-      expect(res.transactionHash).toHaveLength(64);
     });
-    it('complete', async () => {
-      const res = await context.mirrorContractClient.complete(
-        context.neutronUserAddress,
-        { items: [2] },
-        1.6,
-        '',
-        [
+
+    describe('bond, timeout packet', () => {
+      it('turn off relayer', async () => {
+        await context.park.pauseRelayer('hermes', 0);
+      });
+
+      it('bond', async () => {
+        await context.mirrorContractClient.bond(
+          context.neutronUserAddress,
           {
-            denom: 'untrn',
-            amount: '100000',
+            receiver: context.gaiaUserAddress,
           },
-        ],
-      );
-      expect(res.transactionHash).toHaveLength(64);
-      await sleep(2_000);
-    });
-    it('verify balance', async () => {
-      const res =
-        await context.neutronClient.CosmosBankV1Beta1.query.queryBalance(
-          context.neutronSecondUserAddress,
-          { denom: context.ldDenom },
+          1.6,
+          undefined,
+          [
+            {
+              denom: context.neutronIBCDenom,
+              amount: '1000',
+            },
+          ],
         );
-      expect(res.data.balance.amount).toEqual('10000');
+        await sleep(10_000); // make this packet to outlive it's validity
+      });
+
+      it('resume relayer', async () => {
+        await context.park.resumeRelayer('hermes', 0);
+        await sleep(10_000); // sudo-timeout
+      });
     });
-    it('verify bond is gone from the mirror contract', async () => {
-      await sleep(10_000);
-      await expect(
-        context.mirrorContractClient.queryOne({ id: 2 }),
-      ).to.rejects.toThrow(/not found/);
+
+    it("expect new assets to appear in contract's state", async () => {
+      expect(await context.mirrorContractClient.queryAllFailed()).toStrictEqual(
+        [
+          {
+            receiver: context.gaiaUserAddress,
+            failed_transfers: [
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '1000',
+              },
+            ],
+          },
+        ],
+      );
+    });
+
+    describe('bond, timeout packet', () => {
+      it('turn off relayer', async () => {
+        await context.park.pauseRelayer('hermes', 0);
+      });
+
+      it('bond', async () => {
+        await context.mirrorContractClient.bond(
+          context.neutronUserAddress,
+          {
+            receiver: context.gaiaUserAddress2,
+          },
+          1.6,
+          undefined,
+          [
+            {
+              denom: context.neutronIBCDenom,
+              amount: '1000',
+            },
+          ],
+        );
+        await sleep(10_000); // make this packet to outlive it's validity
+      });
+
+      it('resume relayer', async () => {
+        await context.park.resumeRelayer('hermes', 0);
+        await sleep(10_000); // sudo-timeout
+      });
+    });
+
+    it("expect new assets to appear in contract's state", async () => {
+      expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+        expect.arrayContaining([
+          {
+            receiver: context.gaiaUserAddress2,
+            failed_transfers: [
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '1000',
+              },
+            ],
+          },
+          {
+            receiver: context.gaiaUserAddress,
+            failed_transfers: [
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '1000',
+              },
+            ],
+          },
+        ]),
+      );
+    });
+
+    describe('bond, timeout packet', () => {
+      it('turn off relayer', async () => {
+        await context.park.pauseRelayer('hermes', 0);
+      });
+
+      it('bond', async () => {
+        await context.mirrorContractClient.bond(
+          context.neutronUserAddress,
+          {
+            receiver: context.gaiaUserAddress,
+          },
+          1.6,
+          undefined,
+          [
+            {
+              denom: context.neutronIBCDenom,
+              amount: '1000',
+            },
+          ],
+        );
+        await sleep(10_000); // make this packet to outlive it's validity
+      });
+
+      it('resume relayer', async () => {
+        await context.park.resumeRelayer('hermes', 0);
+        await sleep(10_000); // sudo-timeout
+      });
+    });
+
+    it("expect new assets to appear in contract's state", async () => {
+      expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+        expect.arrayContaining([
+          {
+            receiver: context.gaiaUserAddress,
+            failed_transfers: [
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '1000',
+              },
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '1000',
+              },
+            ],
+          },
+          {
+            receiver: context.gaiaUserAddress2,
+            failed_transfers: [
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '1000',
+              },
+            ],
+          },
+        ]),
+      );
+    });
+
+    describe('retry, timeout packet', () => {
+      it('turn off relayer', async () => {
+        await context.park.pauseRelayer('hermes', 0);
+      });
+
+      it('failed retry', async () => {
+        await context.mirrorContractClient.retry(
+          context.neutronUserAddress,
+          {
+            receiver: context.gaiaUserAddress,
+          },
+          1.6,
+        );
+
+        expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+          expect.arrayContaining([
+            {
+              receiver: context.gaiaUserAddress,
+              failed_transfers: [
+                {
+                  denom:
+                    'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                  amount: '1000',
+                },
+              ],
+            },
+            {
+              receiver: context.gaiaUserAddress2,
+              failed_transfers: [
+                {
+                  denom:
+                    'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                  amount: '1000',
+                },
+              ],
+            },
+          ]),
+        );
+        await sleep(10_000); // make this packet to outlive it's validity
+      });
+
+      it('resume relayer', async () => {
+        await context.park.resumeRelayer('hermes', 0);
+        await sleep(10_000); // sudo-timeout
+      });
+
+      it('restored values after sudo-timeout', async () => {
+        await waitFor(
+          async () =>
+            (await context.mirrorContractClient.queryAllFailed()).length === 2,
+          60_000,
+          5_000,
+        );
+        expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+          expect.arrayContaining([
+            {
+              receiver: context.gaiaUserAddress,
+              failed_transfers: [
+                {
+                  denom:
+                    'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                  amount: '1000',
+                },
+                {
+                  denom:
+                    'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                  amount: '1000',
+                },
+              ],
+            },
+            {
+              receiver: context.gaiaUserAddress2,
+              failed_transfers: [
+                {
+                  denom:
+                    'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                  amount: '1000',
+                },
+              ],
+            },
+          ]),
+        );
+      });
+    });
+
+    it('retry with the working relayer (1)', async () => {
+      await context.mirrorContractClient.retry(
+        context.neutronUserAddress,
+        {
+          receiver: context.gaiaUserAddress,
+        },
+        1.6,
+      );
+      await waitFor(
+        async () =>
+          (
+            await context.gaiaClient.getBalance(
+              context.gaiaUserAddress,
+              'ibc/1C3BF59376B26C1AC4E7BB85230733C373A0F2DC366FF9A4B1BD74B578F6A946',
+            )
+          ).amount !== '2000',
+        20000,
+        1000,
+      );
+      expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+        expect.arrayContaining([
+          {
+            receiver: context.gaiaUserAddress,
+            failed_transfers: [
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '1000',
+              },
+            ],
+          },
+          {
+            receiver: context.gaiaUserAddress2,
+            failed_transfers: [
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '1000',
+              },
+            ],
+          },
+        ]),
+      );
+    });
+
+    it('retry with the working relayer (2)', async () => {
+      await context.mirrorContractClient.retry(
+        context.neutronUserAddress,
+        {
+          receiver: context.gaiaUserAddress2,
+        },
+        1.6,
+      );
+      await waitFor(
+        async () =>
+          (
+            await context.gaiaClient.getBalance(
+              context.gaiaUserAddress2,
+              'ibc/1C3BF59376B26C1AC4E7BB85230733C373A0F2DC366FF9A4B1BD74B578F6A946',
+            )
+          ).amount !== '1000',
+        20000,
+        1000,
+      );
+      expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+        expect.arrayContaining([
+          {
+            receiver: context.gaiaUserAddress,
+            failed_transfers: [
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '1000',
+              },
+            ],
+          },
+        ]),
+      );
+    });
+
+    it('retry with the working relayer (3)', async () => {
+      await context.mirrorContractClient.retry(
+        context.neutronUserAddress,
+        {
+          receiver: context.gaiaUserAddress,
+        },
+        1.6,
+      );
+      await waitFor(
+        async () =>
+          (
+            await context.gaiaClient.getBalance(
+              context.gaiaUserAddress,
+              'ibc/1C3BF59376B26C1AC4E7BB85230733C373A0F2DC366FF9A4B1BD74B578F6A946',
+            )
+          ).amount !== '3000',
+        20000,
+        1000,
+      );
+      expect(await context.mirrorContractClient.queryAllFailed()).toStrictEqual(
+        [],
+      );
     });
   });
 });

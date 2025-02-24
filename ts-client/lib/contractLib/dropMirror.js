@@ -29,11 +29,11 @@ class Client {
     queryConfig = async () => {
         return this.client.queryContractSmart(this.contractAddress, { config: {} });
     };
-    queryOne = async (args) => {
-        return this.client.queryContractSmart(this.contractAddress, { one: args });
+    queryFailedReceiver = async (args) => {
+        return this.client.queryContractSmart(this.contractAddress, { failed_receiver: args });
     };
-    queryAll = async (args) => {
-        return this.client.queryContractSmart(this.contractAddress, { all: args });
+    queryAllFailed = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { all_failed: {} });
     };
     queryOwnership = async () => {
         return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
@@ -50,23 +50,11 @@ class Client {
         }
         return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
     };
-    complete = async (sender, args, fee, memo, funds) => {
+    retry = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { complete: args }, fee || "auto", memo, funds);
-    };
-    changeReturnType = async (sender, args, fee, memo, funds) => {
-        if (!isSigningCosmWasmClient(this.client)) {
-            throw this.mustBeSigningClient();
-        }
-        return this.client.execute(sender, this.contractAddress, { change_return_type: args }, fee || "auto", memo, funds);
-    };
-    updateBond = async (sender, args, fee, memo, funds) => {
-        if (!isSigningCosmWasmClient(this.client)) {
-            throw this.mustBeSigningClient();
-        }
-        return this.client.execute(sender, this.contractAddress, { update_bond: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, { retry: args }, fee || "auto", memo, funds);
     };
     updateOwnership = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
