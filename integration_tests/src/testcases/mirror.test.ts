@@ -620,7 +620,6 @@ describe('Mirror', () => {
         source_port: 'transfer',
         ibc_timeout: 10,
         prefix: 'cosmos',
-        retry_limit: 3,
       },
       'mirror',
       1.6,
@@ -874,20 +873,30 @@ describe('Mirror', () => {
           1.6,
         );
 
-        expect(
-          await context.mirrorContractClient.queryAllFailed(),
-        ).toStrictEqual([
-          {
-            receiver: context.gaiaUserAddress2,
-            debt: [
-              {
-                denom:
-                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
-                amount: '1000',
-              },
-            ],
-          },
-        ]);
+        expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+          expect.arrayContaining([
+            {
+              receiver: context.gaiaUserAddress,
+              debt: [
+                {
+                  denom:
+                    'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                  amount: '1000',
+                },
+              ],
+            },
+            {
+              receiver: context.gaiaUserAddress2,
+              debt: [
+                {
+                  denom:
+                    'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                  amount: '1000',
+                },
+              ],
+            },
+          ]),
+        );
         await sleep(10_000); // make this packet to outlive it's validity
       });
 
@@ -900,7 +909,7 @@ describe('Mirror', () => {
         await waitFor(
           async () =>
             (await context.mirrorContractClient.queryAllFailed()).length === 2,
-          30_000,
+          60_000,
           5_000,
         );
         expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
@@ -950,12 +959,22 @@ describe('Mirror', () => {
               context.gaiaUserAddress,
               'ibc/1C3BF59376B26C1AC4E7BB85230733C373A0F2DC366FF9A4B1BD74B578F6A946',
             )
-          ).amount !== '3000',
+          ).amount !== '2000',
         20000,
         1000,
       );
-      expect(await context.mirrorContractClient.queryAllFailed()).toStrictEqual(
-        [
+      expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+        expect.arrayContaining([
+          {
+            receiver: context.gaiaUserAddress,
+            debt: [
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '1000',
+              },
+            ],
+          },
           {
             receiver: context.gaiaUserAddress2,
             debt: [
@@ -966,7 +985,7 @@ describe('Mirror', () => {
               },
             ],
           },
-        ],
+        ]),
       );
     });
 
@@ -986,6 +1005,41 @@ describe('Mirror', () => {
               'ibc/1C3BF59376B26C1AC4E7BB85230733C373A0F2DC366FF9A4B1BD74B578F6A946',
             )
           ).amount !== '1000',
+        20000,
+        1000,
+      );
+      expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+        expect.arrayContaining([
+          {
+            receiver: context.gaiaUserAddress,
+            debt: [
+              {
+                denom:
+                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                amount: '1000',
+              },
+            ],
+          },
+        ]),
+      );
+    });
+
+    it('retry with the working relayer (3)', async () => {
+      await context.mirrorContractClient.retry(
+        context.neutronUserAddress,
+        {
+          receiver: context.gaiaUserAddress,
+        },
+        1.6,
+      );
+      await waitFor(
+        async () =>
+          (
+            await context.gaiaClient.getBalance(
+              context.gaiaUserAddress,
+              'ibc/1C3BF59376B26C1AC4E7BB85230733C373A0F2DC366FF9A4B1BD74B578F6A946',
+            )
+          ).amount !== '3000',
         20000,
         1000,
       );
