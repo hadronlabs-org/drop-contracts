@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use crate::contract::{execute, instantiate, query, reply, sudo};
 use crate::error::ContractError;
 use crate::msg::{
@@ -7,7 +5,7 @@ use crate::msg::{
 };
 use crate::state::{
     Config, ConfigOptional, BOND_REPLY_ID, BOND_REPLY_RECEIVER, CONFIG, FAILED_TRANSFERS,
-    IBC_TRANSFER_SUDO_REPLY_ID, REPLY_TRANSFER_COINS, SUDO_SEQ_ID_TO_COIN,
+    IBC_TRANSFER_REPLY_ID, REPLY_TRANSFER_COIN, SUDO_SEQ_ID_TO_COIN,
 };
 use cosmwasm_std::{
     attr, from_json,
@@ -18,6 +16,7 @@ use cosmwasm_std::{
 use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use drop_helpers::testing::mock_dependencies;
+use drop_helpers::testing::MOCK_CONTRACT_ADDR;
 use neutron_sdk::bindings::msg::{IbcFee, MsgIbcTransferResponse, NeutronMsg};
 use neutron_sdk::query::min_ibc_fee::MinIbcFeeResponse;
 use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, TransferSudoMsg};
@@ -36,12 +35,10 @@ fn test_instantiate() {
             source_port: "source_port".to_string(),
             ibc_timeout: 0u64,
             prefix: "prefix".to_string(),
-            retry_limit: 0u64,
         },
     )
     .unwrap();
     CONFIG.load(&deps.storage).unwrap();
-    REPLY_TRANSFER_COINS.load(&deps.storage).unwrap();
     assert_eq!(
         res,
         Response::new().add_event(
@@ -53,7 +50,6 @@ fn test_instantiate() {
                 attr("source_channel", "source_channel"),
                 attr("ibc_timeout", "0"),
                 attr("prefix", "prefix"),
-                attr("retry_limit", "0"),
             ])
         )
     )
@@ -71,7 +67,6 @@ fn test_execute_bond_invalid_prefix() {
                 source_port: "source_port".to_string(),
                 ibc_timeout: 0u64,
                 prefix: "cosmos".to_string(),
-                retry_limit: 0u64,
             },
         )
         .unwrap();
@@ -100,7 +95,6 @@ fn test_execute_bond_payment_error() {
                 source_port: "source_port".to_string(),
                 ibc_timeout: 0u64,
                 prefix: "neutron".to_string(),
-                retry_limit: 0u64,
             },
         )
         .unwrap();
@@ -129,7 +123,6 @@ fn test_execute_bond_wrong_receiver_address() {
                 source_port: "source_port".to_string(),
                 ibc_timeout: 0u64,
                 prefix: "neutron".to_string(),
-                retry_limit: 0u64,
             },
         )
         .unwrap();
@@ -158,7 +151,6 @@ fn test_execute_bond() {
                 source_port: "source_port".to_string(),
                 ibc_timeout: 0u64,
                 prefix: "neutron".to_string(),
-                retry_limit: 0u64,
             },
         )
         .unwrap();
@@ -229,7 +221,6 @@ fn test_execute_update_config_unauthrozied() {
                 source_port: "source_port_0".to_string(),
                 ibc_timeout: 0u64,
                 prefix: "neutron_0".to_string(),
-                retry_limit: 0u64,
             },
         )
         .unwrap();
@@ -244,7 +235,6 @@ fn test_execute_update_config_unauthrozied() {
                 source_port: Some("source_port_1".to_string()),
                 ibc_timeout: Some(1),
                 prefix: Some("neutron_1".to_string()),
-                retry_limit: Some(1),
             },
         },
     )
@@ -269,7 +259,6 @@ fn test_execute_update_config_souce_channel_error() {
                 source_port: "source_port_0".to_string(),
                 ibc_timeout: 0u64,
                 prefix: "neutron_0".to_string(),
-                retry_limit: 0u64,
             },
         )
         .unwrap();
@@ -284,7 +273,6 @@ fn test_execute_update_config_souce_channel_error() {
                 source_port: Some("source_port_1".to_string()),
                 ibc_timeout: Some(1),
                 prefix: Some("neutron_1".to_string()),
-                retry_limit: Some(1),
             },
         },
     )
@@ -306,7 +294,6 @@ fn test_execute_update_config() {
                 source_port: "source_port_0".to_string(),
                 ibc_timeout: 0u64,
                 prefix: "neutron_0".to_string(),
-                retry_limit: 0u64,
             },
         )
         .unwrap();
@@ -340,7 +327,6 @@ fn test_execute_update_config() {
                 source_port: Some("source_port_1".to_string()),
                 ibc_timeout: Some(1),
                 prefix: Some("neutron_1".to_string()),
-                retry_limit: Some(1),
             },
         },
     )
@@ -351,7 +337,6 @@ fn test_execute_update_config() {
             Event::new("crates.io:drop-staking__drop-mirror-execute_update_config").add_attributes(
                 vec![
                     attr("action", "execute_update_config"),
-                    attr("retry_limit", "1"),
                     attr("core_contract", "core_contract_1"),
                     attr("ibc_timeout", "1"),
                     attr("prefix", "neutron_1"),
@@ -377,7 +362,6 @@ fn test_execute_update_config_unauthorized() {
                 source_port: "source_port_0".to_string(),
                 ibc_timeout: 0u64,
                 prefix: "neutron_0".to_string(),
-                retry_limit: 0u64,
             },
         )
         .unwrap();
@@ -411,7 +395,6 @@ fn test_execute_update_config_unauthorized() {
                 source_port: Some("source_port_1".to_string()),
                 ibc_timeout: Some(1),
                 prefix: Some("neutron_1".to_string()),
-                retry_limit: Some(1),
             },
         },
     )
@@ -457,7 +440,7 @@ fn test_execute_transfer_ownership() {
 }
 
 #[test]
-fn test_execute_retry_removal_from_empty_failed_transfers() {
+fn test_execute_retry_take_1_from_3() {
     let mut deps = mock_dependencies(&[]);
     CONFIG
         .save(
@@ -466,259 +449,78 @@ fn test_execute_retry_removal_from_empty_failed_transfers() {
                 core_contract: "core_contract".to_string(),
                 source_port: "source_port".to_string(),
                 source_channel: "source_channel".to_string(),
-                ibc_timeout: 0,
+                ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                retry_limit: 0,
-            },
-        )
-        .unwrap();
-    let res = execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("permissionless_sender", &[]),
-        ExecuteMsg::Retry {
-            receiver: "receiver_that_doesn't_exist".to_string(),
-        },
-    )
-    .unwrap();
-    assert_eq!(
-        res,
-        Response::new().add_event(
-            Event::new("crates.io:drop-staking__drop-mirror-execute_retry")
-                .add_attribute("action", "execute_retry")
-        )
-    )
-}
-
-#[test]
-fn test_execute_retry_take_equal() {
-    let mut deps = mock_dependencies(&[]);
-    CONFIG
-        .save(
-            deps.as_mut().storage,
-            &Config {
-                core_contract: "core_contract".to_string(),
-                source_port: "source_port".to_string(),
-                source_channel: "source_channel".to_string(),
-                ibc_timeout: 0u64,
-                prefix: "prefix".to_string(),
-                retry_limit: 2u64,
             },
         )
         .unwrap();
     FAILED_TRANSFERS
         .save(
             deps.as_mut().storage,
-            "receiver".to_string(),
+            "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
             &vec![
                 Coin {
-                    denom: "token_denom1".to_string(),
-                    amount: Uint128::from(100u128),
+                    denom: "denom1".to_string(),
+                    amount: Uint128::from(1u128),
                 },
                 Coin {
-                    denom: "token_denom2".to_string(),
-                    amount: Uint128::from(300u128),
+                    denom: "denom1".to_string(),
+                    amount: Uint128::from(1u128),
+                },
+                Coin {
+                    denom: "denom2".to_string(),
+                    amount: Uint128::from(1u128),
                 },
             ],
         )
         .unwrap();
-    REPLY_TRANSFER_COINS
-        .save(deps.as_mut().storage, &VecDeque::new())
-        .unwrap();
-    for _ in FAILED_TRANSFERS
-        .load(&deps.storage, "receiver".to_string())
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: cosmwasm_std::coins(100, "untrn"),
+                timeout_fee: cosmwasm_std::coins(200, "untrn"),
+            },
+        })
         .unwrap()
-    {
-        deps.querier.add_custom_query_response(|_| {
-            to_json_binary(&MinIbcFeeResponse {
-                min_fee: IbcFee {
-                    recv_fee: vec![],
-                    ack_fee: cosmwasm_std::coins(100, "untrn"),
-                    timeout_fee: cosmwasm_std::coins(200, "untrn"),
-                },
-            })
-            .unwrap()
-        });
-    }
-
+    });
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("permissionless_sender", &[]),
+        mock_info("sender", &[]),
         ExecuteMsg::Retry {
-            receiver: "receiver".to_string(),
+            receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         },
     )
     .unwrap();
     assert_eq!(
         res,
         Response::new()
-            .add_submessages(vec![
-                SubMsg {
-                    id: IBC_TRANSFER_SUDO_REPLY_ID,
-                    msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
-                        source_port: "source_port".to_string(),
-                        source_channel: "source_channel".to_string(),
-                        token: Coin {
-                            denom: "token_denom1".to_string(),
-                            amount: Uint128::from(100u128)
-                        },
-                        sender: "cosmos2contract".to_string(),
-                        receiver: "receiver".to_string(),
-                        timeout_height: RequestPacketTimeoutHeight {
-                            revision_height: None,
-                            revision_number: None
-                        },
-                        timeout_timestamp: mock_env().block.time.nanos(),
-                        memo: "".to_string(),
-                        fee: IbcFee {
-                            recv_fee: vec![],
-                            ack_fee: vec![Coin {
-                                denom: "untrn".to_string(),
-                                amount: Uint128::from(100u128)
-                            }],
-                            timeout_fee: vec![Coin {
-                                denom: "untrn".to_string(),
-                                amount: Uint128::from(200u128)
-                            }]
-                        }
-                    }),
-                    gas_limit: None,
-                    reply_on: ReplyOn::Success
-                },
-                SubMsg {
-                    id: IBC_TRANSFER_SUDO_REPLY_ID,
-                    msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
-                        source_port: "source_port".to_string(),
-                        source_channel: "source_channel".to_string(),
-                        token: Coin {
-                            denom: "token_denom2".to_string(),
-                            amount: Uint128::from(300u128)
-                        },
-                        sender: "cosmos2contract".to_string(),
-                        receiver: "receiver".to_string(),
-                        timeout_height: RequestPacketTimeoutHeight {
-                            revision_height: None,
-                            revision_number: None
-                        },
-                        timeout_timestamp: mock_env().block.time.nanos(),
-                        memo: "".to_string(),
-                        fee: IbcFee {
-                            recv_fee: vec![],
-                            ack_fee: vec![Coin {
-                                denom: "untrn".to_string(),
-                                amount: Uint128::from(100u128)
-                            }],
-                            timeout_fee: vec![Coin {
-                                denom: "untrn".to_string(),
-                                amount: Uint128::from(200u128)
-                            }]
-                        }
-                    }),
-                    gas_limit: None,
-                    reply_on: ReplyOn::Success
-                }
-            ])
             .add_event(
                 Event::new("crates.io:drop-staking__drop-mirror-execute_retry").add_attributes(
                     vec![
                         attr("action", "execute_retry"),
-                        attr("receiver", "receiver"),
-                        attr("amount", "100token_denom1"),
-                        attr("receiver", "receiver"),
-                        attr("amount", "300token_denom2"),
+                        attr("receiver", "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc"),
+                        attr("amount", "1denom2"),
                     ]
                 )
             )
-    );
-    assert_eq!(
-        REPLY_TRANSFER_COINS.load(&deps.storage).unwrap(),
-        VecDeque::from_iter([
-            Coin {
-                denom: "token_denom1".to_string(),
-                amount: Uint128::from(100u128)
-            },
-            Coin {
-                denom: "token_denom2".to_string(),
-                amount: Uint128::from(300u128)
-            }
-        ])
-    );
-}
-
-#[test]
-fn test_execute_retry_take_less() {
-    let mut deps = mock_dependencies(&[]);
-    CONFIG
-        .save(
-            deps.as_mut().storage,
-            &Config {
-                core_contract: "core_contract".to_string(),
-                source_port: "source_port".to_string(),
-                source_channel: "source_channel".to_string(),
-                ibc_timeout: 0u64,
-                prefix: "prefix".to_string(),
-                retry_limit: 2u64,
-            },
-        )
-        .unwrap();
-    FAILED_TRANSFERS
-        .save(
-            deps.as_mut().storage,
-            "receiver".to_string(),
-            &vec![Coin {
-                denom: "token_denom1".to_string(),
-                amount: Uint128::from(100u128),
-            }],
-        )
-        .unwrap();
-    REPLY_TRANSFER_COINS
-        .save(deps.as_mut().storage, &VecDeque::new())
-        .unwrap();
-    for _ in FAILED_TRANSFERS
-        .load(&deps.storage, "receiver".to_string())
-        .unwrap()
-    {
-        deps.querier.add_custom_query_response(|_| {
-            to_json_binary(&MinIbcFeeResponse {
-                min_fee: IbcFee {
-                    recv_fee: vec![],
-                    ack_fee: cosmwasm_std::coins(100, "untrn"),
-                    timeout_fee: cosmwasm_std::coins(200, "untrn"),
-                },
-            })
-            .unwrap()
-        });
-    }
-
-    let res = execute(
-        deps.as_mut(),
-        mock_env(),
-        mock_info("permissionless_sender", &[]),
-        ExecuteMsg::Retry {
-            receiver: "receiver".to_string(),
-        },
-    )
-    .unwrap();
-    assert_eq!(
-        res,
-        Response::new()
             .add_submessages(vec![SubMsg {
-                id: IBC_TRANSFER_SUDO_REPLY_ID,
+                id: IBC_TRANSFER_REPLY_ID,
                 msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: "source_port".to_string(),
                     source_channel: "source_channel".to_string(),
                     token: Coin {
-                        denom: "token_denom1".to_string(),
-                        amount: Uint128::from(100u128)
+                        denom: "denom2".to_string(),
+                        amount: Uint128::from(1u128)
                     },
-                    sender: "cosmos2contract".to_string(),
-                    receiver: "receiver".to_string(),
+                    sender: MOCK_CONTRACT_ADDR.to_string(),
+                    receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
                     timeout_height: RequestPacketTimeoutHeight {
+                        revision_number: None,
                         revision_height: None,
-                        revision_number: None
                     },
-                    timeout_timestamp: mock_env().block.time.nanos(),
+                    timeout_timestamp: 1571809764879305533,
                     memo: "".to_string(),
                     fee: IbcFee {
                         recv_fee: vec![],
@@ -733,29 +535,38 @@ fn test_execute_retry_take_less() {
                     }
                 }),
                 gas_limit: None,
-                reply_on: ReplyOn::Success
+                reply_on: ReplyOn::Success,
             },])
-            .add_event(
-                Event::new("crates.io:drop-staking__drop-mirror-execute_retry").add_attributes(
-                    vec![
-                        attr("action", "execute_retry"),
-                        attr("receiver", "receiver"),
-                        attr("amount", "100token_denom1"),
-                    ]
-                )
-            )
     );
     assert_eq!(
-        REPLY_TRANSFER_COINS.load(&deps.storage).unwrap(),
-        VecDeque::from_iter([Coin {
-            denom: "token_denom1".to_string(),
-            amount: Uint128::from(100u128)
-        }])
+        FAILED_TRANSFERS
+            .load(
+                &deps.storage,
+                "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+            )
+            .unwrap(),
+        [
+            Coin {
+                denom: "denom1".to_string(),
+                amount: Uint128::from(1u128)
+            },
+            Coin {
+                denom: "denom1".to_string(),
+                amount: Uint128::from(1u128)
+            }
+        ]
     );
+    assert_eq!(
+        REPLY_TRANSFER_COIN.load(&deps.storage).unwrap(),
+        Coin {
+            denom: "denom2".to_string(),
+            amount: Uint128::from(1u128)
+        }
+    )
 }
 
 #[test]
-fn test_execute_retry_take_bigger() {
+fn test_execute_retry_take_one() {
     let mut deps = mock_dependencies(&[]);
     CONFIG
         .save(
@@ -764,162 +575,203 @@ fn test_execute_retry_take_bigger() {
                 core_contract: "core_contract".to_string(),
                 source_port: "source_port".to_string(),
                 source_channel: "source_channel".to_string(),
-                ibc_timeout: 0u64,
+                ibc_timeout: 12345,
                 prefix: "prefix".to_string(),
-                retry_limit: 2u64,
             },
         )
         .unwrap();
     FAILED_TRANSFERS
         .save(
             deps.as_mut().storage,
-            "receiver".to_string(),
-            &vec![
-                Coin {
-                    denom: "token_denom1".to_string(),
-                    amount: Uint128::from(100u128),
-                },
-                Coin {
-                    denom: "token_denom2".to_string(),
-                    amount: Uint128::from(200u128),
-                },
-                Coin {
-                    denom: "token_denom3".to_string(),
-                    amount: Uint128::from(300u128),
-                },
-            ],
+            "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+            &vec![Coin {
+                denom: "denom1".to_string(),
+                amount: Uint128::from(1u128),
+            }],
         )
         .unwrap();
-    REPLY_TRANSFER_COINS
-        .save(deps.as_mut().storage, &VecDeque::new())
-        .unwrap();
-    for _ in FAILED_TRANSFERS
-        .load(&deps.storage, "receiver".to_string())
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: IbcFee {
+                recv_fee: vec![],
+                ack_fee: cosmwasm_std::coins(100, "untrn"),
+                timeout_fee: cosmwasm_std::coins(200, "untrn"),
+            },
+        })
         .unwrap()
-    {
-        deps.querier.add_custom_query_response(|_| {
-            to_json_binary(&MinIbcFeeResponse {
-                min_fee: IbcFee {
-                    recv_fee: vec![],
-                    ack_fee: cosmwasm_std::coins(100, "untrn"),
-                    timeout_fee: cosmwasm_std::coins(200, "untrn"),
-                },
-            })
-            .unwrap()
-        });
-    }
-
+    });
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("permissionless_sender", &[]),
+        mock_info("sender", &[]),
         ExecuteMsg::Retry {
-            receiver: "receiver".to_string(),
+            receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         },
     )
     .unwrap();
     assert_eq!(
         res,
         Response::new()
-            .add_submessages(vec![
-                SubMsg {
-                    id: IBC_TRANSFER_SUDO_REPLY_ID,
-                    msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
-                        source_port: "source_port".to_string(),
-                        source_channel: "source_channel".to_string(),
-                        token: Coin {
-                            denom: "token_denom1".to_string(),
-                            amount: Uint128::from(100u128)
-                        },
-                        sender: "cosmos2contract".to_string(),
-                        receiver: "receiver".to_string(),
-                        timeout_height: RequestPacketTimeoutHeight {
-                            revision_height: None,
-                            revision_number: None
-                        },
-                        timeout_timestamp: mock_env().block.time.nanos(),
-                        memo: "".to_string(),
-                        fee: IbcFee {
-                            recv_fee: vec![],
-                            ack_fee: vec![Coin {
-                                denom: "untrn".to_string(),
-                                amount: Uint128::from(100u128)
-                            }],
-                            timeout_fee: vec![Coin {
-                                denom: "untrn".to_string(),
-                                amount: Uint128::from(200u128)
-                            }]
-                        }
-                    }),
-                    gas_limit: None,
-                    reply_on: ReplyOn::Success
-                },
-                SubMsg {
-                    id: IBC_TRANSFER_SUDO_REPLY_ID,
-                    msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
-                        source_port: "source_port".to_string(),
-                        source_channel: "source_channel".to_string(),
-                        token: Coin {
-                            denom: "token_denom2".to_string(),
-                            amount: Uint128::from(200u128)
-                        },
-                        sender: "cosmos2contract".to_string(),
-                        receiver: "receiver".to_string(),
-                        timeout_height: RequestPacketTimeoutHeight {
-                            revision_height: None,
-                            revision_number: None
-                        },
-                        timeout_timestamp: mock_env().block.time.nanos(),
-                        memo: "".to_string(),
-                        fee: IbcFee {
-                            recv_fee: vec![],
-                            ack_fee: vec![Coin {
-                                denom: "untrn".to_string(),
-                                amount: Uint128::from(100u128)
-                            }],
-                            timeout_fee: vec![Coin {
-                                denom: "untrn".to_string(),
-                                amount: Uint128::from(200u128)
-                            }]
-                        }
-                    }),
-                    gas_limit: None,
-                    reply_on: ReplyOn::Success
-                },
-            ])
             .add_event(
                 Event::new("crates.io:drop-staking__drop-mirror-execute_retry").add_attributes(
                     vec![
                         attr("action", "execute_retry"),
-                        attr("receiver", "receiver"),
-                        attr("amount", "100token_denom1"),
-                        attr("receiver", "receiver"),
-                        attr("amount", "200token_denom2"),
+                        attr("receiver", "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc"),
+                        attr("amount", "1denom1"),
                     ]
                 )
             )
+            .add_submessages(vec![SubMsg {
+                id: IBC_TRANSFER_REPLY_ID,
+                msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
+                    source_port: "source_port".to_string(),
+                    source_channel: "source_channel".to_string(),
+                    token: Coin {
+                        denom: "denom1".to_string(),
+                        amount: Uint128::from(1u128)
+                    },
+                    sender: MOCK_CONTRACT_ADDR.to_string(),
+                    receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+                    timeout_height: RequestPacketTimeoutHeight {
+                        revision_number: None,
+                        revision_height: None,
+                    },
+                    timeout_timestamp: 1571809764879305533,
+                    memo: "".to_string(),
+                    fee: IbcFee {
+                        recv_fee: vec![],
+                        ack_fee: vec![Coin {
+                            denom: "untrn".to_string(),
+                            amount: Uint128::from(100u128)
+                        }],
+                        timeout_fee: vec![Coin {
+                            denom: "untrn".to_string(),
+                            amount: Uint128::from(200u128)
+                        }]
+                    }
+                }),
+                gas_limit: None,
+                reply_on: ReplyOn::Success,
+            },])
     );
+    FAILED_TRANSFERS
+        .load(
+            &deps.storage,
+            "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+        )
+        .unwrap_err();
     assert_eq!(
-        REPLY_TRANSFER_COINS.load(&deps.storage).unwrap(),
-        VecDeque::from_iter([
-            Coin {
-                denom: "token_denom1".to_string(),
-                amount: Uint128::from(100u128)
+        REPLY_TRANSFER_COIN.load(&deps.storage).unwrap(),
+        Coin {
+            denom: "denom1".to_string(),
+            amount: Uint128::from(1u128)
+        }
+    )
+}
+
+#[test]
+fn test_execute_retry_take_0() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
             },
-            Coin {
-                denom: "token_denom2".to_string(),
-                amount: Uint128::from(200u128)
-            }
-        ])
-    );
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("sender", &[]),
+        ExecuteMsg::Retry {
+            receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+        },
+    )
+    .unwrap();
     assert_eq!(
-        FAILED_TRANSFERS
-            .load(&deps.storage, "receiver".to_string())
-            .unwrap(),
-        vec![Coin {
-            denom: "token_denom3".to_string(),
-            amount: Uint128::from(300u128)
-        }]
+        res,
+        Response::new().add_event(
+            Event::new("crates.io:drop-staking__drop-mirror-execute_retry")
+                .add_attributes(vec![attr("action", "execute_retry"),])
+        )
+    );
+}
+
+#[test]
+fn test_execute_retry_take_empty() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+            },
+        )
+        .unwrap();
+    FAILED_TRANSFERS
+        .save(
+            deps.as_mut().storage,
+            "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+            &vec![],
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("sender", &[]),
+        ExecuteMsg::Retry {
+            receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new().add_event(
+            Event::new("crates.io:drop-staking__drop-mirror-execute_retry")
+                .add_attributes(vec![attr("action", "execute_retry"),])
+        )
+    );
+}
+
+#[test]
+fn test_execute_retry_none() {
+    let mut deps = mock_dependencies(&[]);
+    CONFIG
+        .save(
+            deps.as_mut().storage,
+            &Config {
+                core_contract: "core_contract".to_string(),
+                source_port: "source_port".to_string(),
+                source_channel: "source_channel".to_string(),
+                ibc_timeout: 12345,
+                prefix: "prefix".to_string(),
+            },
+        )
+        .unwrap();
+    let res = execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("sender", &[]),
+        ExecuteMsg::Retry {
+            receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new().add_event(
+            Event::new("crates.io:drop-staking__drop-mirror-execute_retry")
+                .add_attributes(vec![attr("action", "execute_retry"),])
+        )
     );
 }
 
@@ -949,7 +801,6 @@ fn test_query_config() {
         source_channel: "source_channel".to_string(),
         ibc_timeout: 0u64,
         prefix: "prefix".to_string(),
-        retry_limit: 0u64,
     };
     CONFIG.save(deps.as_mut().storage, &config).unwrap();
     let res: Config =
@@ -1065,15 +916,11 @@ fn test_execute_reply_finalize_bond() {
                 source_port: "source_port_0".to_string(),
                 ibc_timeout: 0u64,
                 prefix: "neutron_0".to_string(),
-                retry_limit: 0u64,
             },
         )
         .unwrap();
     BOND_REPLY_RECEIVER
         .save(deps.as_mut().storage, &"reply_receiver".to_string())
-        .unwrap();
-    REPLY_TRANSFER_COINS
-        .save(deps.as_mut().storage, &VecDeque::new())
         .unwrap();
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
@@ -1139,11 +986,11 @@ fn test_execute_reply_finalize_bond() {
             )
     );
     assert_eq!(
-        REPLY_TRANSFER_COINS.load(&deps.storage).unwrap(),
-        VecDeque::from_iter([Coin {
+        REPLY_TRANSFER_COIN.load(&deps.storage).unwrap(),
+        Coin {
             denom: "dasset".to_string(),
             amount: Uint128::from(100u128),
-        }])
+        }
     )
 }
 
@@ -1159,7 +1006,6 @@ fn test_execute_reply_finalize_bond_no_tokens_minted() {
                 source_port: "source_port_0".to_string(),
                 ibc_timeout: 0u64,
                 prefix: "neutron_0".to_string(),
-                retry_limit: 0u64,
             },
         )
         .unwrap();
@@ -1193,7 +1039,6 @@ fn test_execute_reply_finalize_bond_no_tokens_minted_amount_found() {
                 source_port: "source_port_0".to_string(),
                 ibc_timeout: 0u64,
                 prefix: "neutron_0".to_string(),
-                retry_limit: 0u64,
             },
         )
         .unwrap();
@@ -1218,24 +1063,20 @@ fn test_execute_reply_finalize_bond_no_tokens_minted_amount_found() {
 #[test]
 fn test_reply_store_seq_id_invalid_type() {
     let mut deps = mock_dependencies(&[]);
-    REPLY_TRANSFER_COINS
+    REPLY_TRANSFER_COIN
         .save(
             deps.as_mut().storage,
-            &VecDeque::from_iter(
-                [Coin {
-                    denom: "reply_transfer_coin".to_string(),
-                    amount: Uint128::from(1u128),
-                }]
-                .iter()
-                .cloned(),
-            ),
+            &Coin {
+                denom: "reply_transfer_coin".to_string(),
+                amount: Uint128::from(1u128),
+            },
         )
         .unwrap();
     let res = reply(
         deps.as_mut(),
         mock_env(),
         Reply {
-            id: IBC_TRANSFER_SUDO_REPLY_ID,
+            id: IBC_TRANSFER_REPLY_ID,
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![Event::new("wasm").add_attribute("token_id", "1_neutron..._123")],
                 data: Some(to_json_binary(&"wrong_data".to_string()).unwrap()),
@@ -1254,24 +1095,20 @@ fn test_reply_store_seq_id_invalid_type() {
 #[test]
 fn test_reply_store_seq_id() {
     let mut deps = mock_dependencies(&[]);
-    REPLY_TRANSFER_COINS
+    REPLY_TRANSFER_COIN
         .save(
             deps.as_mut().storage,
-            &VecDeque::from_iter(
-                [Coin {
-                    denom: "reply_transfer_coin".to_string(),
-                    amount: Uint128::from(1u128),
-                }]
-                .iter()
-                .cloned(),
-            ),
+            &Coin {
+                denom: "reply_transfer_coin".to_string(),
+                amount: Uint128::from(1u128),
+            },
         )
         .unwrap();
     let res: Response<NeutronMsg> = reply(
         deps.as_mut(),
         mock_env(),
         Reply {
-            id: IBC_TRANSFER_SUDO_REPLY_ID,
+            id: IBC_TRANSFER_REPLY_ID,
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![],
                 data: Some(
@@ -1302,72 +1139,6 @@ fn test_reply_store_seq_id() {
                 ]
             )
         )
-    );
-    assert_eq!(
-        REPLY_TRANSFER_COINS.load(&deps.storage).unwrap(),
-        VecDeque::new()
-    );
-}
-
-#[test]
-fn test_reply_store_seq_id_take_from_queue() {
-    let mut deps = mock_dependencies(&[]);
-    REPLY_TRANSFER_COINS
-        .save(
-            deps.as_mut().storage,
-            &VecDeque::from_iter(
-                [
-                    Coin {
-                        denom: "denom1".to_string(),
-                        amount: Uint128::from(1u128),
-                    },
-                    Coin {
-                        denom: "denom2".to_string(),
-                        amount: Uint128::from(2u128),
-                    },
-                    Coin {
-                        denom: "denom3".to_string(),
-                        amount: Uint128::from(3u128),
-                    },
-                ]
-                .iter()
-                .cloned(),
-            ),
-        )
-        .unwrap();
-    for coin in REPLY_TRANSFER_COINS.load(deps.as_ref().storage).unwrap() {
-        let res: Response<NeutronMsg> = reply(
-            deps.as_mut(),
-            mock_env(),
-            Reply {
-                id: IBC_TRANSFER_SUDO_REPLY_ID,
-                result: SubMsgResult::Ok(SubMsgResponse {
-                    events: vec![],
-                    data: Some(
-                        to_json_binary(&MsgIbcTransferResponse {
-                            sequence_id: 0u64,
-                            channel: "channel".to_string(),
-                        })
-                        .unwrap(),
-                    ),
-                }),
-            },
-        )
-        .unwrap();
-        assert_eq!(
-            res,
-            Response::new().add_event(
-                Event::new("crates.io:drop-staking__drop-mirror-reply_store_seq_id")
-                    .add_attributes(vec![
-                        attr("action", "store_seq_id"),
-                        attr("popped", coin.to_string())
-                    ])
-            )
-        );
-    }
-    assert_eq!(
-        REPLY_TRANSFER_COINS.load(&deps.storage).unwrap(),
-        VecDeque::new()
     );
 }
 

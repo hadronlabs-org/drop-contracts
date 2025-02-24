@@ -5,7 +5,7 @@ use crate::msg::{
 };
 use crate::state::{
     Config, ConfigOptional, BOND_REPLY_ID, BOND_REPLY_RECEIVER, CONFIG, FAILED_TRANSFERS,
-    IBC_TRANSFER_SUDO_REPLY_ID, REPLY_TRANSFER_COINS, SUDO_SEQ_ID_TO_COIN, TIMEOUT_RANGE,
+    IBC_TRANSFER_REPLY_ID, REPLY_TRANSFER_COIN, SUDO_SEQ_ID_TO_COIN, TIMEOUT_RANGE,
 };
 use cosmwasm_std::{
     attr, ensure, from_json, to_json_binary, Attribute, Binary, Coin, Deps, DepsMut, Env, IbcQuery,
@@ -19,8 +19,6 @@ use neutron_sdk::bindings::{
     query::NeutronQuery,
 };
 use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, TransferSudoMsg};
-
-use std::collections::VecDeque;
 use std::str::FromStr;
 use std::{env, vec};
 
@@ -47,10 +45,8 @@ pub fn instantiate(
             source_channel: msg.source_channel.clone(),
             ibc_timeout: msg.ibc_timeout,
             prefix: msg.prefix.clone(),
-            retry_limit: msg.retry_limit,
         },
     )?;
-    REPLY_TRANSFER_COINS.save(deps.storage, &VecDeque::new())?;
     let attrs = vec![
         attr("action", "instantiate"),
         attr("owner", owner),
@@ -59,7 +55,6 @@ pub fn instantiate(
         attr("source_channel", msg.source_channel),
         attr("ibc_timeout", msg.ibc_timeout.to_string()),
         attr("prefix", msg.prefix),
-        attr("retry_limit", msg.retry_limit.to_string()),
     ];
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
@@ -122,27 +117,28 @@ fn execute_retry(
     env: Env,
     receiver: String,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let failed_transfers = FAILED_TRANSFERS.may_load(deps.storage, receiver.clone())?;
     let Config {
         source_port,
         source_channel,
         ibc_timeout,
-        retry_limit,
+        prefix,
         ..
     } = CONFIG.load(deps.storage)?;
+
+    ensure!(receiver.starts_with(&prefix), ContractError::InvalidPrefix);
+    bech32::decode(&receiver).map_err(|_| ContractError::WrongReceiverAddress)?;
+
+    let failed_transfers = FAILED_TRANSFERS.may_load(deps.storage, receiver.clone())?;
     let mut ibc_transfer_submsgs: Vec<SubMsg<NeutronMsg>> = vec![];
     let mut attrs: Vec<Attribute> = vec![attr("action", "execute_retry")];
-    if let Some(failed_transfers) = failed_transfers {
-        let mut receiver_new_coins: Vec<Coin> = failed_transfers.clone();
-        for coin in failed_transfers
-            .iter()
-            .take(retry_limit.try_into().unwrap())
-        {
+    if let Some(mut failed_transfers) = failed_transfers {
+        let receiver_latest_coin = failed_transfers.pop();
+        if let Some(receiver_latest_coin) = receiver_latest_coin {
             ibc_transfer_submsgs.push(SubMsg::reply_on_success(
                 NeutronMsg::IbcTransfer {
                     source_port: source_port.clone(),
                     source_channel: source_channel.clone(),
-                    token: coin.clone(),
+                    token: receiver_latest_coin.clone(),
                     sender: env.contract.address.to_string(),
                     receiver: receiver.clone(),
                     timeout_height: RequestPacketTimeoutHeight {
@@ -153,27 +149,16 @@ fn execute_retry(
                     memo: "".to_string(),
                     fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
                 },
-                IBC_TRANSFER_SUDO_REPLY_ID,
+                IBC_TRANSFER_REPLY_ID,
             ));
-            receiver_new_coins = receiver_new_coins
-                .iter()
-                .filter(|receiver_new_coin| receiver_new_coin.denom != coin.denom)
-                .cloned()
-                .collect::<Vec<Coin>>();
-            REPLY_TRANSFER_COINS.update(deps.storage, |mut reply_transfer_coins| {
-                reply_transfer_coins.push_back(coin.clone());
-                Ok::<VecDeque<Coin>, ContractError>(reply_transfer_coins)
-            })?;
+            REPLY_TRANSFER_COIN.save(deps.storage, &receiver_latest_coin)?;
             attrs.push(attr("receiver", receiver.clone()));
-            attrs.push(attr("amount", coin.to_string()));
+            attrs.push(attr("amount", receiver_latest_coin.to_string()));
         }
-        // During the IBC transfers we need to remove these funds from state so we can't call retry again for the same user
-        // If any IBC transaction fails then we restore failed transfers for given user in sudo-error
-        // It doesn't throw any exception if given key doesn't exist
-        if receiver_new_coins.is_empty() {
+        if failed_transfers.is_empty() {
             FAILED_TRANSFERS.remove(deps.storage, receiver);
         } else {
-            FAILED_TRANSFERS.save(deps.storage, receiver, &receiver_new_coins)?;
+            FAILED_TRANSFERS.save(deps.storage, receiver, &failed_transfers)?;
         }
     }
     Ok(response("execute_retry", CONTRACT_NAME, attrs).add_submessages(ibc_transfer_submsgs))
@@ -187,10 +172,6 @@ fn execute_update_config(
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut config = CONFIG.load(deps.storage)?;
     let mut attrs = vec![attr("action", "execute_update_config")];
-    if let Some(retry_limit) = new_config.retry_limit {
-        attrs.push(attr("retry_limit", retry_limit.to_string()));
-        config.retry_limit = retry_limit;
-    }
     if let Some(core_contract) = new_config.core_contract {
         deps.api.addr_validate(&core_contract)?;
         attrs.push(attr("core_contract", &core_contract));
@@ -279,7 +260,7 @@ pub fn reply(
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg.id {
         BOND_REPLY_ID => finalize_bond(deps, env, msg),
-        IBC_TRANSFER_SUDO_REPLY_ID => store_seq_id(deps, msg),
+        IBC_TRANSFER_REPLY_ID => store_seq_id(deps, msg),
         _ => unimplemented!(),
     }
 }
@@ -298,9 +279,7 @@ pub fn store_seq_id(
     )
     .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?;
     let seq_id = msg_ibc_transfer_response.sequence_id;
-    let mut coins = REPLY_TRANSFER_COINS.load(deps.storage)?;
-    let coin = coins.pop_front().unwrap(); // safe because it always has something inside
-    REPLY_TRANSFER_COINS.save(deps.storage, &coins)?;
+    let coin = REPLY_TRANSFER_COIN.load(deps.storage)?;
     SUDO_SEQ_ID_TO_COIN.save(deps.storage, seq_id, &coin)?;
     let attrs = vec![
         attr("action", "store_seq_id"),
@@ -360,12 +339,9 @@ pub fn finalize_bond(
                     memo: "".to_string(),
                     fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
                 },
-                IBC_TRANSFER_SUDO_REPLY_ID,
+                IBC_TRANSFER_REPLY_ID,
             );
-            REPLY_TRANSFER_COINS.update(deps.storage, |mut reply_transfer_coins| {
-                reply_transfer_coins.push_back(coin);
-                Ok::<VecDeque<Coin>, ContractError>(reply_transfer_coins)
-            })?;
+            REPLY_TRANSFER_COIN.save(deps.storage, &coin)?;
             Ok(response("reply_finalize_bond", CONTRACT_NAME, attrs)
                 .add_submessage(ibc_transfer_submsg))
         }
