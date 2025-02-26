@@ -9,11 +9,14 @@ module me::liquidity_provider {
     use initia_std::math128;
     use initia_std::block;
     use initia_std::fungible_asset::Metadata;
+
     use std::option;
     use std::signer;
     use std::address;
     use std::string::{Self, String};
     use std::error;
+    use std::vector;
+    use std::unit_test;
 
     const ENOT_OWNER: u64 = 1;
 
@@ -145,5 +148,57 @@ module me::liquidity_provider {
             // slinky doesn't know about INIT yet, skip any validation and go full YOLO
             provide_liquidity(&signer);
         }
+    }
+
+    fun get_random_account(): signer {
+        vector::pop_back(&mut unit_test::create_signers_for_testing(1))
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 327681, location = me::liquidity_provider)]
+    fun test_backup_unauthorized() acquires ModuleStore {
+        let account = get_random_account();
+        let addr = signer::address_of(&account);
+        let coin_name = string::utf8(b"coin_name");
+        let coin_symbol = string::utf8(b"coin_symbol");
+        coin::initialize(
+            &account,
+            std::option::some(123),
+            coin_name,
+            coin_symbol,
+            6u8,
+            string::utf8(b"icon_uri"),
+            string::utf8(b"project_uri")
+        );
+
+        backup(&account, coin::metadata(addr, coin_symbol));
+    }
+
+    #[test(me = @me)]
+    fun test_backup(me: &signer) acquires ModuleStore {
+        init_module(me);
+
+        let addr_me = signer::address_of(me);
+        let coin_name = string::utf8(b"coin_name");
+        let coin_symbol = string::utf8(b"coin_symbol");
+        let (mint_capability, _, _) = coin::initialize(
+            me,
+            std::option::some(123),
+            coin_name,
+            coin_symbol,
+            6u8,
+            string::utf8(b"decimals"),
+            string::utf8(b"icon_uri")
+        );
+        let metadata = coin::metadata(addr_me, coin_symbol);
+        let store = borrow_global<ModuleStore>(@me);
+        let module_addr = object::address_from_extend_ref(&store.extend_ref);
+        coin::mint_to(&mint_capability, module_addr, 123u64);
+
+        assert!(coin::balance(module_addr, metadata) == 123);
+        assert!(coin::balance(@me, metadata) == 0);
+        backup(me, metadata);
+        assert!(coin::balance(@me, metadata) == 123);
+        assert!(coin::balance(module_addr, metadata) == 0);
     }
 }

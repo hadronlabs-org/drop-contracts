@@ -16,11 +16,10 @@ pair = "0xdbf06c48af3984ec6d9ae8a9aa7dbb0bb1e784aa9b8c4a5681af660cf8558d7d"
 asset = "0x8e4733bdabcf7d4afc3d14f0dd46c9bf52fb0fce9e4b996c939e195b8bc891d9"
 
 # Contract owner
-me = "_"
+me = "0x2df8f44901d12c7528678f5e85117fc7b73ec7a0"
 
 # Receives LP tokens
-recipient = "_"
-
+recipient = "0x2df8f44901d12c7528678f5e85117fc7b73ec7a0"
 
 [dependencies]
 InitiaStdlib = { git = "https://github.com/initia-labs/movevm", subdir = "precompile/modules/initia_stdlib", rev = "v0.6.1" }
