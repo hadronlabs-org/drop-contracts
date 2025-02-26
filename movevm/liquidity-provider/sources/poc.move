@@ -154,6 +154,19 @@ module me::liquidity_provider {
         vector::pop_back(&mut unit_test::create_signers_for_testing(1))
     }
 
+    #[test(me = @me)]
+    fun test_init_module(me: &signer) acquires ModuleStore {
+        assert!(exists<ModuleStore>(@me) == false);
+        init_module(me);
+
+        assert!(exists<ModuleStore>(@me) == true);
+
+        let store = borrow_global<ModuleStore>(@me);
+        assert!(store.price == 0);
+        assert!(store.ts == 0);
+        assert!(store.decimals == 0);
+    }
+
     #[test]
     #[expected_failure(abort_code = 327681, location = me::liquidity_provider)]
     fun test_backup_unauthorized() acquires ModuleStore {
