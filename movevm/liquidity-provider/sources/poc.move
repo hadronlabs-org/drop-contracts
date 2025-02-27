@@ -15,8 +15,6 @@ module me::liquidity_provider {
     use std::address;
     use std::string::{Self, String};
     use std::error;
-    use std::vector;
-    use std::unit_test;
 
     const ENOT_OWNER: u64 = 1;
 
@@ -150,10 +148,6 @@ module me::liquidity_provider {
         }
     }
 
-    fun get_random_account(): signer {
-        vector::pop_back(&mut unit_test::create_signers_for_testing(1))
-    }
-
     #[test(me = @me)]
     fun test_init_module(me: &signer) acquires ModuleStore {
         assert!(exists<ModuleStore>(@me) == false);
@@ -170,7 +164,7 @@ module me::liquidity_provider {
     #[test]
     #[expected_failure(abort_code = 327681, location = me::liquidity_provider)]
     fun test_backup_unauthorized() acquires ModuleStore {
-        let account = get_random_account();
+        let account = @0x0;
         let addr = signer::address_of(&account);
         let coin_name = string::utf8(b"coin_name");
         let coin_symbol = string::utf8(b"coin_symbol");
