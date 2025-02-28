@@ -1128,6 +1128,43 @@ fn test_query_ownership() {
 }
 
 #[test]
+fn test_query_voucher_to_nft_doesnt_exist() {
+    let deps = mock_dependencies(&[]);
+    query(
+        deps.as_ref(),
+        mock_env(),
+        QueryMsg::VoucherToNft {
+            id: "tf_denom".to_string(),
+        },
+    )
+    .unwrap_err();
+}
+
+#[test]
+fn test_query_voucher_to_nft() {
+    let mut deps = mock_dependencies(&[]);
+    TF_DENOM_TO_NFT_ID
+        .save(
+            deps.as_mut().storage,
+            "tf_denom".to_string(),
+            &"nft_id".to_string(),
+        )
+        .unwrap();
+    let res: String = from_json(
+        query(
+            deps.as_ref(),
+            mock_env(),
+            QueryMsg::VoucherToNft {
+                id: "tf_denom".to_string(),
+            },
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(res, "nft_id".to_string());
+}
+
+#[test]
 fn test_query_config() {
     let mut deps = mock_dependencies(&[]);
     let config = Config {

@@ -83,6 +83,9 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
         QueryMsg::FailedReceiver { receiver } => query_failed_receiver(deps, receiver),
         QueryMsg::AllFailed {} => query_all_failed(deps),
         QueryMsg::UnbondReady { id } => query_unbond_ready(deps, id),
+        QueryMsg::VoucherToNft { id } => {
+            Ok(to_json_binary(&TF_DENOM_TO_NFT_ID.load(deps.storage, id)?)?)
+        }
     }
 }
 
