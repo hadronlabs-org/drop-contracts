@@ -106,11 +106,13 @@ module me::liquidity_provider {
 
     // Read INIT price from slinky
     entry fun store() acquires ModuleStore {
-        let (price, ts, decimals) = oracle::get_price(string::utf8(b"INIT/USD"));
         let store = borrow_global_mut<ModuleStore>(@me);
-        store.price = price;
-        store.ts = ts;
-        store.decimals = decimals;
+        let (price, ts, decimals) = oracle::get_price(string::utf8(b"INIT/USD"));
+        if (ts != store.ts) {
+            store.price = price;
+            store.ts = ts;
+            store.decimals = decimals;
+        }
     }
 
     // MEV protection, only provide liquidity if pool price is up to date with off-chain price feed
