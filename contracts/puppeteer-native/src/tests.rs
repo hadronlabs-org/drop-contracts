@@ -1,8 +1,10 @@
+use crate::contract::{CLAIM_REWARDS_REPLY_ID, CONTRACT_NAME};
+
 use cosmwasm_std::{
-    coin, coins, from_json,
+    coin, from_json,
     testing::{mock_env, mock_info},
     to_json_binary, Addr, BankMsg, CosmosMsg, Decimal256, DepsMut, Event, Response, StakingMsg,
-    StdError, Timestamp, Uint128, Uint64, WasmMsg,
+    StdError, SubMsg, Timestamp, Uint128, Uint64, WasmMsg,
 };
 use drop_helpers::testing::mock_dependencies;
 
@@ -24,11 +26,7 @@ use drop_staking_base::{
     msg::puppeteer_native::InstantiateMsg,
     state::puppeteer_native::QueryDelegatorDelegationsResponse,
 };
-use neutron_sdk::{
-    bindings::{msg::IbcFee, query::NeutronQuery},
-    interchain_queries::v045::types::Balances,
-    query::min_ibc_fee::MinIbcFeeResponse,
-};
+use neutron_sdk::{bindings::query::NeutronQuery, interchain_queries::v045::types::Balances};
 
 use std::vec;
 
@@ -189,12 +187,6 @@ fn test_execute_setup_protocol() {
 #[test]
 fn test_execute_undelegate_sender_is_not_allowed() {
     let mut deps = mock_dependencies(&[]);
-    deps.querier.add_custom_query_response(|_| {
-        to_json_binary(&MinIbcFeeResponse {
-            min_fee: get_standard_fees(),
-        })
-        .unwrap()
-    });
     base_init(&mut deps.as_mut());
     let res = crate::contract::execute(
         deps.as_mut(),
@@ -218,12 +210,6 @@ fn test_execute_undelegate_sender_is_not_allowed() {
 #[test]
 fn test_execute_undelegate() {
     let mut deps = mock_dependencies(&[]);
-    deps.querier.add_custom_query_response(|_| {
-        to_json_binary(&MinIbcFeeResponse {
-            min_fee: get_standard_fees(),
-        })
-        .unwrap()
-    });
     base_init(&mut deps.as_mut());
 
     let env: cosmwasm_std::Env = mock_env();
@@ -271,12 +257,6 @@ fn test_execute_undelegate() {
 #[test]
 fn test_execute_claim_rewards_and_optionaly_transfer_sender_is_not_allowed() {
     let mut deps = mock_dependencies(&[]);
-    deps.querier.add_custom_query_response(|_| {
-        to_json_binary(&MinIbcFeeResponse {
-            min_fee: get_standard_fees(),
-        })
-        .unwrap()
-    });
     base_init(&mut deps.as_mut());
     let res = crate::contract::execute(
         deps.as_mut(),
@@ -305,12 +285,6 @@ fn test_execute_claim_rewards_and_optionaly_transfer_sender_is_not_allowed() {
 #[test]
 fn test_execute_claim_rewards_and_optionaly_transfer() {
     let mut deps = mock_dependencies(&[]);
-    deps.querier.add_custom_query_response(|_| {
-        to_json_binary(&MinIbcFeeResponse {
-            min_fee: get_standard_fees(),
-        })
-        .unwrap()
-    });
     base_init(&mut deps.as_mut());
 
     let env = mock_env();
@@ -336,12 +310,34 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
 
     assert_eq!(
         res,
-        cosmwasm_std::Response::new().add_messages(vec![
-            CosmosMsg::Bank(BankMsg::Send {
-                to_address: "some_recipient".to_string(),
-                amount: vec![cosmwasm_std::Coin::new(123u128, DEFAULT_DENOM.to_string())],
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
+        cosmwasm_std::Response::new()
+            .add_messages(vec![
+                CosmosMsg::Bank(BankMsg::Send {
+                    to_address: "some_recipient".to_string(),
+                    amount: vec![cosmwasm_std::Coin::new(123u128, DEFAULT_DENOM.to_string())],
+                }),
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: "some_reply_to".to_string(),
+                    msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(
+                        ResponseHookMsg::Success(ResponseHookSuccessMsg {
+                            transaction: Transaction::ClaimRewardsAndOptionalyTransfer {
+                                interchain_account_id: env.contract.address.to_string(),
+                                validators: vec![
+                                    "validator1".to_string(),
+                                    "validator2".to_string()
+                                ],
+                                denom: DEFAULT_DENOM.to_string(),
+                                transfer,
+                            },
+                            local_height: env.block.height,
+                            remote_height: env.block.height,
+                        }),
+                    ))
+                    .unwrap(),
+                    funds: vec![],
+                })
+            ])
+            .add_submessage(SubMsg::reply_on_error(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "distribution_module".to_string(),
                 msg: to_json_binary(
                     &drop_staking_base::msg::neutron_distribution_mock::ExecuteMsg::ClaimRewards {
@@ -350,25 +346,7 @@ fn test_execute_claim_rewards_and_optionaly_transfer() {
                 )
                 .unwrap(),
                 funds: vec![],
-            }),
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "some_reply_to".to_string(),
-                msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(
-                    ResponseHookMsg::Success(ResponseHookSuccessMsg {
-                        transaction: Transaction::ClaimRewardsAndOptionalyTransfer {
-                            interchain_account_id: env.contract.address.to_string(),
-                            validators: vec!["validator1".to_string(), "validator2".to_string()],
-                            denom: DEFAULT_DENOM.to_string(),
-                            transfer,
-                        },
-                        local_height: env.block.height,
-                        remote_height: env.block.height,
-                    }),
-                ))
-                .unwrap(),
-                funds: vec![],
-            })
-        ]),
+            }), CLAIM_REWARDS_REPLY_ID)),
     );
 }
 
@@ -391,14 +369,6 @@ fn base_init(deps_mut: &mut DepsMut<NeutronQuery>) {
             &Addr::unchecked("rewards_withdraw_address"),
         )
         .unwrap();
-}
-
-fn get_standard_fees() -> IbcFee {
-    IbcFee {
-        recv_fee: vec![],
-        ack_fee: coins(100, "untrn"),
-        timeout_fee: coins(200, "untrn"),
-    }
 }
 
 #[test]
@@ -995,4 +965,27 @@ fn test_unbonding_delegations_two_pages() {
             },
         ]
     );
+}
+
+#[test]
+fn test_migrate_wrong_contract() {
+    let mut deps = mock_dependencies(&[]);
+
+    let deps_mut = deps.as_mut();
+
+    cw2::set_contract_version(deps_mut.storage, "wrong_contract_name", "0.0.1").unwrap();
+
+    let res = crate::contract::migrate(
+        deps.as_mut(),
+        mock_env(),
+        drop_staking_base::msg::puppeteer_native::MigrateMsg {},
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::MigrationError {
+            storage_contract_name: "wrong_contract_name".to_string(),
+            contract_name: CONTRACT_NAME.to_string()
+        }
+    )
 }

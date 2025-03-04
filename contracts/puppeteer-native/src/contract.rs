@@ -1,7 +1,7 @@
 use cosmos_sdk_proto::cosmos::base::query::v1beta1::PageRequest;
 use cosmwasm_std::{
     attr, ensure, to_json_binary, Addr, Attribute, BankMsg, Coin as StdCoin, CosmosMsg, Deps,
-    QueryRequest, StakingMsg, StdError, Uint128, WasmMsg,
+    QueryRequest, Reply, StakingMsg, StdError, SubMsg, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{answer::response, validation::validate_addresses};
@@ -36,6 +36,7 @@ pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub const DEFAULT_DENOM: &str = "untrn";
+pub const CLAIM_REWARDS_REPLY_ID: u64 = 1;
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
@@ -399,15 +400,18 @@ fn execute_claim_rewards_and_optionaly_transfer(
 
     let rewards_withdraw_addr = REWARDS_WITHDRAW_ADDR.load(deps.storage)?;
 
-    messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.distribution_module_contract.to_string(),
-        msg: to_json_binary(
-            &drop_staking_base::msg::neutron_distribution_mock::ExecuteMsg::ClaimRewards {
-                to_address: Some(rewards_withdraw_addr.to_string()),
-            },
-        )?,
-        funds: vec![],
-    }));
+    let claim_rewards_submessage = SubMsg::reply_on_error(
+        CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: config.distribution_module_contract.to_string(),
+            msg: to_json_binary(
+                &drop_staking_base::msg::neutron_distribution_mock::ExecuteMsg::ClaimRewards {
+                    to_address: Some(rewards_withdraw_addr.to_string()),
+                },
+            )?,
+            funds: vec![],
+        }),
+        CLAIM_REWARDS_REPLY_ID,
+    );
 
     if !reply_to.is_empty() {
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
@@ -428,7 +432,9 @@ fn execute_claim_rewards_and_optionaly_transfer(
         }));
     }
 
-    Ok(Response::default().add_messages(messages))
+    Ok(Response::default()
+        .add_messages(messages)
+        .add_submessage(claim_rewards_submessage))
 }
 
 fn execute_undelegate(
@@ -478,14 +484,34 @@ fn execute_undelegate(
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn reply(_deps: DepsMut, _env: Env, msg: Reply) -> ContractResult<Response> {
+    match msg.id {
+        CLAIM_REWARDS_REPLY_ID => Ok(response(
+            "reply",
+            CONTRACT_NAME,
+            [attr("claim_rewards_error", true.to_string())],
+        )),
+        id => Err(ContractError::UnknownReplyId { id }),
+    }
+}
+
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn migrate(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     _msg: MigrateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
+    let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
+    let storage_contract_name = contract_version_metadata.contract.as_str();
+    if storage_contract_name != CONTRACT_NAME {
+        return Err(ContractError::MigrationError {
+            storage_contract_name: storage_contract_name.to_string(),
+            contract_name: CONTRACT_NAME.to_string(),
+        });
+    }
+
+    let storage_version: semver::Version = contract_version_metadata.version.parse()?;
     let version: semver::Version = CONTRACT_VERSION.parse()?;
-    let storage_version: semver::Version =
-        cw2::get_contract_version(deps.storage)?.version.parse()?;
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
