@@ -7,7 +7,7 @@ export interface DropNeutronDistributionMockSchema {
     [k: string]: unknown;
 }
 export interface ClaimRewardsArgs {
-    receiver?: string | null;
+    to_address?: string | null;
 }
 export interface InstantiateMsg {
 }
