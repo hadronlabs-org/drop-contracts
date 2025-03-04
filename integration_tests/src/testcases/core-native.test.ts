@@ -1242,7 +1242,7 @@ describe('Core', () => {
       it('tick to idle and withdrawn unbonding', async () => {
         await awaitBlocks(
           `http://127.0.0.1:${context.park.ports.neutronv2.rpc}`,
-          10,
+          15,
         );
 
         const res = await context.coreContractClient.tick(
@@ -1335,6 +1335,66 @@ describe('Core', () => {
           );
           await checkExchangeRate(context);
         });
+      });
+    });
+    describe('fifth cycle (claiming with empty distribution)', () => {
+      it('tick to claiming with empty rewards balance', async () => {
+        const res = await context.coreContractClient.tick(
+          context.neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('claiming');
+      });
+
+      it('tick to idle', async () => {
+        const res = await context.coreContractClient.tick(
+          context.neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+      it('tick to idle', async () => {
+        const res = await context.coreContractClient.tick(
+          context.neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+
+      it('tick to claiming with empty rewards balance', async () => {
+        const res = await context.coreContractClient.tick(
+          context.neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('claiming');
+      });
+
+      it('tick to idle', async () => {
+        const res = await context.coreContractClient.tick(
+          context.neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
       });
     });
   });
