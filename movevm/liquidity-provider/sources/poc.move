@@ -261,6 +261,19 @@ module me::liquidity_provider {
         }
     }
 
+    #[view]
+    public fun module_store(): ModuleStore acquires ModuleStore {
+        let store = borrow_global<ModuleStore>(@me);
+        ModuleStore {
+            extend_ref: object::generate_extend_ref(
+                &object::create_object(@me, false) // always the same, extend_ref doesn't have copy property
+            ),
+            price: store.price,
+            ts: store.ts,
+            decimals: store.decimals
+        }
+    }
+
     #[test(me = @me)]
     fun test_init_module(me: &signer) acquires ModuleStore {
         assert!(exists<ModuleStore>(@me) == false);
