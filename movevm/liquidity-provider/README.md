@@ -24,7 +24,7 @@ empty account and use it's address.
 
 #### 3. Build module
 
-It is as easy as `initiad move build`.
+It is as easy as `initiad move build --named-addresses "me=<your address from step 2>"`.
 
 #### 4. Deploy module
 
@@ -56,10 +56,10 @@ this would be the address to send funds to:
 initiad tx bank send <name of your key> init13fhurzzk9kcwvqygj66w0f0vqfl7x3sukstf4hz3vhgmtpej6usqzqa0mq 4242uinit --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --chain-id initiation-2 --node https://rpc.initiation-2.initia.xyz:443
 ```
 
-#### 7. Execute contract
+#### 7. Create a new instance of liquidity provider
 
 ```bash
-initiad tx move execute <address of @me from Move.toml> liquidity_provider provide --from testnet --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --node https://rpc.initiation-2.initia.xyz:443 --chain-id initiation-2
+initiad tx move execute <name of your key> drop_lp create_liquidity_provider --from testnet --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --node https://rpc.initiation-2.initia.xyz:443 --chain-id initiation-2
 ```
 
 #### 8. Validate

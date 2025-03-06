@@ -113,6 +113,19 @@ module me::drop_lp {
         lp_amount: u64,
     }
 
+    struct LpConfigView has key {
+        extend_ref: address,
+        name: String,
+        backup: address,
+        slinky_pair: String,
+        pair: Object<dex::Config>,
+        asset: Object<fungible_asset::Metadata>,
+        recipient: address,
+        price: u256,
+        timestamp: u64,
+        decimals: u64,
+    }
+
     public entry fun create_liquidity_provider(
         account: &signer,
         name: String,                            // Just a name for a visual reference, e.g. "testnet_uinit"
@@ -181,12 +194,12 @@ module me::drop_lp {
         );
     }
 
-    // emits stargate message which:
-    // 1. calls @me::drop_lp::store()
-    // 2.1. then calls @me::drop_lp::callback(..., ..., false) if store() fails
-    // 2.2. then calls @me::drop_lp::callback(..., ..., true) if store() succeeds
+    // Emits stargate message which:
+    // 1. Calls @me::drop_lp::store()
+    // 2.1. Then calls @me::drop_lp::callback(..., ..., false) if store() fails
+    // 2.2. Then calls @me::drop_lp::callback(..., ..., true) if store() succeeds
     public entry fun provide(
-        lp_address: address, // address of drop_lp instance object
+        lp_address: address, // Address of drop_lp instance object
     ) acquires LpConfig {
         let lp_config = borrow_global<LpConfig>(lp_address);
         let lp_signer = object::generate_signer_for_extending(&lp_config.extend_ref);
@@ -220,8 +233,8 @@ module me::drop_lp {
     // of `coin` denomination from module's object address in case if there is an unrecoverable bug somewhere
     public entry fun backup(
         account: &signer,
-        lp_address: address, // address of drop_lp instance object
-        coin: Object<fungible_asset::Metadata>, // address of coin object to withdraw
+        lp_address: address,                    // Address of drop_lp instance object
+        coin: Object<fungible_asset::Metadata>, // Address of coin object to withdraw
     ) acquires LpConfig {
         let lp_config = borrow_global<LpConfig>(lp_address);
         assert!(
@@ -245,7 +258,7 @@ module me::drop_lp {
         lp_signer: &signer,
         lp_config: &LpConfig,
     ) {
-        // 1. provide liquidity
+        // 1. Provide liquidity
         let amount_in = coin::balance(
             signer::address_of(lp_signer),
             lp_config.asset,
@@ -258,7 +271,7 @@ module me::drop_lp {
             option::none(),
         );
 
-        // 2. sweep all received LP tokens to the configured recipient
+        // 2. Sweep all received LP tokens to the configured recipient
         let metadata_out = object::address_to_object(object::object_address(&lp_config.pair));
         let amount_out = coin::balance(
             signer::address_of(lp_signer),
@@ -311,11 +324,11 @@ module me::drop_lp {
 
     // MEV protection, only provide liquidity if pool price is up to date with off-chain price feed
     entry fun callback(
-        account: &signer, // this internal call should originate from module object
-        _id: u64, // unused since we always use the same ID anyway
-        success: bool, // did an attempt to read price from slinky succeed?
+        account: &signer, // This internal call should originate from module object
+        _id: u64,         // Unused since we always use the same ID anyway
+        success: bool,    // Did an attempt to read price from slinky succeed?
     ) acquires LpConfig {
-        // security model: if signer has LpConfig, that means this signer is legitimate
+        // Security model: if signer has LpConfig, that means this signer is legitimate
         let lp_config = borrow_global<LpConfig>(signer::address_of(account));
         let lp_signer = object::generate_signer_for_extending(&lp_config.extend_ref);
         let event = CallbackEvent {
@@ -329,7 +342,7 @@ module me::drop_lp {
             will_provide_liquidity: false,
         };
         if (success) {
-            // warning: this algorithm assumes we are working with an X/USD pool
+            // Warning: this algorithm assumes we are working with an X/USD pool
             //          and it WILL fail horribly with any other pool
             let slinky_price = bigdecimal::from_ratio_u256(
                 lp_config.price,
@@ -349,16 +362,16 @@ module me::drop_lp {
             event.pool_price = option::some(pool_price);
             event.ratio = option::some(ratio);
             if (
-                // slinky price is up to date
+                // Slinky price is up to date
                 lp_config.timestamp == block_timestamp
                     &&
-                    // pool price is not more than 1% off
+                    // Pool price is not more than 1% off
                     bigdecimal::le(ratio, bigdecimal::from_ratio_u256(101, 100))
             ) {
                 event.will_provide_liquidity = true;
             }
         } else {
-            // slinky doesn't know about INIT yet, skip any validation and go full YOLO
+            // Slinky doesn't know about INIT yet, skip any validation and go full YOLO
             event.will_provide_liquidity = true;
         };
 
@@ -368,45 +381,67 @@ module me::drop_lp {
         event::emit(event);
     }
 
-    #[test]
-    fun test_create_liquidity_provider_wrong_slilnky_pair(){}
-    #[test]
-    fun test_create_liquidity_provider_empty_name(){}
-    #[test]
-    fun test_create_liquidity_provider_length_exceed(){}
-    #[test]
-    fun test_create_liquidity_provider(){}
+    #[view]
+    public fun lp_config(account: address): LpConfigView acquires LpConfig {
+        let config = borrow_global<LpConfig>(account);
+        let signer = object::generate_signer_for_extending(&config.extend_ref);
+        let addr = signer::address_of(&signer);
+        LpConfigView {
+            extend_ref: addr,
+            name: config.name,
+            backup: config.backup,
+            slinky_pair: config.slinky_pair,
+            pair: config.pair,
+            asset: config.asset,
+            recipient: config.recipient,
+            price: config.price,
+            timestamp: config.timestamp,
+            decimals: config.decimals,
+        }
+    }
 
     #[test]
-    fun test_provide_uninitialized(){}
+    fun test_execute_create_liquidity_provider_wrong_slilnky_pair(){}
     #[test]
-    fun test_provide(){}
+    fun test_execute_create_liquidity_provider_empty_name(){}
+    #[test]
+    fun test_execute_create_liquidity_provider_length_exceed(){}
+    #[test]
+    fun test_execute_create_liquidity_provider(){}
 
     #[test]
-    fun test_backup_uninitialized(){}
+    fun test_execute_provide_uninitialized(){}
     #[test]
-    fun test_backup_unauthorized(){}
-    #[test]
-    fun test_backup_empty_transfer(){}
-    #[test]
-    fun test_backup(){}
+    fun test_execute_provide(){}
 
     #[test]
-    fun test_store_uninitialized(){}
+    fun test_execute_backup_uninitialized(){}
     #[test]
-    fun test_store_different_block(){}
+    fun test_execute_backup_unauthorized(){}
     #[test]
-    fun test_store_same_block(){}
+    fun test_execute_backup_empty_transfer(){}
+    #[test]
+    fun test_execute_backup(){}
 
     #[test]
-    fun test_provide_liquidity_empty_balance(){}
+    fun test_execute_store_uninitialized(){}
     #[test]
-    fun test_provide_liquidity(){}
+    fun test_execute_store_different_block(){}
+    #[test]
+    fun test_execute_store_same_block(){}
 
     #[test]
-    fun test_callback_uninitialized(){}
+    fun test_execute_provide_liquidity_empty_balance(){}
     #[test]
-    fun test_callback_success(){}
+    fun test_execute_provide_liquidity(){}
+
     #[test]
-    fun test_callback_failure(){}
+    fun test_execute_callback_uninitialized(){}
+    #[test]
+    fun test_execute_callback_success(){}
+    #[test]
+    fun test_execute_callback_failure(){}
+
+    #[test]
+    fun test_query_lp_config(){}
 }
