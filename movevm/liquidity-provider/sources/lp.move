@@ -64,8 +64,8 @@ module me::drop_lp {
     #[event]
     struct ProvideEvent has drop {
         ty: String,
-        lp_address: String,
-        callback_address: String,
+        lp_address: address,
+        callback_function: String,
         fid: u64,
         msg: MsgExecuteJSON,
     }
@@ -73,9 +73,9 @@ module me::drop_lp {
     #[event]
     struct BackupEvent has drop {
         ty: String,
-        account: String,
-        coin: String,
-        recipient: String,
+        account: address,
+        coin: Object<fungible_asset::Metadata>,
+        recipient: address,
         amount: u64,
     }
 
@@ -105,11 +105,11 @@ module me::drop_lp {
     #[event]
     struct ProvideLiquidityEvent has drop {
         ty: String,
-        recipient: String,
-        signer_address: String,
-        coin: String,
+        recipient: address,
+        signer_address: address,
+        coin: Object<fungible_asset::Metadata>,
         amount: u64,
-        lp_metadata: String,
+        lp_metadata: Object<fungible_asset::Metadata>,
         lp_amount: u64,
     }
 
@@ -200,17 +200,17 @@ module me::drop_lp {
             type_args: vector[],
             args: vector[address::to_string(lp_address)],
         };
-        let callback_address = address::to_string(@me);
-        string::append(&mut callback_address, string::utf8(b"::drop_lp::callback"));
+        let callback_function = address::to_string(@me);
+        string::append(&mut callback_function, string::utf8(b"::drop_lp::callback"));
         cosmos::stargate_with_options(
             &lp_signer,
             json::marshal(&msg),
-            cosmos::allow_failure_with_callback(PROVIDE_CB_ID, callback_address),
+            cosmos::allow_failure_with_callback(PROVIDE_CB_ID, callback_function),
         );
         event::emit(ProvideEvent {
             ty: string::utf8(b"execute_provide"),
-            lp_address: address::to_string(lp_address),
-            callback_address: callback_address,
+            lp_address: lp_address,
+            callback_function: callback_function,
             fid: PROVIDE_CB_ID,
             msg: msg,
         });
@@ -234,10 +234,10 @@ module me::drop_lp {
         coin::transfer(&lp_signer, lp_config.backup, coin, amount_out);
         event::emit(BackupEvent {
             ty: string::utf8(b"execute_backup"),
-            account: address::to_string(signer::address_of(account)),
-            coin: address::to_string(object::object_address(&coin)),
+            account: signer::address_of(account),
+            coin: coin,
             amount: amount_out,
-            recipient: address::to_string(lp_config.backup),
+            recipient: lp_config.backup,
         });
     }
 
@@ -267,12 +267,12 @@ module me::drop_lp {
         coin::transfer(lp_signer, lp_config.recipient, metadata_out, amount_out);
         event::emit(ProvideLiquidityEvent {
             ty: string::utf8(b"execute_provide_liquidity"),
-            signer_address: address::to_string(signer::address_of(lp_signer)),
-            coin: address::to_string(object::object_address(&lp_config.asset)),
+            signer_address: signer::address_of(lp_signer),
+            coin: lp_config.asset,
             amount: amount_in,
             lp_amount: amount_out,
-            lp_metadata: address::to_string(object::object_address(&metadata_out)),
-            recipient: address::to_string(lp_config.recipient),
+            lp_metadata: metadata_out,
+            recipient: lp_config.recipient,
         });
     }
 
