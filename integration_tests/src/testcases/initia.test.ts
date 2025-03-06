@@ -123,6 +123,7 @@ describe('Core', () => {
     initiaNTRN?: string;
     initiaAddress3?: string;
     liquidityProviderModuleAddress?: string;
+    liquidityProviderModuleAddressHex?: string;
   } = { codeIds: {} };
 
   beforeAll(async (t) => {
@@ -855,7 +856,40 @@ describe('Core', () => {
     ]);
   });
 
-  it('configure movevm lp module', async () => {
+  it('build movevm lp module', async () => {
+    const ownerAddress =
+      '0x' +
+      (
+        await context.park.executeInNetwork(
+          'initia',
+          `initiad keys parse ${context.initiaAddress3} | grep bytes | awk '{print $2}' | tr -d '\n'`,
+        )
+      ).out;
+
+    await context.park.executeInNetwork(
+      'initia',
+      `initiad move build --path /movevm/liquidity-provider --force --named-addresses 'me=${ownerAddress}'`,
+    );
+  });
+
+  it('upload movevm lp module', async () => {
+    await context.park.executeInNetwork(
+      'initia',
+      `initiad move deploy --path /movevm/liquidity-provider --upgrade-policy COMPATIBLE --from demo3 --home /opt --keyring-backend test --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --chain-id ${context.park.config.networks['initia'].chain_id} -o json -y`,
+    );
+    await sleep(10_000);
+  });
+
+  it('instantiate movevm lp module', async () => {
+    const ownerAddress =
+      '0x' +
+      (
+        await context.park.executeInNetwork(
+          'initia',
+          `initiad keys parse ${context.initiaAddress3} | grep bytes | awk '{print $2}' | tr -d '\n'`,
+        )
+      ).out;
+
     const initiaUINITmetadata = JSON.parse(
       JSON.parse(
         (
@@ -867,15 +901,6 @@ describe('Core', () => {
       ).data,
     );
 
-    const ownerAddress =
-      '0x' +
-      (
-        await context.park.executeInNetwork(
-          'initia',
-          `initiad keys parse ${context.initiaAddress3} | grep bytes | awk '{print $2}' | tr -d '\n'`,
-        )
-      ).out;
-
     const rewardsPumpIcaAddress =
       '0x' +
       (
@@ -885,28 +910,10 @@ describe('Core', () => {
         )
       ).out;
 
-    await context.park.executeInNetwork(
+    let res = JSON.parse((await context.park.executeInNetwork(
       'initia',
-      `/movevm/liquidity-provider/configure.bash ${context.moveToken.metadataAddr} ${initiaUINITmetadata} ${ownerAddress} ${rewardsPumpIcaAddress}`,
-    );
-  });
-
-  it('build movevm lp module', async () => {
-    await context.park.executeInNetwork(
-      'initia',
-      'cd /movevm/liquidity-provider && initiad move build',
-    );
-  });
-
-  it('deploy movevm lp module', async () => {
-    let res = JSON.parse(
-      (
-        await context.park.executeInNetwork(
-          'initia',
-          `initiad move deploy --path /movevm/liquidity-provider --upgrade-policy COMPATIBLE --from demo3 --home /opt --keyring-backend test --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --chain-id ${context.park.config.networks['initia'].chain_id} -o json -y`,
-        )
-      ).out,
-    );
+      `initiad tx move execute ${ownerAddress} drop_lp create_liquidity_provider --args '["string:test_uinit", "option<address>:null", "string:INIT/USD", "object:${context.moveToken.metadataAddr}", "object:${initiaUINITmetadata}", "address:${rewardsPumpIcaAddress}"]' --from demo3 --home /opt --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --chain-id ${context.park.config.networks['initia'].chain_id} --keyring-backend test -y -o json`,
+    )).out);
     await sleep(10_000);
     res = JSON.parse(
       (
@@ -922,16 +929,17 @@ describe('Core', () => {
       .flat(1);
     const createObjectEvent =
       moveEvents[
-        moveEvents.findIndex(
-          (attribute) =>
-            attribute.key == 'type_tag' &&
-            attribute.value == '0x1::object::CreateEvent',
-        ) + 1
-      ];
+      moveEvents.findIndex(
+        (attribute) =>
+          attribute.key == 'type_tag' &&
+          attribute.value == '0x1::object::CreateEvent',
+      ) + 1
+        ];
+    context.liquidityProviderModuleAddressHex = JSON.parse(createObjectEvent.value).object;
     context.liquidityProviderModuleAddress = (
       await context.park.executeInNetwork(
         'initia',
-        `initiad keys parse ${JSON.parse(createObjectEvent.value).object.substring(2)} | grep init1 | awk '{print $2}' | tr -d '\n'`,
+        `initiad keys parse ${context.liquidityProviderModuleAddressHex.substring(2)} | grep init1 | awk '{print $2}' | tr -d '\n'`,
       )
     ).out;
   });
@@ -1008,8 +1016,8 @@ describe('Core', () => {
                   JSON.stringify({
                     add_bond_provider: {
                       bond_provider_address:
-                        context.nativeBondProviderContractClient
-                          .contractAddress,
+                      context.nativeBondProviderContractClient
+                        .contractAddress,
                     },
                   }),
                 ).toString('base64'),
@@ -1215,7 +1223,7 @@ describe('Core', () => {
               remote: 60,
             },
             dest_address:
-              context.withdrawalManagerContractClient.contractAddress,
+            context.withdrawalManagerContractClient.contractAddress,
             dest_port: 'transfer',
             dest_channel: 'channel-0',
             refundee: neutronUserAddress,
@@ -1789,7 +1797,7 @@ describe('Core', () => {
 
         await context.park.executeInNetwork(
           'initia',
-          `initiad tx move execute ${ownerAddress} liquidity_provider provide --from demo3 --home /opt --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --chain-id ${context.park.config.networks['initia'].chain_id} --keyring-backend test -y`,
+          `initiad tx move execute ${ownerAddress} drop_lp provide --args '["address:${context.liquidityProviderModuleAddressHex}"]' --from demo3 --home /opt --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --chain-id ${context.park.config.networks['initia'].chain_id} --keyring-backend test -y`,
         );
         await sleep(10_000);
       });

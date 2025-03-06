@@ -18,6 +18,7 @@ import { FactoryContractHandler } from './factoryContract';
 import { ValidatorsStatsModule } from './modules/validators-stats';
 import { CoreModule } from './modules/core';
 import { SplitterModule } from './modules/splitter';
+import { MoveLiquidityProviderModule } from './modules/move-liquidity-provider';
 
 export type Uint128 = string;
 
@@ -135,7 +136,7 @@ class Service {
       if (
         module.lastRun != 0 &&
         currentTime - module.lastRun >
-          this.context.config.coordinator.checksPeriod * 3 * 1000
+        this.context.config.coordinator.checksPeriod * 3 * 1000
       ) {
         console.error(
           `${module.constructor.name} is not running. Restarting coordinator...`,
@@ -217,6 +218,19 @@ class Service {
         new ValidatorsStatsModule(
           this.context,
           logger.child({ context: 'ValidatorsStatsModule' }),
+        ),
+      );
+    }
+
+    if (MoveLiquidityProviderModule.verifyConfig(
+      this.log,
+      process.env.INITIA_LP_MODULE_ADDRESS,
+    )) {
+      this.modulesList.push(
+        new MoveLiquidityProviderModule(
+          this.context,
+          logger.child({ context: 'MoveLiquidityProviderModule' }),
+          process.env.INITIA_LP_MODULE_ADDRESS,
         ),
       );
     }

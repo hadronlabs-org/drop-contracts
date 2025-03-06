@@ -28,10 +28,8 @@ RUN apt update
 RUN apt upgrade -y
 RUN apt install -y git
 
-# Workaround: cache movevm dependencies via triggering build
 WORKDIR /movevm/liquidity-provider
-RUN ./configure.bash 0x1 0x1 0x1 0x1
-RUN initiad move build
+RUN initiad move build --fetch-deps-only --named-addresses 'me=0x1'
 
 WORKDIR /root
 
