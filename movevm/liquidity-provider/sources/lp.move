@@ -367,4 +367,46 @@ module me::drop_lp {
         };
         event::emit(event);
     }
+
+    #[test]
+    fun test_create_liquidity_provider_wrong_slilnky_pair(){}
+    #[test]
+    fun test_create_liquidity_provider_empty_name(){}
+    #[test]
+    fun test_create_liquidity_provider_length_exceed(){}
+    #[test]
+    fun test_create_liquidity_provider(){}
+
+    #[test]
+    fun test_provide_uninitialized(){}
+    #[test]
+    fun test_provide(){}
+
+    #[test]
+    fun test_backup_uninitialized(){}
+    #[test]
+    fun test_backup_unauthorized(){}
+    #[test]
+    fun test_backup_empty_transfer(){}
+    #[test]
+    fun test_backup(){}
+
+    #[test]
+    fun test_store_uninitialized(){}
+    #[test]
+    fun test_store_different_block(){}
+    #[test]
+    fun test_store_same_block(){}
+
+    #[test]
+    fun test_provide_liquidity_empty_balance(){}
+    #[test]
+    fun test_provide_liquidity(){}
+
+    #[test]
+    fun test_callback_uninitialized(){}
+    #[test]
+    fun test_callback_success(){}
+    #[test]
+    fun test_callback_failure(){}
 }
