@@ -68,7 +68,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
         QueryMsg::LastPuppeteerResponse {} => Ok(to_json_binary(&LastPuppeteerResponse {
             response: LAST_PUPPETEER_RESPONSE.may_load(deps.storage)?,
         })?),
-        QueryMsg::CanBeRemoved {} => todo!(),
+        QueryMsg::CanBeRemoved {} => query_can_be_removed(deps, env),
     }
 }
 
@@ -87,6 +87,16 @@ fn query_non_staked_balance(deps: Deps<NeutronQuery>, env: Env) -> ContractResul
         .query_balance(env.contract.address, LOCAL_DENOM)?
         .amount;
     Ok(to_json_binary(&(balance))?)
+}
+
+fn query_can_be_removed(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
+    let balance = deps
+        .querier
+        .query_balance(env.contract.address, LOCAL_DENOM)?
+        .amount;
+
+    let result = balance.is_zero();
+    Ok(to_json_binary(&result)?)
 }
 
 fn query_async_tokens_amount(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
