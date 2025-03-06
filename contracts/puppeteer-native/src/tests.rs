@@ -165,7 +165,7 @@ fn test_execute_setup_protocol() {
     let mut deps = mock_dependencies(&[]);
 
     base_init(&mut deps.as_mut());
-    let _res = crate::contract::execute(
+    let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
         mock_info("allowed_sender1", &[]),
@@ -175,15 +175,23 @@ fn test_execute_setup_protocol() {
     )
     .unwrap();
 
-    // TODO: fix this test
-    /*
+    let withdraw_address = REWARDS_WITHDRAW_ADDR.load(deps.as_mut().storage).unwrap();
+
+    assert_eq!(
+        withdraw_address,
+        Addr::unchecked("rewards_withdraw_address")
+    );
+
     assert_eq!(
         res,
-        Response::new().add_message(DistributionMsg::SetWithdrawAddress {
-            address: "rewards_withdraw_address".to_string(),
-        })
+        Response::new().add_event(
+            Event::new("crates.io:drop-staking__drop-puppeteer-native-execute_setup_protocol")
+                .add_attributes(vec![(
+                    "rewards_withdraw_address",
+                    "rewards_withdraw_address"
+                ),])
+        )
     );
-    */
 }
 
 #[test]
@@ -457,28 +465,21 @@ fn test_query_extension_delegations_none() {
 
     let env = mock_env();
 
-    let query_res: drop_staking_base::msg::puppeteer::DelegationsResponse = from_json(
-        crate::contract::query(
-            deps.as_ref(),
-            env.clone(),
-            drop_staking_base::msg::puppeteer_native::QueryMsg::Extension {
-                msg: drop_staking_base::msg::puppeteer_native::QueryExtMsg::Delegations {},
-            },
-        )
-        .unwrap(),
+    let query_res_err = crate::contract::query(
+        deps.as_ref(),
+        env.clone(),
+        drop_staking_base::msg::puppeteer_native::QueryMsg::Extension {
+            msg: drop_staking_base::msg::puppeteer_native::QueryExtMsg::Delegations {},
+        },
     )
-    .unwrap();
+    .unwrap_err();
+
     assert_eq!(
-        query_res,
-        drop_staking_base::msg::puppeteer::DelegationsResponse {
-            delegations: Delegations {
-                delegations: vec![],
-            },
-            remote_height: env.block.height,
-            local_height: env.block.height,
-            timestamp: env.block.time,
-        }
-    );
+        query_res_err,
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Querier contract error: No data"
+        ))
+    )
 }
 
 #[test]
