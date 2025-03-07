@@ -116,7 +116,6 @@ export interface PushArgs {
 export interface Coin {
     amount: Uint128;
     denom: string;
-    [k: string]: unknown;
 }
 export interface RefundArgs {
     coins: Coin[];

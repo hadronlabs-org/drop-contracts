@@ -2,7 +2,7 @@ use crate::contract::{execute, instantiate, query};
 use cosmwasm_std::{
     attr, from_json,
     testing::{message_info, mock_env, MockApi},
-    to_json_binary, Addr, BankMsg, Checksum, DepsMut, HexBinary, Uint128,
+    to_json_binary, Addr, BankMsg, Checksum, DepsMut, Empty, HexBinary, Uint128,
 };
 use drop_helpers::{
     phonebook::{
@@ -16,7 +16,7 @@ use drop_helpers::{
 use drop_staking_base::{
     msg::factory::{
         CoreParams, ExecuteMsg, FeeParams, InstantiateMsg, LsmShareBondParams, NativeBondParams,
-        QueryMsg, UpdateConfigMsg, ValidatorSetMsg, WithdrawalVoucherInstantiateMsg,
+        QueryMsg, UpdateConfigMsg, ValidatorSetMsg,
     },
     state::factory::{CodeIds, RemoteOpts, Timeout, STATE},
 };
@@ -357,11 +357,16 @@ fn test_instantiate() {
                         admin: Some("factory_contract".to_string()),
                         code_id: 5,
                         label: "drop-staking-withdrawal-voucher".to_string(),
-                        msg: to_json_binary(&WithdrawalVoucherInstantiateMsg {
-                            name: "Drop Voucher".to_string(),
-                            symbol: "DROPV".to_string(),
-                            minter: "some_humanized_address".to_string(),
-                        })
+                        msg: to_json_binary(
+                            &drop_staking_base::msg::withdrawal_voucher::CW721InstantiateMsg {
+                                name: "Drop Voucher".to_string(),
+                                symbol: "DROPV".to_string(),
+                                collection_info_extension: Empty {},
+                                minter: Some("some_humanized_address".to_string()),
+                                creator: Some("some_humanized_address".to_string()),
+                                withdraw_address: None,
+                            }
+                        )
                         .unwrap(),
                         funds: vec![],
                         salt: cosmwasm_std::Binary::from("salt".as_bytes())

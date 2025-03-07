@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use cosmwasm_std::{
     attr, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg, Deps, DepsMut,
-    Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
+    Empty, Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use drop_helpers::answer::response;
 use drop_helpers::phonebook::{
@@ -16,7 +16,7 @@ use drop_staking_base::state::splitter::Config as SplitterConfig;
 use drop_staking_base::{
     msg::factory::{
         ExecuteMsg, InstantiateMsg, MigrateMsg, ProxyMsg, QueryMsg, UpdateConfigMsg,
-        ValidatorSetMsg, WithdrawalVoucherInstantiateMsg,
+        ValidatorSetMsg,
     },
     state::factory::STATE,
 };
@@ -39,6 +39,7 @@ use drop_staking_base::{
             InstantiateMsg as WithdrawalManagerInstantiateMsg,
             QueryMsg as WithdrawalManagerQueryMsg,
         },
+        withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
     },
     state::pump::PumpTimeout,
 };
@@ -354,7 +355,10 @@ pub fn instantiate(
             msg: to_json_binary(&WithdrawalVoucherInstantiateMsg {
                 name: "Drop Voucher".to_string(),
                 symbol: "DROPV".to_string(),
-                minter: core_contract.to_string(),
+                collection_info_extension: Empty {},
+                minter: Some(core_contract.to_string()),
+                creator: Some(core_contract.to_string()),
+                withdraw_address: None,
             })?,
             funds: vec![],
             salt: Binary::from(salt),

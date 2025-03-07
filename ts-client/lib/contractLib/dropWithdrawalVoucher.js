@@ -47,8 +47,35 @@ class Client {
     queryContractInfo = async () => {
         return this.client.queryContractSmart(this.contractAddress, { contract_info: {} });
     };
+    queryGetConfig = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { get_config: {} });
+    };
+    queryGetCollectionInfoAndExtension = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { get_collection_info_and_extension: {} });
+    };
+    queryGetAllInfo = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { get_all_info: {} });
+    };
+    queryGetCollectionExtensionAttributes = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { get_collection_extension_attributes: {} });
+    };
+    queryOwnership = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
+    };
+    queryMinter = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { minter: {} });
+    };
+    queryGetMinterOwnership = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { get_minter_ownership: {} });
+    };
+    queryGetCreatorOwnership = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { get_creator_ownership: {} });
+    };
     queryNftInfo = async (args) => {
         return this.client.queryContractSmart(this.contractAddress, { nft_info: args });
+    };
+    queryGetNftByExtension = async (args) => {
+        return this.client.queryContractSmart(this.contractAddress, { get_nft_by_extension: args });
     };
     queryAllNftInfo = async (args) => {
         return this.client.queryContractSmart(this.contractAddress, { all_nft_info: args });
@@ -59,14 +86,38 @@ class Client {
     queryAllTokens = async (args) => {
         return this.client.queryContractSmart(this.contractAddress, { all_tokens: args });
     };
-    queryMinter = async () => {
-        return this.client.queryContractSmart(this.contractAddress, { minter: {} });
-    };
     queryExtension = async (args) => {
         return this.client.queryContractSmart(this.contractAddress, { extension: args });
     };
-    queryOwnership = async () => {
-        return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
+    queryGetCollectionExtension = async (args) => {
+        return this.client.queryContractSmart(this.contractAddress, { get_collection_extension: args });
+    };
+    queryGetWithdrawAddress = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { get_withdraw_address: {} });
+    };
+    updateOwnership = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
+    };
+    updateMinterOwnership = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { update_minter_ownership: args }, fee || "auto", memo, funds);
+    };
+    updateCreatorOwnership = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { update_creator_ownership: args }, fee || "auto", memo, funds);
+    };
+    updateCollectionInfo = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { update_collection_info: args }, fee || "auto", memo, funds);
     };
     transferNft = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
@@ -116,17 +167,35 @@ class Client {
         }
         return this.client.execute(sender, this.contractAddress, { burn: args }, fee || "auto", memo, funds);
     };
-    extension = async (sender, args, fee, memo, funds) => {
+    updateExtension = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { extension: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, { update_extension: args }, fee || "auto", memo, funds);
     };
-    updateOwnership = async (sender, args, fee, memo, funds) => {
+    updateNftInfo = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
-        return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
+        return this.client.execute(sender, this.contractAddress, { update_nft_info: args }, fee || "auto", memo, funds);
+    };
+    setWithdrawAddress = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { set_withdraw_address: args }, fee || "auto", memo, funds);
+    };
+    removeWithdrawAddress = async (sender, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { remove_withdraw_address: {} }, fee || "auto", memo, funds);
+    };
+    withdrawFunds = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { withdraw_funds: args }, fee || "auto", memo, funds);
     };
 }
 exports.Client = Client;

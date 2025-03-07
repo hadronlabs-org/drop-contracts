@@ -10,9 +10,9 @@ use drop_helpers::{
     pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse},
 };
 use drop_staking_base::{
-    msg::withdrawal_manager::{
-        ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveNftMsg,
-        WithdrawalVoucherExtension, WithdrawalVoucherNftInfoMsg,
+    msg::{
+        withdrawal_manager::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, ReceiveNftMsg},
+        withdrawal_voucher::Extension,
     },
     state::{
         core::{UnbondBatch, UnbondBatchStatus},
@@ -175,9 +175,9 @@ fn execute_receive_nft_withdraw(
         addrs.withdrawal_voucher_contract,
         ContractError::Unauthorized {}
     );
-    let voucher: NftInfoResponse<WithdrawalVoucherExtension> = deps.querier.query_wasm_smart(
+    let voucher: NftInfoResponse<Extension> = deps.querier.query_wasm_smart(
         addrs.withdrawal_voucher_contract,
-        &WithdrawalVoucherNftInfoMsg { token_id },
+        &drop_staking_base::msg::withdrawal_voucher::QueryMsg::NftInfo { token_id },
     )?;
     let voucher_extension = voucher.extension.ok_or_else(|| ContractError::InvalidNFT {
         reason: "extension is not set".to_string(),

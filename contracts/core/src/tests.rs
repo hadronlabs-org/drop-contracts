@@ -13,9 +13,7 @@ use drop_puppeteer_base::msg::TransferReadyBatchesMsg;
 use drop_staking_base::{
     error::core::ContractError,
     msg::{
-        core::{
-            ExecuteMsg, FailedBatchResponse, InstantiateMsg, QueryMsg, WithdrawalVoucherMintMsg,
-        },
+        core::{ExecuteMsg, FailedBatchResponse, InstantiateMsg, QueryMsg},
         puppeteer::{BalancesResponse, DelegationsResponse},
         strategy::QueryMsg as StrategyQueryMsg,
     },
@@ -2146,18 +2144,18 @@ fn test_unbond() {
     )
     .unwrap();
     let unbond_batch = unbond_batches_map().load(deps.as_ref().storage, 0).unwrap();
-    let extension = Some(drop_staking_base::msg::core::WithdrawalVoucherMetadata {
+    let extension = Some(drop_staking_base::state::withdrawal_voucher::Metadata {
         description: Some("Withdrawal voucher".into()),
         name: "LDV voucher".to_string(),
         batch_id: "0".to_string(),
         amount: Uint128::from(1000u128),
         attributes: Some(vec![
-            drop_staking_base::msg::core::WithdrawalVoucherTrait {
+            drop_staking_base::state::withdrawal_voucher::Trait {
                 display_type: None,
                 trait_type: "unbond_batch_id".to_string(),
                 value: "0".to_string(),
             },
-            drop_staking_base::msg::core::WithdrawalVoucherTrait {
+            drop_staking_base::state::withdrawal_voucher::Trait {
                 display_type: None,
                 trait_type: "received_amount".to_string(),
                 value: "1000".to_string(),
@@ -2169,12 +2167,14 @@ fn test_unbond() {
         Response::new()
             .add_submessage(SubMsg::new(CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: api.addr_make("withdrawal_voucher_contract").to_string(),
-                msg: to_json_binary(&WithdrawalVoucherMintMsg {
-                    token_id: "0_".to_string() + api.addr_make("some_sender").as_str() + "_1",
-                    owner: api.addr_make("some_sender").to_string(),
-                    token_uri: None,
-                    extension,
-                })
+                msg: to_json_binary(
+                    &drop_staking_base::msg::withdrawal_voucher::ExecuteMsg::Mint {
+                        token_id: "0_".to_string() + api.addr_make("some_sender").as_str() + "_1",
+                        owner: api.addr_make("some_sender").to_string(),
+                        token_uri: None,
+                        extension,
+                    }
+                )
                 .unwrap(),
                 funds: vec![],
             })))
