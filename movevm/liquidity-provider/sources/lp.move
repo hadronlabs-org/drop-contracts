@@ -400,8 +400,62 @@ module me::drop_lp {
         }
     }
 
-    #[test]
-    fun test_execute_create_liquidity_provider_wrong_slilnky_pair(){}
+    #[test_only]
+    fun initialize_coin_for_testing(account: &signer, symbol: String): (coin::BurnCapability, coin::FreezeCapability, coin::MintCapability) {
+        let (mint_cap, burn_cap, freeze_cap, _) =
+            coin::initialize_and_generate_extend_ref(
+                account,
+                option::none(),
+                string::utf8(b""),
+                symbol,
+                6,
+                string::utf8(b""),
+                string::utf8(b"")
+            );
+
+        return (burn_cap, freeze_cap, mint_cap)
+    }
+
+    #[test(chain = @me)] // dex::init_module_for_test uses 0x1 for that (why?)
+    #[expected_failure(abort_code = 65538, location = Self)]
+    fun test_execute_create_liquidity_provider_wrong_slilnky_pair(chain: &signer) {
+        initia_std::primary_fungible_store::init_module_for_test();
+        initia_std::dex::init_module_for_test();
+
+        let chain_addr = signer::address_of(chain);
+        let (initia_burn_cap, initia_freeze_cap, initia_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"INIT"));
+        let (usdc_burn_cap, usdc_freeze_cap, usdc_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"USDC"));
+        let init_metadata = coin::metadata(chain_addr, string::utf8(b"INIT"));
+        let usdc_metadata = coin::metadata(chain_addr, string::utf8(b"USDC"));
+        coin::mint_to(&initia_mint_cap, chain_addr, 100000000);
+        coin::mint_to(&usdc_mint_cap, chain_addr, 100000000);
+        dex::create_pair_script(
+            chain,
+            std::string::utf8(b"name"),
+            std::string::utf8(b"SYMBOL"),
+            bigdecimal::from_ratio_u64(3, 1000),
+            bigdecimal::from_ratio_u64(8, 10),
+            bigdecimal::from_ratio_u64(2, 10),
+            coin::metadata(chain_addr, string::utf8(b"INIT")),
+            coin::metadata(chain_addr, string::utf8(b"USDC")),
+            80000000,
+            20000000
+        );
+
+        let pair_metadata_address = coin::metadata_address(signer::address_of(chain), string::utf8(b"SYMBOL")); 
+        let config_object = object::address_to_object<dex::Config>(pair_metadata_address);
+        create_liquidity_provider(
+            chain,
+            string::utf8(b"name"),
+            option::none(),
+            string::utf8(b""),
+            config_object,
+            init_metadata,
+            chain_addr
+        );
+    }
     #[test]
     fun test_execute_create_liquidity_provider_empty_name(){}
     #[test]
