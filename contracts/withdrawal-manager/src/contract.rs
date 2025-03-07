@@ -2,7 +2,7 @@ use cosmwasm_std::{
     attr, ensure_eq, from_json, to_json_binary, Attribute, BankMsg, Binary, Coin, CosmosMsg,
     Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
-use cw721::NftInfoResponse;
+use cw721::msg::NftInfoResponse;
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::{
     answer::response,

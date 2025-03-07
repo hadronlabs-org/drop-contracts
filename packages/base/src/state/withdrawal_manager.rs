@@ -8,6 +8,6 @@ pub struct Config {
     pub base_denom: String,
 }
 
-pub type Cw721ReceiveMsg = cw721::Cw721ReceiveMsg;
+pub type Cw721ReceiveMsg = cw721::receiver::Cw721ReceiveMsg;
 
 pub const CONFIG: Item<Config> = Item::new("config");

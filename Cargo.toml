@@ -43,8 +43,8 @@ tendermint-proto = { version = "0.34.1", default-features = false }
 cosmwasm-schema = { version = "2.1.0", default-features = false }
 cw-storage-plus = { version = "2.0.0", default-features = false }
 cw2 = { version = "2.0.0", default-features = false }
-cw721 = { version = "0.18.0", default-features = false }
-cw721-base = { version = "0.18.0", features = ["library"] }
+cw721 = { package = "cw721", git = "https://github.com/public-awesome/cw-nfts", branch = "main", default-features = false }
+cw721-base = { package = "cw721-base", git = "https://github.com/public-awesome/cw-nfts", branch = "main", default-features = false }
 cw-multi-test = { version = "2.1.0", default-features = false }
 cw-utils = { version = "2.0.0", default-features = false }
 serde = { version = "1.0.195", default-features = false }
@@ -55,7 +55,6 @@ bech32 = { version = "0.11.0", default-features = false, features = ["alloc"] }
 thiserror = { version = "1.0.56", default-features = false }
 optfield = { version = "0.3.0", default-features = false }
 schemars = { version = "0.8.16", default-features = false }
-astroport = { version = "5.5.0", default-features = false }
 semver = { version = "1.0.22", default-features = false }
 hex = { version = "0.4.3", default-features = false }
 once_cell = { version = "1.20.2" }
