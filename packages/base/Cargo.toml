@@ -35,7 +35,6 @@ cw721 = { workspace = true }
 thiserror = { workspace = true }
 cw-ownable = { workspace = true }
 optfield = { workspace = true }
-astroport = { workspace = true }
 prost = { workspace = true }
 serde = { workspace = true }
 cw-utils = { workspace = true }

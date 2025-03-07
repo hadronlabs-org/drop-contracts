@@ -1,4 +1,3 @@
-pub mod astroport_exchange_handler;
 pub mod bond_providers;
 pub mod core;
 pub mod factory;
@@ -21,3 +20,4 @@ pub mod val_ref;
 pub mod validatorset;
 pub mod validatorsstats;
 pub mod withdrawal_manager;
+pub mod withdrawal_voucher;
