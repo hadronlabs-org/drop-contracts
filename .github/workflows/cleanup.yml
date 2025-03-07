@@ -42,7 +42,7 @@ on:
 
 jobs:
   del_runs:
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-2
     steps:
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
