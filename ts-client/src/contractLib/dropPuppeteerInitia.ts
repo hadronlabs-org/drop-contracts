@@ -218,7 +218,6 @@ export interface TransferReadyBatchesMsg {
 export interface Coin {
   amount: Uint128;
   denom: string;
-  [k: string]: unknown;
 }
 export interface TxState {
   reply_to?: string | null;
