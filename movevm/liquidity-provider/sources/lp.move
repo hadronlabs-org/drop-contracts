@@ -456,12 +456,144 @@ module me::drop_lp {
             chain_addr
         );
     }
-    #[test]
-    fun test_execute_create_liquidity_provider_empty_name(){}
-    #[test]
-    fun test_execute_create_liquidity_provider_length_exceed(){}
-    #[test]
-    fun test_execute_create_liquidity_provider(){}
+    
+    #[test(chain = @me)]
+    #[expected_failure(abort_code = 65537, location = Self)]
+    fun test_execute_create_liquidity_provider_empty_name(chain: &signer) {
+        initia_std::primary_fungible_store::init_module_for_test();
+        initia_std::dex::init_module_for_test();
+
+        let chain_addr = signer::address_of(chain);
+        let (initia_burn_cap, initia_freeze_cap, initia_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"INIT"));
+        let (usdc_burn_cap, usdc_freeze_cap, usdc_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"USDC"));
+        let init_metadata = coin::metadata(chain_addr, string::utf8(b"INIT"));
+        let usdc_metadata = coin::metadata(chain_addr, string::utf8(b"USDC"));
+        coin::mint_to(&initia_mint_cap, chain_addr, 100000000);
+        coin::mint_to(&usdc_mint_cap, chain_addr, 100000000);
+        dex::create_pair_script(
+            chain,
+            std::string::utf8(b"name"),
+            std::string::utf8(b"SYMBOL"),
+            bigdecimal::from_ratio_u64(3, 1000),
+            bigdecimal::from_ratio_u64(8, 10),
+            bigdecimal::from_ratio_u64(2, 10),
+            coin::metadata(chain_addr, string::utf8(b"INIT")),
+            coin::metadata(chain_addr, string::utf8(b"USDC")),
+            80000000,
+            20000000
+        );
+
+        let pair_metadata_address = coin::metadata_address(signer::address_of(chain), string::utf8(b"SYMBOL")); 
+        let config_object = object::address_to_object<dex::Config>(pair_metadata_address);
+        create_liquidity_provider(
+            chain,
+            string::utf8(b""),
+            option::none(),
+            string::utf8(b"slinky_pair"),
+            config_object,
+            init_metadata,
+            chain_addr
+        );
+    }
+    
+    #[test(chain = @me)]
+    #[expected_failure(abort_code = 131075, location = Self)]
+    fun test_execute_create_liquidity_provider_length_exceed(chain: &signer) {
+        initia_std::primary_fungible_store::init_module_for_test();
+        initia_std::dex::init_module_for_test();
+
+        let chain_addr = signer::address_of(chain);
+        let (initia_burn_cap, initia_freeze_cap, initia_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"INIT"));
+        let (usdc_burn_cap, usdc_freeze_cap, usdc_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"USDC"));
+        let init_metadata = coin::metadata(chain_addr, string::utf8(b"INIT"));
+        let usdc_metadata = coin::metadata(chain_addr, string::utf8(b"USDC"));
+        coin::mint_to(&initia_mint_cap, chain_addr, 100000000);
+        coin::mint_to(&usdc_mint_cap, chain_addr, 100000000);
+        dex::create_pair_script(
+            chain,
+            std::string::utf8(b"name"),
+            std::string::utf8(b"SYMBOL"),
+            bigdecimal::from_ratio_u64(3, 1000),
+            bigdecimal::from_ratio_u64(8, 10),
+            bigdecimal::from_ratio_u64(2, 10),
+            coin::metadata(chain_addr, string::utf8(b"INIT")),
+            coin::metadata(chain_addr, string::utf8(b"USDC")),
+            80000000,
+            20000000
+        );
+
+        let pair_metadata_address = coin::metadata_address(signer::address_of(chain), string::utf8(b"SYMBOL")); 
+        let config_object = object::address_to_object<dex::Config>(pair_metadata_address);
+        create_liquidity_provider(
+            chain,
+            string::utf8(vector::map<u64, u8>(vector::range(0, 65), |e| e as u8)),
+            option::none(),
+            string::utf8(b"slinky_pair"),
+            config_object,
+            init_metadata,
+            chain_addr
+        );
+    }
+    
+    #[test(chain = @me)]
+    fun test_execute_create_liquidity_provider(chain: &signer) acquires LpConfig {
+        initia_std::primary_fungible_store::init_module_for_test();
+        initia_std::dex::init_module_for_test();
+
+        let chain_addr = signer::address_of(chain);
+        let (initia_burn_cap, initia_freeze_cap, initia_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"INIT"));
+        let (usdc_burn_cap, usdc_freeze_cap, usdc_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"USDC"));
+        let init_metadata = coin::metadata(chain_addr, string::utf8(b"INIT"));
+        let usdc_metadata = coin::metadata(chain_addr, string::utf8(b"USDC"));
+        coin::mint_to(&initia_mint_cap, chain_addr, 100000000);
+        coin::mint_to(&usdc_mint_cap, chain_addr, 100000000);
+        dex::create_pair_script(
+            chain,
+            std::string::utf8(b"name"),
+            std::string::utf8(b"SYMBOL"),
+            bigdecimal::from_ratio_u64(3, 1000),
+            bigdecimal::from_ratio_u64(8, 10),
+            bigdecimal::from_ratio_u64(2, 10),
+            coin::metadata(chain_addr, string::utf8(b"INIT")),
+            coin::metadata(chain_addr, string::utf8(b"USDC")),
+            80000000,
+            20000000
+        );
+
+        let pair_metadata_address = coin::metadata_address(signer::address_of(chain), string::utf8(b"SYMBOL")); 
+        let config_object = object::address_to_object<dex::Config>(pair_metadata_address);
+        create_liquidity_provider(
+            chain,
+            string::utf8(b"name"),
+            option::none(),
+            string::utf8(b"slinky_pair"),
+            config_object,
+            init_metadata,
+            chain_addr
+        );
+
+        let seed = b"drop_lp_name";
+        let lp_object_address = object::create_object_address(&chain_addr, seed);
+        let lp_config = borrow_global<LpConfig>(lp_object_address);
+        // It's impossible to verify extend_ref here because we're allowed to create object
+        // only once, so we can't create object with the same address in these tests,
+        // let's just pray it's valid
+        assert!(lp_config.name == string::utf8(b"name"));
+        assert!(lp_config.backup == chain_addr);
+        assert!(lp_config.slinky_pair == string::utf8(b"slinky_pair"));
+        assert!(lp_config.pair == config_object);
+        assert!(lp_config.asset == init_metadata);
+        assert!(lp_config.recipient == chain_addr);
+        assert!(lp_config.price == 0u256);
+        assert!(lp_config.timestamp == 0u64);
+        assert!(lp_config.decimals == 0u64);
+    }
 
     #[test]
     fun test_execute_provide_uninitialized(){}
