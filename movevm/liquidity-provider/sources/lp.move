@@ -211,7 +211,7 @@ module me::drop_lp {
             module_name: string::utf8(b"drop_lp"),
             function_name: string::utf8(b"store"),
             type_args: vector[],
-            args: vector[address::to_string(lp_address)],
+            args: vector[json::marshal_to_string<String>(&address::to_string(lp_address))],
         };
         let callback_function = address::to_string(@me);
         string::append(&mut callback_function, string::utf8(b"::drop_lp::callback"));
