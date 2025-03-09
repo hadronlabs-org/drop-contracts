@@ -4,4 +4,5 @@ export type MoveLiquidityProviderConfig = {
   lcd: LCDClient;
   wallet: Wallet;
   moduleAddress: string;
+  moduleObject: string;
 };

@@ -136,7 +136,7 @@ class Service {
       if (
         module.lastRun != 0 &&
         currentTime - module.lastRun >
-        this.context.config.coordinator.checksPeriod * 3 * 1000
+          this.context.config.coordinator.checksPeriod * 3 * 1000
       ) {
         console.error(
           `${module.constructor.name} is not running. Restarting coordinator...`,
@@ -222,15 +222,19 @@ class Service {
       );
     }
 
-    if (MoveLiquidityProviderModule.verifyConfig(
-      this.log,
-      process.env.INITIA_LP_MODULE_ADDRESS,
-    )) {
+    if (
+      MoveLiquidityProviderModule.verifyConfig(
+        this.log,
+        process.env.INITIA_LP_MODULE_ADDRESS,
+        process.env.INITIA_LP_MODULE_OBJECT,
+      )
+    ) {
       this.modulesList.push(
         new MoveLiquidityProviderModule(
           this.context,
           logger.child({ context: 'MoveLiquidityProviderModule' }),
           process.env.INITIA_LP_MODULE_ADDRESS,
+          process.env.INITIA_LP_MODULE_OBJECT,
         ),
       );
     }
