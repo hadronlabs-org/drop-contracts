@@ -910,10 +910,14 @@ describe('Core', () => {
         )
       ).out;
 
-    let res = JSON.parse((await context.park.executeInNetwork(
-      'initia',
-      `initiad tx move execute ${ownerAddress} drop_lp create_liquidity_provider --args '["string:test_uinit", "option<address>:null", "string:INIT/USD", "object:${context.moveToken.metadataAddr}", "object:${initiaUINITmetadata}", "address:${rewardsPumpIcaAddress}"]' --from demo3 --home /opt --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --chain-id ${context.park.config.networks['initia'].chain_id} --keyring-backend test -y -o json`,
-    )).out);
+    let res = JSON.parse(
+      (
+        await context.park.executeInNetwork(
+          'initia',
+          `initiad tx move execute ${ownerAddress} drop_lp create_liquidity_provider --args '["string:test_uinit", "option<address>:null", "string:INIT/USD", "object:${context.moveToken.metadataAddr}", "object:${initiaUINITmetadata}", "address:${rewardsPumpIcaAddress}"]' --from demo3 --home /opt --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --chain-id ${context.park.config.networks['initia'].chain_id} --keyring-backend test -y -o json`,
+        )
+      ).out,
+    );
     await sleep(10_000);
     res = JSON.parse(
       (
@@ -929,13 +933,15 @@ describe('Core', () => {
       .flat(1);
     const createObjectEvent =
       moveEvents[
-      moveEvents.findIndex(
-        (attribute) =>
-          attribute.key == 'type_tag' &&
-          attribute.value == '0x1::object::CreateEvent',
-      ) + 1
-        ];
-    context.liquidityProviderModuleAddressHex = JSON.parse(createObjectEvent.value).object;
+        moveEvents.findIndex(
+          (attribute) =>
+            attribute.key == 'type_tag' &&
+            attribute.value == '0x1::object::CreateEvent',
+        ) + 1
+      ];
+    context.liquidityProviderModuleAddressHex = JSON.parse(
+      createObjectEvent.value,
+    ).object;
     context.liquidityProviderModuleAddress = (
       await context.park.executeInNetwork(
         'initia',
@@ -1016,8 +1022,8 @@ describe('Core', () => {
                   JSON.stringify({
                     add_bond_provider: {
                       bond_provider_address:
-                      context.nativeBondProviderContractClient
-                        .contractAddress,
+                        context.nativeBondProviderContractClient
+                          .contractAddress,
                     },
                   }),
                 ).toString('base64'),
@@ -1223,7 +1229,7 @@ describe('Core', () => {
               remote: 60,
             },
             dest_address:
-            context.withdrawalManagerContractClient.contractAddress,
+              context.withdrawalManagerContractClient.contractAddress,
             dest_port: 'transfer',
             dest_channel: 'channel-0',
             refundee: neutronUserAddress,
