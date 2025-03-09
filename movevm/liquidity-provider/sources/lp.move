@@ -595,47 +595,47 @@ module me::drop_lp {
         assert!(lp_config.decimals == 0u64);
     }
 
-    // #[test(chain = @me)]
-    // #[expected_failure(abort_code = 4008, location = Self)]
-    // fun test_execute_provide_uninitialized(chain: &signer) acquires LpConfig {
-    //     initia_std::primary_fungible_store::init_module_for_test();
-    //     initia_std::dex::init_module_for_test();
+    #[test(chain = @me)]
+    #[expected_failure]
+    fun test_execute_provide_uninitialized(chain: &signer) acquires LpConfig {
+        initia_std::primary_fungible_store::init_module_for_test();
+        initia_std::dex::init_module_for_test();
 
-    //     let chain_addr = signer::address_of(chain);
-    //     let (_, _, init_mint_cap) =
-    //         initialize_coin_for_testing(chain, string::utf8(b"INIT"));
-    //     let (_, _, usdc_mint_cap) =
-    //         initialize_coin_for_testing(chain, string::utf8(b"USDC"));
-    //     let init_metadata = coin::metadata(chain_addr, string::utf8(b"INIT"));
-    //     let _ = coin::metadata(chain_addr, string::utf8(b"USDC"));
-    //     coin::mint_to(&init_mint_cap, chain_addr, 100000000);
-    //     coin::mint_to(&usdc_mint_cap, chain_addr, 100000000);
-    //     dex::create_pair_script(
-    //         chain,
-    //         std::string::utf8(b"name"),
-    //         std::string::utf8(b"SYMBOL"),
-    //         bigdecimal::from_ratio_u64(3, 1000),
-    //         bigdecimal::from_ratio_u64(8, 10),
-    //         bigdecimal::from_ratio_u64(2, 10),
-    //         coin::metadata(chain_addr, string::utf8(b"INIT")),
-    //         coin::metadata(chain_addr, string::utf8(b"USDC")),
-    //         80000000,
-    //         20000000
-    //     );
+        let chain_addr = signer::address_of(chain);
+        let (_, _, init_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"INIT"));
+        let (_, _, usdc_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"USDC"));
+        let init_metadata = coin::metadata(chain_addr, string::utf8(b"INIT"));
+        let _ = coin::metadata(chain_addr, string::utf8(b"USDC"));
+        coin::mint_to(&init_mint_cap, chain_addr, 100000000);
+        coin::mint_to(&usdc_mint_cap, chain_addr, 100000000);
+        dex::create_pair_script(
+            chain,
+            std::string::utf8(b"name"),
+            std::string::utf8(b"SYMBOL"),
+            bigdecimal::from_ratio_u64(3, 1000),
+            bigdecimal::from_ratio_u64(8, 10),
+            bigdecimal::from_ratio_u64(2, 10),
+            coin::metadata(chain_addr, string::utf8(b"INIT")),
+            coin::metadata(chain_addr, string::utf8(b"USDC")),
+            80000000,
+            20000000
+        );
 
-    //     let pair_metadata_address = coin::metadata_address(signer::address_of(chain), string::utf8(b"SYMBOL")); 
-    //     let config_object = object::address_to_object<dex::Config>(pair_metadata_address);
-    //     create_liquidity_provider(
-    //         chain,
-    //         string::utf8(b"name"),
-    //         option::none(),
-    //         string::utf8(b"slinky_pair"),
-    //         config_object,
-    //         init_metadata,
-    //         chain_addr
-    //     );
-    //     provide(chain_addr); // just a random address
-    // }
+        let pair_metadata_address = coin::metadata_address(signer::address_of(chain), string::utf8(b"SYMBOL")); 
+        let config_object = object::address_to_object<dex::Config>(pair_metadata_address);
+        create_liquidity_provider(
+            chain,
+            string::utf8(b"name"),
+            option::none(),
+            string::utf8(b"slinky_pair"),
+            config_object,
+            init_metadata,
+            chain_addr
+        );
+        provide(chain_addr); // just a random address
+    }
 
     #[test(chain = @me)]
     fun test_execute_provide(chain: &signer) acquires LpConfig {
@@ -681,52 +681,52 @@ module me::drop_lp {
         provide(lp_object_address);
     }
 
-    // #[test(chain = @me)]
-    // #[expected_failure(abort_code = 10, location = 0x1::dex)]
-    // fun test_execute_provide_liquidity_empty_balance(chain: &signer) acquires LpConfig {
-    //     initia_std::primary_fungible_store::init_module_for_test();
-    //     initia_std::dex::init_module_for_test();
+    #[test(chain = @me)]
+    #[expected_failure(arithmetic_error, location = 0x1::dex)]
+    fun test_execute_provide_liquidity_empty_balance(chain: &signer) acquires LpConfig {
+        initia_std::primary_fungible_store::init_module_for_test();
+        initia_std::dex::init_module_for_test();
 
-    //     let chain_addr = signer::address_of(chain);
-    //     let (_, _, init_mint_cap) =
-    //         initialize_coin_for_testing(chain, string::utf8(b"INIT"));
-    //     let (_, _, usdc_mint_cap) =
-    //         initialize_coin_for_testing(chain, string::utf8(b"USDC"));
-    //     let init_metadata = coin::metadata(chain_addr, string::utf8(b"INIT"));
-    //     let _ = coin::metadata(chain_addr, string::utf8(b"USDC"));
-    //     coin::mint_to(&init_mint_cap, chain_addr, 100000000);
-    //     coin::mint_to(&usdc_mint_cap, chain_addr, 100000000);
-    //     dex::create_pair_script(
-    //         chain,
-    //         std::string::utf8(b"name"),
-    //         std::string::utf8(b"SYMBOL"),
-    //         bigdecimal::from_ratio_u64(3, 1000),
-    //         bigdecimal::from_ratio_u64(8, 10),
-    //         bigdecimal::from_ratio_u64(2, 10),
-    //         coin::metadata(chain_addr, string::utf8(b"INIT")),
-    //         coin::metadata(chain_addr, string::utf8(b"USDC")),
-    //         80000000,
-    //         20000000
-    //     );
+        let chain_addr = signer::address_of(chain);
+        let (_, _, init_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"INIT"));
+        let (_, _, usdc_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"USDC"));
+        let init_metadata = coin::metadata(chain_addr, string::utf8(b"INIT"));
+        let _ = coin::metadata(chain_addr, string::utf8(b"USDC"));
+        coin::mint_to(&init_mint_cap, chain_addr, 100000000);
+        coin::mint_to(&usdc_mint_cap, chain_addr, 100000000);
+        dex::create_pair_script(
+            chain,
+            std::string::utf8(b"name"),
+            std::string::utf8(b"SYMBOL"),
+            bigdecimal::from_ratio_u64(3, 1000),
+            bigdecimal::from_ratio_u64(8, 10),
+            bigdecimal::from_ratio_u64(2, 10),
+            coin::metadata(chain_addr, string::utf8(b"INIT")),
+            coin::metadata(chain_addr, string::utf8(b"USDC")),
+            80000000,
+            20000000
+        );
 
-    //     let pair_metadata_address = coin::metadata_address(signer::address_of(chain), string::utf8(b"SYMBOL")); 
-    //     let config_object = object::address_to_object<dex::Config>(pair_metadata_address);
-    //     create_liquidity_provider(
-    //         chain,
-    //         string::utf8(b"name"),
-    //         option::none(),
-    //         string::utf8(b"slinky_pair"),
-    //         config_object,
-    //         init_metadata,
-    //         chain_addr
-    //     );
+        let pair_metadata_address = coin::metadata_address(signer::address_of(chain), string::utf8(b"SYMBOL")); 
+        let config_object = object::address_to_object<dex::Config>(pair_metadata_address);
+        create_liquidity_provider(
+            chain,
+            string::utf8(b"name"),
+            option::none(),
+            string::utf8(b"slinky_pair"),
+            config_object,
+            init_metadata,
+            chain_addr
+        );
 
-    //     let seed = b"drop_lp_name";
-    //     let lp_object_address = object::create_object_address(&chain_addr, seed);
-    //     let lp_object_config = borrow_global<LpConfig>(lp_object_address);
-    //     let lp_signer = object::generate_signer_for_extending(&lp_object_config.extend_ref);
-    //     provide_liquidity(&lp_signer, lp_object_config);
-    // }
+        let seed = b"drop_lp_name";
+        let lp_object_address = object::create_object_address(&chain_addr, seed);
+        let lp_object_config = borrow_global<LpConfig>(lp_object_address);
+        let lp_signer = object::generate_signer_for_extending(&lp_object_config.extend_ref);
+        provide_liquidity(&lp_signer, lp_object_config);
+    }
     
     #[test]
     fun test_execute_provide_liquidity(){}
