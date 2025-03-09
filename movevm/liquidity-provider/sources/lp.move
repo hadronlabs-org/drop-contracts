@@ -772,7 +772,21 @@ module me::drop_lp {
         let lp_object_config = borrow_global<LpConfig>(lp_object_address);
         let lp_signer = object::generate_signer_for_extending(&lp_object_config.extend_ref);
         coin::mint_to(&init_mint_cap, signer::address_of(&lp_signer), 100000);
+
+        let pool_coin_a_amount_before = dex::get_coin_a_amount_from_pool_info_response(
+            &dex::get_pool_info_by_denom(
+                string::utf8(b"SYMBOL")
+            )
+        );
         provide_liquidity(&lp_signer, lp_object_config);
+
+
+        let pool_coin_a_amount_after = dex::get_coin_a_amount_from_pool_info_response(
+            &dex::get_pool_info_by_denom(
+                string::utf8(b"SYMBOL")
+            )
+        );
+        assert!(pool_coin_a_amount_after == pool_coin_a_amount_before + 100000);
     }
 
     #[test(chain = @me)]
