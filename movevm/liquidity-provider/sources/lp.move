@@ -907,12 +907,190 @@ module me::drop_lp {
         backup(chain, lp_object_address, init_metadata);
     }
 
-    #[test]
-    fun test_execute_store_uninitialized(){}
-    #[test]
-    fun test_execute_store_different_block(){}
-    #[test]
-    fun test_execute_store_same_block(){}
+    #[test(chain = @me)]
+    #[expected_failure]
+    fun test_execute_store_uninitialized(chain: &signer) acquires LpConfig {
+        initia_std::primary_fungible_store::init_module_for_test();
+        initia_std::dex::init_module_for_test();
+
+        let chain_addr = signer::address_of(chain);
+        let (_, _, init_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"INIT"));
+        let (_, _, usdc_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"USDC"));
+        let init_metadata = coin::metadata(chain_addr, string::utf8(b"INIT"));
+        let _ = coin::metadata(chain_addr, string::utf8(b"USDC"));
+        coin::mint_to(&init_mint_cap, chain_addr, 100000000);
+        coin::mint_to(&usdc_mint_cap, chain_addr, 100000000);
+        dex::create_pair_script(
+            chain,
+            std::string::utf8(b"name"),
+            std::string::utf8(b"SYMBOL"),
+            bigdecimal::from_ratio_u64(3, 1000),
+            bigdecimal::from_ratio_u64(8, 10),
+            bigdecimal::from_ratio_u64(2, 10),
+            coin::metadata(chain_addr, string::utf8(b"INIT")),
+            coin::metadata(chain_addr, string::utf8(b"USDC")),
+            80000000,
+            20000000
+        );
+
+        let pair_metadata_address = coin::metadata_address(signer::address_of(chain), string::utf8(b"SYMBOL")); 
+        let config_object = object::address_to_object<dex::Config>(pair_metadata_address);
+        create_liquidity_provider(
+            chain,
+            string::utf8(b"name"),
+            option::none(),
+            string::utf8(b"slinky_pair"),
+            config_object,
+            init_metadata,
+            chain_addr
+        );
+
+        store(@0x123); // just a random address
+    }
+
+    #[test(chain = @me)]
+    fun test_execute_store_different_block(chain: &signer) acquires LpConfig {
+        initia_std::primary_fungible_store::init_module_for_test();
+        initia_std::dex::init_module_for_test();
+
+        let chain_addr = signer::address_of(chain);
+        let (_, _, init_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"INIT"));
+        let (_, _, usdc_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"USDC"));
+        let init_metadata = coin::metadata(chain_addr, string::utf8(b"INIT"));
+        let _ = coin::metadata(chain_addr, string::utf8(b"USDC"));
+        coin::mint_to(&init_mint_cap, chain_addr, 100000000);
+        coin::mint_to(&usdc_mint_cap, chain_addr, 100000000);
+        dex::create_pair_script(
+            chain,
+            std::string::utf8(b"name"),
+            std::string::utf8(b"SYMBOL"),
+            bigdecimal::from_ratio_u64(3, 1000),
+            bigdecimal::from_ratio_u64(8, 10),
+            bigdecimal::from_ratio_u64(2, 10),
+            coin::metadata(chain_addr, string::utf8(b"INIT")),
+            coin::metadata(chain_addr, string::utf8(b"USDC")),
+            80000000,
+            20000000
+        );
+
+        let pair_metadata_address = coin::metadata_address(signer::address_of(chain), string::utf8(b"SYMBOL")); 
+        let config_object = object::address_to_object<dex::Config>(pair_metadata_address);
+        create_liquidity_provider(
+            chain,
+            string::utf8(b"name"),
+            option::none(),
+            string::utf8(b"slinky_pair"),
+            config_object,
+            init_metadata,
+            chain_addr
+        );
+
+        let seed = b"drop_lp_name";
+        let lp_object_address = object::create_object_address(&chain_addr, seed);
+        let config_before = borrow_global<LpConfig>(lp_object_address);
+        block::set_block_info(123u64, 123u64);
+        oracle::set_price(&string::utf8(b"slinky_pair"), 1u256, 2u64, 3u64);
+
+        let config_before_extend_ref = signer::address_of(&object::generate_signer_for_extending(&config_before.extend_ref));
+        let config_before_name = config_before.name;
+        let config_before_backup = config_before.backup;
+        let config_before_slinky_pair = config_before.slinky_pair;
+        let config_before_pair = config_before.pair;
+        let config_before_asset = config_before.asset;
+        let config_before_recipient = config_before.recipient;
+        let config_before_price = config_before.price;
+        let config_before_timestamp = config_before.timestamp;
+        let config_before_decimals = config_before.decimals;
+        store(lp_object_address);
+
+        let config_after = borrow_global<LpConfig>(lp_object_address);
+        assert!(config_before_extend_ref == signer::address_of(&object::generate_signer_for_extending(&config_after.extend_ref)));
+        assert!(config_before_name == config_after.name);
+        assert!(config_before_backup == config_after.backup);
+        assert!(config_before_slinky_pair == config_after.slinky_pair);
+        assert!(config_before_pair == config_after.pair);
+        assert!(config_before_asset == config_after.asset);
+        assert!(config_before_recipient == config_after.recipient);
+
+        assert!(config_before_price != config_after.price);
+        assert!(config_before_timestamp != config_after.timestamp);
+        assert!(config_before_decimals != config_after.decimals);
+
+        assert!(config_after.price == 1u256);
+        assert!(config_after.timestamp == 2u64);
+        assert!(config_after.decimals == 3u64);
+    }
+
+    #[test(chain = @me)]
+    fun test_execute_store_same_block(chain: &signer) acquires LpConfig {
+        initia_std::primary_fungible_store::init_module_for_test();
+        initia_std::dex::init_module_for_test();
+
+        let chain_addr = signer::address_of(chain);
+        let (_, _, init_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"INIT"));
+        let (_, _, usdc_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"USDC"));
+        let init_metadata = coin::metadata(chain_addr, string::utf8(b"INIT"));
+        let _ = coin::metadata(chain_addr, string::utf8(b"USDC"));
+        coin::mint_to(&init_mint_cap, chain_addr, 100000000);
+        coin::mint_to(&usdc_mint_cap, chain_addr, 100000000);
+        dex::create_pair_script(
+            chain,
+            std::string::utf8(b"name"),
+            std::string::utf8(b"SYMBOL"),
+            bigdecimal::from_ratio_u64(3, 1000),
+            bigdecimal::from_ratio_u64(8, 10),
+            bigdecimal::from_ratio_u64(2, 10),
+            coin::metadata(chain_addr, string::utf8(b"INIT")),
+            coin::metadata(chain_addr, string::utf8(b"USDC")),
+            80000000,
+            20000000
+        );
+
+        let pair_metadata_address = coin::metadata_address(signer::address_of(chain), string::utf8(b"SYMBOL")); 
+        let config_object = object::address_to_object<dex::Config>(pair_metadata_address);
+        create_liquidity_provider(
+            chain,
+            string::utf8(b"name"),
+            option::none(),
+            string::utf8(b"slinky_pair"),
+            config_object,
+            init_metadata,
+            chain_addr
+        );
+
+        let seed = b"drop_lp_name";
+        let lp_object_address = object::create_object_address(&chain_addr, seed);
+        let config_before = borrow_global<LpConfig>(lp_object_address);
+        let config_before_extend_ref = signer::address_of(&object::generate_signer_for_extending(&config_before.extend_ref));
+        let config_before_name = config_before.name;
+        let config_before_backup = config_before.backup;
+        let config_before_slinky_pair = config_before.slinky_pair;
+        let config_before_pair = config_before.pair;
+        let config_before_asset = config_before.asset;
+        let config_before_recipient = config_before.recipient;
+        let config_before_price = config_before.price;
+        let config_before_timestamp = config_before.timestamp;
+        let config_before_decimals = config_before.decimals;
+        store(lp_object_address);
+
+        let config_after = borrow_global<LpConfig>(lp_object_address);
+        assert!(config_before_extend_ref == signer::address_of(&object::generate_signer_for_extending(&config_after.extend_ref)));
+        assert!(config_before_name == config_after.name);
+        assert!(config_before_backup == config_after.backup);
+        assert!(config_before_slinky_pair == config_after.slinky_pair);
+        assert!(config_before_pair == config_after.pair);
+        assert!(config_before_asset == config_after.asset);
+        assert!(config_before_recipient == config_after.recipient);
+        assert!(config_before_price == config_after.price);
+        assert!(config_before_timestamp == config_after.timestamp);
+        assert!(config_before_decimals == config_after.decimals);
+    }
 
     #[test]
     fun test_execute_callback_uninitialized(){}
