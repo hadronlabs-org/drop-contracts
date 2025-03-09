@@ -49,14 +49,21 @@ initiad tx move execute 0x8b4ab83f91eef29b3d0211d7a9332ba44c818a5c drop_lp creat
 
 #### 6. Provide liquidity
 
+First, go to the initia [faucet](https://faucet.testnet.initia.xyz/),
+then get some tokens on the liquidity_provider instance address. But you need sdk-type address,
+you can pick it up from the events from the transaction in step 5. Then convert this address
+into sdk-type with init1... prefix (you can get one on inita scan because initiad doesn't work properly with long addresses).
+
+- address:<address> Address of a liquidity provider instance
+
 ```bash
-initiad tx move execute <name of your key> drop_lp create_liquidity_provider --from testnet --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --node https://rpc.initiation-2.initia.xyz:443 --chain-id initiation-2
+initiad tx move execute <name of your key> drop_lp provide '["address:<hex_lp_address>"]' --from testnet --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --node https://rpc.initiation-2.initia.xyz:443 --chain-id initiation-2
 ```
 
 #### 8. Validate
 
 Use block explorer to validate that:
 
-- @me address doesn't have any INIT tokens anymore;
+- lp_provider address doesn't have any INIT tokens anymore;
 - @recipient address has some LP tokens (denom is
   `move/dbf06c48af3984ec6d9ae8a9aa7dbb0bb1e784aa9b8c4a5681af660cf8558d7d`).
