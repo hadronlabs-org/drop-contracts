@@ -30,12 +30,12 @@ initiad move deploy --path "$(pwd)" --upgrade-policy COMPATIBLE --from <name of 
 
 Method `create_liquidity_provider` has several arguments:
 
-- string:<name> Name for a visual reference, e.g. "testnet_uinit"
-- option<address>:<address> Priviliged account with a right to withdraw any coins from module object, will be set to `account` if omitted
-- string:<name> Name of a slinky pair, e.g. "INIT/USD"
-- object:<address> Address of liquidity pool, e.g. 0xdbf06c48af3984ec6d9ae8a9aa7dbb0bb1e784aa9b8c4a5681af660cf8558d7d for uinit-usdc on initiation-2 testnet
-- object:<address> Address of asset, e.g. 0x8e4733bdabcf7d4afc3d14f0dd46c9bf52fb0fce9e4b996c939e195b8bc891d9 for uinit on initiation-2 testnet
-- address:<address> Address which will be receiving all LP tokens
+- string:\<name\> Name for a visual reference, e.g. "testnet_uinit"
+- option\<address\>:\<address\> Priviliged account with a right to withdraw any coins from module object, will be set to `account` if omitted
+- string:\<name\> Name of a slinky pair, e.g. "INIT/USD"
+- object:\<address\> Address of liquidity pool, e.g. 0xdbf06c48af3984ec6d9ae8a9aa7dbb0bb1e784aa9b8c4a5681af660cf8558d7d for uinit-usdc on initiation-2 testnet
+- object:\<address\> Address of asset, e.g. 0x8e4733bdabcf7d4afc3d14f0dd46c9bf52fb0fce9e4b996c939e195b8bc891d9 for uinit on initiation-2 testnet
+- address:\<address\> Address which will be receiving all LP tokens
 
 ```bash
 initiad tx move execute <your hex address from step 2> drop_lp create_liquidity_provider --args '["string:<name>", "option<address>:null", "string:INIT/USD", "object:<lp_metadata_address>", "object:<input_token_address>", "address:<lp_recepient>"]' --from test2 --node $INITIA_TESTNET --chain-id initiation-2 --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit
@@ -54,7 +54,7 @@ then get some tokens on the liquidity_provider instance address. But you need sd
 you can pick it up from the events from the transaction in step 5. Then convert this address
 into sdk-type with init1... prefix (you can get one on inita scan because initiad doesn't work properly with long addresses).
 
-- address:<address> Address of a liquidity provider instance
+- address:\<address\> Address of a liquidity provider instance
 
 ```bash
 initiad tx move execute <name of your key> drop_lp provide '["address:<hex_lp_address>"]' --from testnet --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --node https://rpc.initiation-2.initia.xyz:443 --chain-id initiation-2
