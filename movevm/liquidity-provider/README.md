@@ -51,7 +51,13 @@ To get Liquidity Provider instance object's address use this:
 initiad q tx <tx hash from the previous transaction> --node https://rpc.initiation-2.initia.xyz:443 -o j | jq '.events[] | select(.attributes[].value | contains("CreateLiquidityProviderEvent")) | .attributes[] | select(.key == "data").value | fromjson.lp_address' | sed 's/\"//g'
 ```
 
-Then, to convert it from hex to bech32, use [Initia Scan](https://scan.testnet.initia.xyz/initiation-2). Just paste this address there. Unfortunately it's impossible to convert this address from the CLI due to a couple of specific aspects in Initia.
+Then, to convert it from hex to bech32, use this command:
+
+```bash
+initiad keys parse <hex address without 0x prefix>
+```
+
+And pick up the one with "init1..." prefix.
 
 #### 6. Provide liquidity
 
