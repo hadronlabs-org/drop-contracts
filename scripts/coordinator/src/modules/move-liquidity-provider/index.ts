@@ -46,7 +46,7 @@ export class MoveLiquidityProviderModule extends ManagerModule {
     const msg = new MsgExecute(
       this.config.wallet.key.accAddress,
       this.config.moduleAddress,
-      'liquidity_provider',
+      'drop_lp',
       'provide',
       [],
       [bcs.address().serialize(this.config.moduleObject).toBase64()],
