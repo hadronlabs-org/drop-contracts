@@ -3,9 +3,10 @@ use crate::contract::{CLAIM_REWARDS_REPLY_ID, CONTRACT_NAME};
 use cosmwasm_std::{
     coin, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, BankMsg, CosmosMsg, Decimal256, DepsMut, Event, Response, StakingMsg,
-    StdError, SubMsg, Timestamp, Uint128, Uint64, WasmMsg,
+    to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal256, DepsMut, Event, Response,
+    StakingMsg, StdError, SubMsg, Timestamp, Uint128, Uint64, WasmMsg,
 };
+use cw_utils::PaymentError;
 use drop_helpers::testing::mock_dependencies;
 
 use drop_puppeteer_base::peripheral_hook::{
@@ -26,7 +27,11 @@ use drop_staking_base::{
     msg::puppeteer_native::InstantiateMsg,
     state::puppeteer_native::QueryDelegatorDelegationsResponse,
 };
-use neutron_sdk::{bindings::query::NeutronQuery, interchain_queries::v045::types::Balances};
+use neutron_sdk::{
+    bindings::{msg::IbcFee, query::NeutronQuery},
+    interchain_queries::v045::types::Balances,
+    query::min_ibc_fee::MinIbcFeeResponse,
+};
 
 use std::vec;
 
@@ -259,6 +264,128 @@ fn test_execute_undelegate() {
                 funds: vec![],
             })
         ])
+    );
+}
+
+#[test]
+fn test_execute_delegate_no_funds() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    base_init(&mut deps.as_mut());
+
+    let env: cosmwasm_std::Env = mock_env();
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("allowed_sender1", &[]),
+        drop_staking_base::msg::puppeteer_native::ExecuteMsg::Delegate {
+            items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::PaymentError(PaymentError::NoFunds {})
+    );
+}
+
+#[test]
+fn test_execute_delegate_diff_funds() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    base_init(&mut deps.as_mut());
+
+    let env: cosmwasm_std::Env = mock_env();
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info(
+            "allowed_sender1",
+            &[Coin::new(1001u128, DEFAULT_DENOM.to_string())],
+        ),
+        drop_staking_base::msg::puppeteer_native::ExecuteMsg::Delegate {
+            items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::InvalidFunds {
+            reason: "funds to stake and the attached funds must equal".to_string()
+        }
+    );
+}
+
+#[test]
+fn test_execute_delegate() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    base_init(&mut deps.as_mut());
+
+    let env: cosmwasm_std::Env = mock_env();
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info(
+            "allowed_sender1",
+            &[Coin::new(1000u128, DEFAULT_DENOM.to_string())],
+        ),
+        drop_staking_base::msg::puppeteer_native::ExecuteMsg::Delegate {
+            items: vec![("valoper1".to_string(), Uint128::from(1000u128))],
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        res,
+        Response::new()
+            .add_messages(vec![
+                CosmosMsg::Staking(StakingMsg::Delegate {
+                    validator: "valoper1".to_string(),
+                    amount: cosmwasm_std::Coin::new(1000u128, "untrn".to_string()),
+                }),
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: "some_reply_to".to_string(),
+                    msg: to_json_binary(&ReceiverExecuteMsg::PeripheralHook(
+                        ResponseHookMsg::Success(ResponseHookSuccessMsg {
+                            transaction: Transaction::Stake {
+                                amount: Uint128::from(1000u128),
+                            },
+                            local_height: env.block.height,
+                            remote_height: env.block.height,
+                        }),
+                    ))
+                    .unwrap(),
+                    funds: vec![],
+                })
+            ])
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-puppeteer-native-stake")
+                    .add_attributes(vec![("action", "stake"), ("amount_to_stake", "1000")])
+            )
     );
 }
 
@@ -988,4 +1115,12 @@ fn test_migrate_wrong_contract() {
             contract_name: CONTRACT_NAME.to_string()
         }
     )
+}
+
+fn get_standard_fees() -> IbcFee {
+    IbcFee {
+        recv_fee: vec![],
+        ack_fee: cosmwasm_std::coins(100, "untrn"),
+        timeout_fee: cosmwasm_std::coins(200, "untrn"),
+    }
 }

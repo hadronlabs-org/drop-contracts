@@ -293,16 +293,15 @@ fn execute_delegate(
     let config = CONFIG.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
     cw_utils::must_pay(&info, DEFAULT_DENOM)?;
-    cw_utils::one_coin(&info)?;
 
     let amount_attached = info.funds.last().unwrap().amount;
 
     let amount_to_stake: Uint128 = items.iter().map(|(_, amount)| *amount).sum();
 
     ensure!(
-        amount_attached >= amount_to_stake,
+        amount_attached == amount_to_stake,
         ContractError::InvalidFunds {
-            reason: "not enough funds to stake".to_string()
+            reason: "funds to stake and the attached funds must equal".to_string()
         }
     );
 
