@@ -688,6 +688,7 @@ dependencies = [
  "drop-puppeteer-initia",
  "drop-puppeteer-native",
  "drop-staking-base",
+ "drop-val-ref",
  "neutron-sdk",
  "semver",
  "thiserror",

@@ -43,6 +43,7 @@ drop-puppeteer = { path = "../puppeteer", default-features = false, features = [
 drop-puppeteer-native = { path = "../puppeteer-native", default-features = false, features = ["library"] }
 drop-puppeteer-initia = { path = "../puppeteer-initia", default-features = false, features = ["library"] }
 drop-pump = { path = "../pump", default-features = false, features = ["library"] }
+drop-val-ref = { path = "../val-ref", default-features = false, features = ["library"] }
 
 [dev-dependencies]
 cw-multi-test = { workspace = true }

@@ -569,6 +569,16 @@ fn validate_pre_instantiated_contracts(
         ],
     )?;
 
+    // Validate val ref address
+    if let Some(val_ref_address) = &pre_instantiated_contracts.val_ref_address {
+        validate_contract_metadata(
+            deps,
+            env,
+            val_ref_address,
+            &[drop_val_ref::contract::CONTRACT_NAME],
+        )?;
+    }
+
     // Validate lsm share bond provider contract
     if let Some(lsm_share_bond_provider_address) =
         &pre_instantiated_contracts.lsm_share_bond_provider_address
