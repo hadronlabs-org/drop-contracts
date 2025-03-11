@@ -386,6 +386,7 @@ fn execute_claim_rewards_and_optionaly_transfer(
 
     let mut messages = vec![];
     if let Some(transfer) = transfer.clone() {
+        deps.api.addr_validate(&transfer.recipient)?;
         let send_msg = CosmosMsg::Bank(BankMsg::Send {
             to_address: transfer.recipient, // Should send to withdrawal manager
             amount: vec![StdCoin {
