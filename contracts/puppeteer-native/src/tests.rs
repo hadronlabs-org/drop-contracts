@@ -971,7 +971,6 @@ fn test_unbonding_delegations_two_pages() {
 #[test]
 fn test_migrate_wrong_contract() {
     let mut deps = mock_dependencies(&[]);
-
     let deps_mut = deps.as_mut();
 
     cw2::set_contract_version(deps_mut.storage, "wrong_contract_name", "0.0.1").unwrap();
