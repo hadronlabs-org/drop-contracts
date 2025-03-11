@@ -129,23 +129,24 @@ fn query_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binar
                     .into(),
             });
 
-        if res.is_err() {
-            break;
-        } else {
-            let delegations_response = res.unwrap(); // unwrap is safe bc we know that it's not an error
+        match res {
+            Ok(delegations_response) => {
+                let delegations: Vec<DropDelegation> = delegations_response
+                    .delegation_responses
+                    .into_iter()
+                    .map(Into::into)
+                    .collect();
 
-            let delegations: Vec<DropDelegation> = delegations_response
-                .delegation_responses
-                .into_iter()
-                .map(Into::into)
-                .collect();
+                total_delegations.extend(delegations);
 
-            total_delegations.extend(delegations);
-
-            if delegations_response.pagination.next_key.is_none() {
-                break;
-            } else {
-                key = delegations_response.pagination.next_key.unwrap();
+                if delegations_response.pagination.next_key.is_none() {
+                    break;
+                } else {
+                    key = delegations_response.pagination.next_key.unwrap();
+                }
+            }
+            Err(e) => {
+                return Err(ContractError::Std(e));
             }
         }
     }
