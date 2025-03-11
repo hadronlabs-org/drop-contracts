@@ -280,10 +280,10 @@ fn execute_bond_hook_known_validator() {
             let req = from_json::<CoreQueryMsg>(req).unwrap();
             assert_eq!(req, CoreQueryMsg::ExchangeRate {});
 
-        cosmwasm_std::ContractResult::Ok(
-            to_json_binary(&Decimal::from_ratio(3u128, 2u128)).unwrap(),
-        )
-    });
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&Decimal::from_ratio(3u128, 2u128)).unwrap(),
+            )
+        });
 
     let response = contract::execute(
         deps.as_mut(),

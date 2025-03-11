@@ -673,7 +673,7 @@ fn process_on_idle_delegation() {
         .unwrap();
 
     deps.querier
-        .add_wasm_query_response("strategy_contract", |_| {
+        .add_wasm_query_response(api.addr_make("strategy_contract").as_str(), move |_| {
             cosmwasm_std::ContractResult::Ok(
                 to_json_binary(&vec![(
                     api.addr_make("valoper_address").to_string(),
@@ -752,7 +752,7 @@ fn process_on_idle_ibc_transfer() {
     });
 
     deps.querier
-        .add_wasm_query_response(api.addr_make("puppeteer_contract").as_str(), |_| {
+        .add_wasm_query_response(api.addr_make("puppeteer_contract").as_str(), move |_| {
             cosmwasm_std::ContractResult::Ok(
                 to_json_binary(&IcaState::Registered {
                     ica_address: api.addr_make("ica_address").to_string(),

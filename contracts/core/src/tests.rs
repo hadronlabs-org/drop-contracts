@@ -68,15 +68,16 @@ fn test_update_config() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
 
-    deps.querier.add_wasm_query_response(api.addr_make("token_contract").as_str(), |_| {
-        cosmwasm_std::ContractResult::Ok(
-            to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
-                factory_contract: api.addr_make("factory_contract").to_string(),
-                denom: "ld_denom".to_string(),
-            })
-            .unwrap(),
-        )
-    });
+    deps.querier
+        .add_wasm_query_response(api.addr_make("token_contract").as_str(), move |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&drop_staking_base::msg::token::ConfigResponse {
+                    factory_contract: api.addr_make("factory_contract").to_string(),
+                    denom: "ld_denom".to_string(),
+                })
+                .unwrap(),
+            )
+        });
     deps.querier
         .add_wasm_query_response("old_token_contract", |_| {
             cosmwasm_std::ContractResult::Ok(
@@ -331,9 +332,10 @@ fn test_add_remove_bond_provider() {
         to_json_binary::<Vec<(Addr, bool)>>(&vec![]).unwrap()
     );
 
-    deps.querier.add_wasm_query_response(bond_provider_address.as_str(), |_| {
-        cosmwasm_std::ContractResult::Ok(to_json_binary(&true).unwrap())
-    });
+    deps.querier
+        .add_wasm_query_response(bond_provider_address.as_str(), |_| {
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&true).unwrap())
+        });
 
     let res = execute(
         deps.as_mut(),
@@ -540,12 +542,13 @@ fn test_tick_idle_claim_wo_unbond() {
                 .unwrap(),
             )
         });
-    deps.querier
-        .add_wasm_query_response(api.addr_make("validators_set_contract").as_str(), |_| {
+    deps.querier.add_wasm_query_response(
+        api.addr_make("validators_set_contract").as_str(),
+        move |_| {
             cosmwasm_std::ContractResult::Ok(
                 to_json_binary(&vec![
                     drop_staking_base::state::validatorset::ValidatorInfo {
-                        valoper_address: "valoper_address".to_string(),
+                        valoper_address: api.addr_make("valoper_address").to_string(),
                         weight: 1,
                         on_top: Uint128::zero(),
                         last_processed_remote_height: None,
@@ -562,15 +565,16 @@ fn test_tick_idle_claim_wo_unbond() {
                 ])
                 .unwrap(),
             )
-        });
+        },
+    );
     deps.querier
-        .add_wasm_query_response(api.addr_make("puppeteer_contract").as_str(), |_| {
+        .add_wasm_query_response(api.addr_make("puppeteer_contract").as_str(), move |_| {
             cosmwasm_std::ContractResult::Ok(
                 to_json_binary(&DelegationsResponse {
                     delegations: Delegations {
                         delegations: vec![DropDelegation {
-                            delegator: Addr::unchecked("ica_address"),
-                            validator: "valoper_address".to_string(),
+                            delegator: api.addr_make("ica_address"),
+                            validator: api.addr_make("valoper_address").to_string(),
                             amount: Coin {
                                 denom: "remote_denom".to_string(),
                                 amount: Uint128::new(100_000),
@@ -711,12 +715,13 @@ fn test_tick_idle_claim_with_unbond_transfer() {
                 .unwrap(),
             )
         });
-    deps.querier
-        .add_wasm_query_response(api.addr_make("validators_set_contract").as_str(), |_| {
+    deps.querier.add_wasm_query_response(
+        api.addr_make("validators_set_contract").as_str(),
+        move |_| {
             cosmwasm_std::ContractResult::Ok(
                 to_json_binary(&vec![
                     drop_staking_base::state::validatorset::ValidatorInfo {
-                        valoper_address: "valoper_address".to_string(),
+                        valoper_address: api.addr_make("valoper_address").to_string(),
                         weight: 1,
                         on_top: Uint128::zero(),
                         last_processed_remote_height: None,
@@ -733,15 +738,16 @@ fn test_tick_idle_claim_with_unbond_transfer() {
                 ])
                 .unwrap(),
             )
-        });
+        },
+    );
     deps.querier
-        .add_wasm_query_response(api.addr_make("puppeteer_contract").as_str(), |_| {
+        .add_wasm_query_response(api.addr_make("puppeteer_contract").as_str(), move |_| {
             cosmwasm_std::ContractResult::Ok(
                 to_json_binary(&DelegationsResponse {
                     delegations: Delegations {
                         delegations: vec![DropDelegation {
-                            delegator: Addr::unchecked("ica_address"),
-                            validator: "valoper_address".to_string(),
+                            delegator: api.addr_make("ica_address"),
+                            validator: api.addr_make("valoper_address").to_string(),
                             amount: Coin {
                                 denom: "remote_denom".to_string(),
                                 amount: Uint128::new(100_000),
@@ -950,7 +956,11 @@ fn test_tick_claiming_error_wo_transfer() {
             let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
                 StrategyQueryMsg::CalcDeposit { deposit } => cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&vec![(api.addr_make("valoper_address").to_string(), deposit)]).unwrap(),
+                    to_json_binary(&vec![(
+                        api.addr_make("valoper_address").to_string(),
+                        deposit,
+                    )])
+                    .unwrap(),
                 ),
                 _ => unimplemented!(),
             }
@@ -1070,7 +1080,11 @@ fn test_tick_claiming_error_with_transfer() {
             let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
                 StrategyQueryMsg::CalcDeposit { deposit } => cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&vec![(api.addr_make("valoper_address").to_string(), deposit)]).unwrap(),
+                    to_json_binary(&vec![(
+                        api.addr_make("valoper_address").to_string(),
+                        deposit,
+                    )])
+                    .unwrap(),
                 ),
                 _ => unimplemented!(),
             }
@@ -1241,7 +1255,11 @@ fn test_tick_claiming_wo_transfer_unbonding() {
             let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
                 StrategyQueryMsg::CalcWithdraw { withdraw } => cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&vec![(api.addr_make("valoper_address").to_string(), withdraw)]).unwrap(),
+                    to_json_binary(&vec![(
+                        api.addr_make("valoper_address").to_string(),
+                        withdraw,
+                    )])
+                    .unwrap(),
                 ),
                 _ => unimplemented!(),
             }
@@ -1426,7 +1444,11 @@ fn test_tick_claiming_wo_idle() {
             let q: StrategyQueryMsg = from_json(msg).unwrap();
             match q {
                 StrategyQueryMsg::CalcWithdraw { withdraw } => cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&vec![(api.addr_make("valoper_address").to_string(), withdraw)]).unwrap(),
+                    to_json_binary(&vec![(
+                        api.addr_make("valoper_address").to_string(),
+                        withdraw,
+                    )])
+                    .unwrap(),
                 ),
                 _ => unimplemented!(),
             }
@@ -1965,7 +1987,7 @@ fn test_bond_lsm_share_increase_exchange_rate() {
     BOND_PROVIDERS.init(deps.as_mut().storage).unwrap();
 
     deps.querier
-        .add_wasm_query_response(api.addr_make("puppeteer_contract").as_str(), |_| {
+        .add_wasm_query_response(api.addr_make("puppeteer_contract").as_str(), move |_| {
             cosmwasm_std::ContractResult::Ok(
                 to_json_binary(&DelegationsResponse {
                     delegations: Delegations {
@@ -1984,7 +2006,7 @@ fn test_bond_lsm_share_increase_exchange_rate() {
             )
         });
     deps.querier
-        .add_wasm_query_response(api.addr_make("puppeteer_contract").as_str(), |_| {
+        .add_wasm_query_response(api.addr_make("puppeteer_contract").as_str(), move |_| {
             cosmwasm_std::ContractResult::Ok(
                 to_json_binary(&DelegationsResponse {
                     delegations: Delegations {
@@ -2090,11 +2112,14 @@ fn test_unbond() {
     let mut env = mock_env();
 
     deps.querier
-        .add_wasm_query_response("factory_contract", |_| {
+        .add_wasm_query_response("factory_contract", move |_| {
             cosmwasm_std::ContractResult::Ok(
                 to_json_binary(&HashMap::from([
                     ("token_contract", api.addr_make("token_contract").as_str()),
-                    ("withdrawal_voucher_contract", api.addr_make("withdrawal_voucher_contract").as_str()),
+                    (
+                        "withdrawal_voucher_contract",
+                        api.addr_make("withdrawal_voucher_contract").as_str(),
+                    ),
                 ]))
                 .unwrap(),
             )

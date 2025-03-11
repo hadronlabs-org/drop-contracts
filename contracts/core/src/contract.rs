@@ -1,7 +1,7 @@
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankQuery, Binary, Coin,
-    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, GrpcQuery, MessageInfo, Order,
-    QueryRequest, Response, StdError, StdResult, Uint128, Uint64, WasmMsg,
+    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest,
+    Response, StdError, StdResult, Uint128, Uint64, WasmMsg,
 };
 use cw_storage_plus::{Bound, Item};
 use drop_helpers::answer::response;

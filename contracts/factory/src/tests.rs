@@ -1283,28 +1283,33 @@ fn test_query_state() {
 fn test_query_pause_info() {
     let mut deps = mock_dependencies(&[]);
     let api = deps.api;
-    deps.querier.add_wasm_query_response(api.addr_make("core_contract").as_str(), |_| {
-        cosmwasm_std::ContractResult::Ok(
-            to_json_binary(&CorePause {
-                tick: true,
-                bond: false,
-                unbond: false,
-            })
-            .unwrap(),
-        )
-    });
     deps.querier
-        .add_wasm_query_response(api.addr_make("withdrawal_manager_contract").as_str(), |_| {
+        .add_wasm_query_response(api.addr_make("core_contract").as_str(), |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&CorePause {
+                    tick: true,
+                    bond: false,
+                    unbond: false,
+                })
+                .unwrap(),
+            )
+        });
+    deps.querier.add_wasm_query_response(
+        api.addr_make("withdrawal_manager_contract").as_str(),
+        |_| {
             cosmwasm_std::ContractResult::Ok(
                 to_json_binary(&drop_helpers::pause::PauseInfoResponse::Unpaused {}).unwrap(),
             )
-        });
-    deps.querier
-        .add_wasm_query_response(api.addr_make("rewards_manager_contract").as_str(), |_| {
+        },
+    );
+    deps.querier.add_wasm_query_response(
+        api.addr_make("rewards_manager_contract").as_str(),
+        |_| {
             cosmwasm_std::ContractResult::Ok(
                 to_json_binary(&drop_helpers::pause::PauseInfoResponse::Paused {}).unwrap(),
             )
-        });
+        },
+    );
     set_default_factory_state(deps.as_mut(), api);
     let query_res: drop_staking_base::state::factory::PauseInfoResponse =
         from_json(query(deps.as_ref(), mock_env(), QueryMsg::PauseInfo {}).unwrap()).unwrap();
