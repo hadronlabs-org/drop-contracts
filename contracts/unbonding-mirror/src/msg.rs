@@ -42,6 +42,8 @@ pub enum QueryMsg {
     AllFailed {},
     #[returns(bool)]
     UnbondReady { id: String },
+    #[returns(String)]
+    VoucherToNft { id: String },
 }
 
 #[cw_serde]
