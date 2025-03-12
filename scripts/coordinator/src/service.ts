@@ -18,6 +18,7 @@ import { FactoryContractHandler } from './factoryContract';
 import { ValidatorsStatsModule } from './modules/validators-stats';
 import { CoreModule } from './modules/core';
 import { SplitterModule } from './modules/splitter';
+import { MoveLiquidityProviderModule } from './modules/move-liquidity-provider';
 
 export type Uint128 = string;
 
@@ -135,7 +136,7 @@ class Service {
       if (
         module.lastRun != 0 &&
         currentTime - module.lastRun >
-          this.context.config.coordinator.checksPeriod * 3 * 1000
+        this.context.config.coordinator.checksPeriod * 3 * 1000
       ) {
         console.error(
           `${module.constructor.name} is not running. Restarting coordinator...`,
@@ -146,10 +147,22 @@ class Service {
   }
 
   registerModules() {
-    if (PumpModule.verifyConfig(this.log, process.env.PUMP_CONTRACT_ADDRESS)) {
+    const pumpDenomAllowlist = [this.context.config.target.denom];
+    const rewardsPumpDenomAllowlist = [
+      process.env.REWARDS_PUMP_DENOM || this.context.config.target.denom,
+    ];
+
+    if (
+      PumpModule.verifyConfig(
+        this.log,
+        process.env.PUMP_CONTRACT_ADDRESS,
+        pumpDenomAllowlist,
+      )
+    ) {
       this.modulesList.push(
         new PumpModule(
           process.env.PUMP_CONTRACT_ADDRESS,
+          pumpDenomAllowlist,
           process.env.PUMP_MIN_BALANCE,
           this.context,
           logger.child({ context: 'PumpModule' }),
@@ -161,11 +174,13 @@ class Service {
       PumpModule.verifyConfig(
         this.log,
         process.env.REWARDS_PUMP_CONTRACT_ADDRESS,
+        rewardsPumpDenomAllowlist,
       )
     ) {
       this.modulesList.push(
         new PumpModule(
           process.env.REWARDS_PUMP_CONTRACT_ADDRESS,
+          rewardsPumpDenomAllowlist,
           process.env.REWARDS_PUMP_MIN_BALANCE,
           this.context,
           logger.child({ context: 'RewardsPumpModule' }),
@@ -203,6 +218,19 @@ class Service {
         new ValidatorsStatsModule(
           this.context,
           logger.child({ context: 'ValidatorsStatsModule' }),
+        ),
+      );
+    }
+
+    if (MoveLiquidityProviderModule.verifyConfig(
+      this.log,
+      process.env.INITIA_LP_MODULE_ADDRESS,
+    )) {
+      this.modulesList.push(
+        new MoveLiquidityProviderModule(
+          this.context,
+          logger.child({ context: 'MoveLiquidityProviderModule' }),
+          process.env.INITIA_LP_MODULE_ADDRESS,
         ),
       );
     }

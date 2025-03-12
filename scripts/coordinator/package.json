@@ -12,11 +12,12 @@
   },
   "dependencies": {
     "@cosmjs/cosmwasm-stargate": "^0.32.4",
-    "@cosmjs/math": "^0.32.4",
     "@cosmjs/encoding": "^0.32.4",
+    "@cosmjs/math": "^0.32.4",
     "@cosmjs/proto-signing": "^0.32.4",
     "@cosmjs/stargate": "^0.32.4",
     "@cosmjs/tendermint-rpc": "^0.32.4",
+    "@initia/initia.js": "^0.2.30",
     "@neutron-org/client-ts": "^1.4.0",
     "dotenv": "^16.4.5",
     "drop-ts-client": "file:../../ts-client",
@@ -24,8 +25,8 @@
     "pino": "^8.19.0"
   },
   "devDependencies": {
-    "@types/node": "^20.11.27",
     "@types/json-bigint": "^1.0.0",
+    "@types/node": "^20.11.27",
     "@typescript-eslint/eslint-plugin": "^6.4.0",
     "eslint": "^8.0.1",
     "eslint-config-prettier": "^9.1.0",
