@@ -5,7 +5,7 @@ use drop_helpers::answer::response;
 use drop_staking_base::msg::distribution::Delegation;
 use drop_staking_base::{
     error::distribution::{ContractError, ContractResult},
-    msg::distribution::{Delegations, InstantiateMsg, MigrateMsg, QueryMsg},
+    msg::distribution::{InstantiateMsg, MigrateMsg, QueryMsg},
 };
 use neutron_sdk::bindings::msg::NeutronMsg;
 use std::collections::HashMap;
@@ -46,21 +46,35 @@ pub fn query(_deps: Deps, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
 /// Calculates the ideal withdrawal of stake among the given withdraw amount.
 pub fn calc_withdraw(
     mut withdraw: Uint128,
-    mut delegations: Delegations,
+    mut delegations: Vec<Delegation>,
 ) -> ContractResult<Vec<(String, Uint128)>> {
+    let mut total_stake = delegations.iter().map(|delegation| delegation.stake).sum();
+
     let mut stake_changes = StakeChanges::new();
-    calc_withdraw_normal(&mut delegations, &mut stake_changes, &mut withdraw)?;
-    calc_withdraw_on_top(delegations, &mut stake_changes, withdraw)?;
+    calc_withdraw_normal(
+        &mut delegations,
+        &mut stake_changes,
+        &mut withdraw,
+        &mut total_stake,
+    )?;
+    calc_withdraw_on_top(delegations, &mut stake_changes, withdraw, total_stake)?;
     Ok(stake_changes.into_vec())
 }
 
 /// Calculates the ideal distribution of stake among the given delegations.
 pub fn calc_deposit(
     mut deposit: Uint128,
-    mut delegations: Delegations,
+    mut delegations: Vec<Delegation>,
 ) -> ContractResult<Vec<(String, Uint128)>> {
+    let mut total_stake = delegations.iter().map(|delegation| delegation.stake).sum();
+
     let mut stake_changes = StakeChanges::new();
-    calc_deposit_on_top(&mut delegations, &mut stake_changes, &mut deposit)?;
+    calc_deposit_on_top(
+        &mut delegations,
+        &mut stake_changes,
+        &mut deposit,
+        &mut total_stake,
+    )?;
     calc_deposit_normal(delegations, &mut stake_changes, deposit)?;
     Ok(stake_changes.into_vec())
 }
@@ -95,16 +109,16 @@ fn calc_excess(delegation: &Delegation) -> Uint128 {
 }
 
 fn calc_withdraw_normal(
-    delegations: &mut Delegations,
+    delegations: &mut [Delegation],
     stake_changes: &mut StakeChanges,
     withdraw: &mut Uint128,
+    total_stake: &mut Uint128,
 ) -> ContractResult<()> {
-    if delegations.total_stake < *withdraw {
+    if *total_stake < *withdraw {
         return Err(ContractError::TooBigWithdraw {});
     }
 
     let excess = delegations
-        .delegations
         .iter()
         .fold(Uint128::zero(), |acc, d| acc + calc_excess(d));
     let mut to_withdraw = *withdraw;
@@ -112,18 +126,24 @@ fn calc_withdraw_normal(
         to_withdraw = excess;
     }
     *withdraw -= to_withdraw;
-    delegations.total_stake -= to_withdraw;
-    let mut total_stake = excess - to_withdraw;
+    *total_stake -= to_withdraw;
+    let mut total_target = excess - to_withdraw;
 
-    let stake_per_weight = Decimal::from_ratio(total_stake, delegations.total_weight);
-    for d in &mut delegations.delegations {
+    let stake_per_weight = Decimal::from_ratio(
+        total_target,
+        delegations
+            .iter()
+            .map(|delegation| delegation.weight)
+            .sum::<u64>(),
+    );
+    for d in delegations {
         let weight = Decimal::from_atomics(d.weight, 0)?;
         let mut ideal_stake = stake_per_weight.checked_mul(weight)?.to_uint_ceil();
 
-        if total_stake < ideal_stake {
-            ideal_stake = total_stake;
+        if total_target < ideal_stake {
+            ideal_stake = total_target;
         }
-        total_stake -= ideal_stake;
+        total_target -= ideal_stake;
         if ideal_stake >= calc_excess(d) || to_withdraw.is_zero() {
             continue;
         }
@@ -143,26 +163,31 @@ fn calc_withdraw_normal(
 }
 
 fn calc_withdraw_on_top(
-    delegations: Delegations,
+    delegations: Vec<Delegation>,
     stake_changes: &mut StakeChanges,
     mut withdraw: Uint128,
+    total_stake: Uint128,
 ) -> ContractResult<()> {
     if withdraw.is_zero() {
         return Ok(());
     }
 
-    let mut total_stake = delegations.total_stake - withdraw;
-    let stake_per_weight = Decimal::from_ratio(total_stake, delegations.total_on_top);
+    let mut total_target = total_stake - withdraw;
+    let total_on_top = delegations
+        .iter()
+        .map(|delegation| delegation.on_top)
+        .sum::<Uint128>();
+    let stake_per_weight = Decimal::from_ratio(total_target, total_on_top);
 
-    for d in delegations.delegations {
+    for d in delegations {
         assert!(d.stake <= d.on_top);
         let weight = Decimal::from_atomics(d.on_top, 0)?;
         let mut ideal_stake = stake_per_weight.checked_mul(weight)?.to_uint_ceil();
 
-        if total_stake < ideal_stake {
-            ideal_stake = total_stake;
+        if total_target < ideal_stake {
+            ideal_stake = total_target;
         }
-        total_stake -= ideal_stake;
+        total_target -= ideal_stake;
         if ideal_stake >= d.stake || withdraw.is_zero() {
             continue;
         }
@@ -180,42 +205,44 @@ fn calc_withdraw_on_top(
 }
 
 fn calc_deposit_on_top(
-    delegations: &mut Delegations,
+    delegations: &mut [Delegation],
     stake_changes: &mut StakeChanges,
     deposit: &mut Uint128,
+    total_stake: &mut Uint128,
 ) -> ContractResult<()> {
-    if delegations.total_on_top.is_zero() {
+    let total_on_top = delegations
+        .iter()
+        .map(|delegation| delegation.on_top)
+        .sum::<Uint128>();
+    if total_on_top.is_zero() {
         return Ok(());
     }
 
-    let undersatisfaction = delegations
-        .delegations
-        .iter()
-        .fold(Uint128::zero(), |acc, d| {
-            if d.on_top > d.stake {
-                acc + (d.on_top - d.stake)
-            } else {
-                acc
-            }
-        });
+    let undersatisfaction = delegations.iter().fold(Uint128::zero(), |acc, d| {
+        if d.on_top > d.stake {
+            acc + (d.on_top - d.stake)
+        } else {
+            acc
+        }
+    });
 
     let mut to_deposit = *deposit;
     if to_deposit > undersatisfaction {
         to_deposit = undersatisfaction;
     }
-    delegations.total_stake += to_deposit;
+    *total_stake += to_deposit;
     *deposit -= to_deposit;
 
-    let mut total_stake = (delegations.total_on_top - undersatisfaction) + to_deposit;
-    let stake_per_weight = Decimal::from_ratio(total_stake, delegations.total_on_top);
-    for d in &mut delegations.delegations {
+    let mut total_target = (total_on_top - undersatisfaction) + to_deposit;
+    let stake_per_weight = Decimal::from_ratio(total_target, total_on_top);
+    for d in delegations {
         let weight = Decimal::from_atomics(d.on_top, 0)?;
         let mut ideal_stake = stake_per_weight.checked_mul(weight)?.to_uint_ceil();
 
-        if ideal_stake >= total_stake {
-            ideal_stake = total_stake;
+        if ideal_stake >= total_target {
+            ideal_stake = total_target;
         }
-        total_stake -= ideal_stake;
+        total_target -= ideal_stake;
         if ideal_stake <= d.stake || to_deposit.is_zero() {
             continue;
         }
@@ -235,7 +262,7 @@ fn calc_deposit_on_top(
 }
 
 fn calc_deposit_normal(
-    delegations: Delegations,
+    delegations: Vec<Delegation>,
     stake_changes: &mut StakeChanges,
     mut deposit: Uint128,
 ) -> ContractResult<()> {
@@ -244,20 +271,25 @@ fn calc_deposit_normal(
     }
 
     let excess = delegations
-        .delegations
         .iter()
         .fold(Uint128::zero(), |acc, d| acc + calc_excess(d));
-    let mut total_stake = excess + deposit;
-    let stake_per_weight = Decimal::from_ratio(total_stake, delegations.total_weight);
-    for d in delegations.delegations {
+    let mut total_target = excess + deposit;
+    let stake_per_weight = Decimal::from_ratio(
+        total_target,
+        delegations
+            .iter()
+            .map(|delegation| delegation.weight)
+            .sum::<u64>(),
+    );
+    for d in delegations {
         assert!(d.stake >= d.on_top);
         let weight = Decimal::from_atomics(d.weight, 0)?;
         let mut ideal_stake = stake_per_weight.checked_mul(weight)?.to_uint_ceil();
 
-        if total_stake < ideal_stake {
-            ideal_stake = total_stake;
+        if total_target < ideal_stake {
+            ideal_stake = total_target;
         }
-        total_stake -= ideal_stake;
+        total_target -= ideal_stake;
         if ideal_stake <= (d.stake - d.on_top) || deposit.is_zero() {
             continue;
         }
