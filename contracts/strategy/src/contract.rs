@@ -110,7 +110,7 @@ pub fn query_calc_withdraw(deps: Deps, withdraw: Uint128) -> ContractResult<Bina
 
 fn prepare_delegation_data(
     deps: Deps,
-) -> NeutronResult<drop_staking_base::msg::distribution::Delegations> {
+) -> NeutronResult<Vec<drop_staking_base::msg::distribution::Delegation>> {
     let factory_contract = FACTORY_CONTRACT.load(deps.storage)?.to_string();
     let addrs = drop_helpers::get_contracts!(
         deps,
@@ -134,9 +134,6 @@ fn prepare_delegation_data(
         )?;
 
     let mut delegations: Vec<drop_staking_base::msg::distribution::Delegation> = Vec::new();
-    let mut total_delegations: Uint128 = Uint128::zero();
-    let mut total_weight: u64 = 0;
-    let mut total_on_top = Uint128::zero();
     let delegation_validator_map: HashMap<_, _> = account_delegations
         .delegations
         .delegations
@@ -158,18 +155,10 @@ fn prepare_delegation_data(
             on_top: validator.on_top,
         };
 
-        total_delegations += validator_denom_delegation;
-        total_weight += validator.weight;
-        total_on_top += validator.on_top;
         delegations.push(delegation);
     }
 
-    Ok(drop_staking_base::msg::distribution::Delegations {
-        total_stake: total_delegations,
-        total_weight,
-        total_on_top,
-        delegations,
-    })
+    Ok(delegations)
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]

@@ -5,7 +5,7 @@ use cosmwasm_std::{
 };
 use drop_staking_base::{
     error::distribution::ContractError,
-    msg::distribution::{Delegation, Delegations, QueryMsg},
+    msg::distribution::{Delegation, QueryMsg},
 };
 use std::marker::PhantomData;
 
@@ -18,21 +18,16 @@ fn mock_dependencies<Q: Querier + Default>() -> OwnedDeps<MockStorage, MockApi, 
     }
 }
 
-fn make_delegations(delegations: &[(&str, u128, u128, u64)]) -> Delegations {
-    Delegations {
-        total_stake: delegations.iter().map(|d| Uint128::new(d.1)).sum(),
-        total_on_top: delegations.iter().map(|d| Uint128::new(d.2)).sum(),
-        total_weight: delegations.iter().map(|d| d.3).sum(),
-        delegations: delegations
-            .iter()
-            .map(|d| Delegation {
-                valoper_address: d.0.to_string(),
-                stake: Uint128::new(d.1),
-                on_top: Uint128::new(d.2),
-                weight: d.3,
-            })
-            .collect(),
-    }
+fn make_delegations(delegations: &[(&str, u128, u128, u64)]) -> Vec<Delegation> {
+    delegations
+        .iter()
+        .map(|d| Delegation {
+            valoper_address: d.0.to_string(),
+            stake: Uint128::new(d.1),
+            on_top: Uint128::new(d.2),
+            weight: d.3,
+        })
+        .collect()
 }
 
 fn assert_distributions_eq(mut left: Vec<(String, Uint128)>, right: &[(&str, u128)]) {
