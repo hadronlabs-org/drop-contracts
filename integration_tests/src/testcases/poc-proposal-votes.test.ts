@@ -231,7 +231,7 @@ describe('POC Proposal Votes', () => {
 
     res = await context.park.executeInNetwork(
       'gaia',
-      `gaiad tx gov submit-proposal --type text --title test --description test --from ${context.gaiaUserAddress} --deposit 10000000stake --yes --chain-id testgaia --home=/opt --keyring-backend=test --output json`,
+      `gaiad tx gov submit-proposal --title test --description test --from ${context.gaiaUserAddress} --deposit 10000000stake --yes --chain-id testgaia --home=/opt --keyring-backend=test --output json`,
     );
     expect(res.exitCode).toBe(0);
     out = JSON.parse(res.out);
