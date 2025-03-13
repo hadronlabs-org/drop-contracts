@@ -6,7 +6,7 @@ name: tests
 jobs:
   clippy:
     name: Actions - clippy
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - uses: actions/checkout@v4
         with:
@@ -23,7 +23,7 @@ jobs:
       - run: cargo clippy --lib --target wasm32-unknown-unknown -- -D warnings
   rustfmt:
     name: Actions - rustfmt
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,7 +37,7 @@ jobs:
       - run: cargo fmt -- --check
   unit-test:
     name: Actions - unit test
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - uses: actions/checkout@v4
         with:
@@ -53,7 +53,7 @@ jobs:
           RUST_BACKTRACE: 1
   lint-test:
     name: Actions - integration tests lint
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Setup node
         uses: actions/setup-node@v4
@@ -68,7 +68,7 @@ jobs:
         run: cd integration_tests && yarn --ignore-engines && yarn lint
   images-prepare:
     name: Actions - images prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -100,7 +100,7 @@ jobs:
           yarn build-images
   artifacts-prepare:
     name: Actions - artifacts prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - uses: actions/checkout@v4
         with:
@@ -121,7 +121,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -166,7 +166,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -211,7 +211,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -256,7 +256,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -301,7 +301,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -346,7 +346,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -391,7 +391,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -436,7 +436,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -481,7 +481,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -526,7 +526,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -571,7 +571,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -616,7 +616,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -661,7 +661,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
