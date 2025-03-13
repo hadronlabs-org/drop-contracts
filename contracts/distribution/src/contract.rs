@@ -49,8 +49,16 @@ pub fn calc_withdraw(
     mut delegations: Vec<Delegation>,
 ) -> ContractResult<Vec<(String, Uint128)>> {
     let mut total_stake = delegations.iter().map(|delegation| delegation.stake).sum();
-
     let mut stake_changes = StakeChanges::new();
+    delegations.sort_by_key(|delegation| {
+        let normal_stake = calc_normal_stake(delegation);
+        if delegation.weight == 0 || delegation.on_top.is_zero() || normal_stake.is_zero() {
+            Decimal::MIN
+        } else {
+            Decimal::from_ratio(delegation.weight, normal_stake)
+        }
+    });
+
     calc_withdraw_normal(
         &mut delegations,
         &mut stake_changes,
@@ -67,8 +75,15 @@ pub fn calc_deposit(
     mut delegations: Vec<Delegation>,
 ) -> ContractResult<Vec<(String, Uint128)>> {
     let mut total_stake = delegations.iter().map(|delegation| delegation.stake).sum();
-
     let mut stake_changes = StakeChanges::new();
+    delegations.sort_by_key(|delegation| {
+        if delegation.stake >= delegation.on_top {
+            Uint128::MAX
+        } else {
+            Uint128::MAX - (delegation.on_top - delegation.stake)
+        }
+    });
+
     calc_deposit_on_top(
         &mut delegations,
         &mut stake_changes,
@@ -100,7 +115,7 @@ impl StakeChanges {
     }
 }
 
-fn calc_excess(delegation: &Delegation) -> Uint128 {
+fn calc_normal_stake(delegation: &Delegation) -> Uint128 {
     if delegation.stake >= delegation.on_top {
         delegation.stake - delegation.on_top
     } else {
@@ -120,7 +135,7 @@ fn calc_withdraw_normal(
 
     let excess = delegations
         .iter()
-        .fold(Uint128::zero(), |acc, d| acc + calc_excess(d));
+        .fold(Uint128::zero(), |acc, d| acc + calc_normal_stake(d));
     let mut to_withdraw = *withdraw;
     if to_withdraw > excess {
         to_withdraw = excess;
@@ -144,11 +159,11 @@ fn calc_withdraw_normal(
             ideal_stake = total_target;
         }
         total_target -= ideal_stake;
-        if ideal_stake >= calc_excess(d) || to_withdraw.is_zero() {
+        if ideal_stake >= calc_normal_stake(d) || to_withdraw.is_zero() {
             continue;
         }
 
-        let mut stake_change = calc_excess(d) - ideal_stake;
+        let mut stake_change = calc_normal_stake(d) - ideal_stake;
         if to_withdraw < stake_change {
             stake_change = to_withdraw;
         }
@@ -272,7 +287,7 @@ fn calc_deposit_normal(
 
     let excess = delegations
         .iter()
-        .fold(Uint128::zero(), |acc, d| acc + calc_excess(d));
+        .fold(Uint128::zero(), |acc, d| acc + calc_normal_stake(d));
     let mut total_target = excess + deposit;
     let stake_per_weight = Decimal::from_ratio(
         total_target,

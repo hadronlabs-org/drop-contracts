@@ -87,16 +87,11 @@ describe('Distribution', () => {
     const { contractClient } = context;
     const res = await contractClient.queryCalcDeposit({
       deposit: '70',
-      delegations: {
-        total_stake: '110',
-        total_on_top: '40',
-        total_weight: 70,
-        delegations: [
-          { valoper_address: 'val1', stake: '10', on_top: '0', weight: 10 },
-          { valoper_address: 'val2', stake: '70', on_top: '40', weight: 20 },
-          { valoper_address: 'val3', stake: '30', on_top: '0', weight: 40 },
-        ],
-      },
+      delegations: [
+        { valoper_address: 'val1', stake: '10', on_top: '0', weight: 10 },
+        { valoper_address: 'val2', stake: '70', on_top: '40', weight: 20 },
+        { valoper_address: 'val3', stake: '30', on_top: '0', weight: 40 },
+      ],
     });
     res.sort((a, b) => a[0].localeCompare(b[0]));
 
@@ -111,31 +106,26 @@ describe('Distribution', () => {
     const { contractClient } = context;
     const res = await contractClient.queryCalcWithdraw({
       withdraw: '50',
-      delegations: {
-        total_stake: '750',
-        total_on_top: '100',
-        total_weight: 70,
-        delegations: [
-          {
-            valoper_address: 'val1',
-            stake: '100',
-            on_top: '100',
-            weight: 10,
-          },
-          {
-            valoper_address: 'val2',
-            stake: '250',
-            on_top: '0',
-            weight: 20,
-          },
-          {
-            valoper_address: 'val3',
-            stake: '400',
-            on_top: '0',
-            weight: 40,
-          },
-        ],
-      },
+      delegations: [
+        {
+          valoper_address: 'val1',
+          stake: '100',
+          on_top: '100',
+          weight: 10,
+        },
+        {
+          valoper_address: 'val2',
+          stake: '250',
+          on_top: '0',
+          weight: 20,
+        },
+        {
+          valoper_address: 'val3',
+          stake: '400',
+          on_top: '0',
+          weight: 40,
+        },
+      ],
     });
 
     expect(res).toEqual([['val2', '50']]);
