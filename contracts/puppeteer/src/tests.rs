@@ -4,7 +4,7 @@ use cosmwasm_std::{
     coin, coins, from_json,
     testing::{message_info, mock_env},
     to_json_binary, Addr, Binary, Coin, CosmosMsg, Decimal256, DepsMut, Event, MsgResponse,
-    Response, StdError, SubMsg, Timestamp, Uint128, Uint64,
+    Response, StdError, SubMsg, Timestamp, Uint128,
 };
 use drop_helpers::{
     ibc_client_state::{
@@ -2408,39 +2408,39 @@ fn test_sudo_response_ok() {
     deps.querier.add_stargate_query_response(
         "/ibc.core.channel.v1.Query/ChannelClientState",
         |_data| {
-            cosmwasm_std::ContractResult::Ok(
-                to_json_binary(&ChannelClientStateResponse {
+            cosmwasm_std::ContractResult::Ok(Binary::from(
+                ChannelClientStateResponse {
                     identified_client_state: Some(IdentifiedClientState {
                         client_id: "07-tendermint-0".to_string(),
-                        client_state: ClientState {
+                        client_state: Some(ClientState {
                             chain_id: "test-1".to_string(),
                             type_url: "type_url".to_string(),
-                            trust_level: Fraction {
-                                numerator: Uint64::from(1u64),
-                                denominator: Uint64::from(3u64),
-                            },
+                            trust_level: Some(Fraction {
+                                numerator: 1u64,
+                                denominator: 3u64,
+                            }),
                             trusting_period: Some("1000".to_string()),
                             unbonding_period: Some("1500".to_string()),
                             max_clock_drift: Some("1000".to_string()),
                             frozen_height: None,
                             latest_height: Some(Height {
-                                revision_number: Uint64::from(0u64),
-                                revision_height: Uint64::from(54321u64),
+                                revision_number: 0u64,
+                                revision_height: 54321u64,
                             }),
                             proof_specs: vec![],
                             upgrade_path: vec![],
                             allow_update_after_expiry: true,
                             allow_update_after_misbehaviour: true,
-                        },
+                        }),
                     }),
                     proof: None,
-                    proof_height: Height {
-                        revision_number: Uint64::from(0u64),
-                        revision_height: Uint64::from(33333u64),
-                    },
-                })
-                .unwrap(),
-            )
+                    proof_height: Some(Height {
+                        revision_number: 0u64,
+                        revision_height: 33333u64,
+                    }),
+                }
+                .encode_to_vec(),
+            ))
         },
     );
 
@@ -2730,7 +2730,7 @@ fn test_reply_sudo_payload_no_result() {
         },
     )
     .unwrap_err();
-    assert_eq!(res, StdError::generic_err("no result"));
+    assert_eq!(res, StdError::generic_err("no msg_responses found"));
 }
 
 #[test]
@@ -2750,7 +2750,13 @@ fn test_reply_sudo_payload_tx_state_error() {
                 data: None,
                 msg_responses: vec![MsgResponse {
                     type_url: "/neutron.interchainquery.v1.MsgIbcTransferResponse".to_string(),
-                    value: Binary::from("{\"sequence_id\":0,\"channel\":\"channel-0\"}".as_bytes()),
+                    value: Binary::from(
+                        neutron_std::types::neutron::interchaintxs::v1::MsgSubmitTxResponse {
+                            sequence_id: 0,
+                            channel: "channel-0".to_string(),
+                        }
+                        .encode_to_vec(),
+                    ),
                 }],
             }),
         },
@@ -2796,7 +2802,13 @@ fn test_reply_sudo_payload() {
                 data: None,
                 msg_responses: vec![MsgResponse {
                     type_url: "/neutron.interchainquery.v1.MsgIbcTransferResponse".to_string(),
-                    value: Binary::from("{\"sequence_id\":0,\"channel\":\"channel-0\"}".as_bytes()),
+                    value: Binary::from(
+                        neutron_std::types::neutron::interchaintxs::v1::MsgSubmitTxResponse {
+                            sequence_id: 0,
+                            channel: "channel-0".to_string(),
+                        }
+                        .encode_to_vec(),
+                    ),
                 }],
             }),
         },
@@ -2844,7 +2856,7 @@ fn test_reply_ibc_transfer_no_result() {
         },
     )
     .unwrap_err();
-    assert_eq!(res, StdError::generic_err("no result"))
+    assert_eq!(res, StdError::generic_err("no msg_responses found"))
 }
 
 #[test]
@@ -2864,11 +2876,13 @@ fn test_reply_ibc_transfer_tx_state_error() {
                 data: None,
                 msg_responses: vec![MsgResponse {
                     type_url: "/neutron.interchainquery.v1.MsgIbcTransferResponse".to_string(),
-                    value: to_json_binary(&neutron_sdk::bindings::msg::MsgIbcTransferResponse {
-                        sequence_id: 0,
-                        channel: "channel-0".to_string(),
-                    })
-                    .unwrap(),
+                    value: Binary::from(
+                        neutron_std::types::neutron::interchaintxs::v1::MsgSubmitTxResponse {
+                            sequence_id: 0,
+                            channel: "channel-0".to_string(),
+                        }
+                        .encode_to_vec(),
+                    ),
                 }],
             }),
         },
@@ -2914,11 +2928,13 @@ fn test_reply_ibc_transfer() {
                 data: None,
                 msg_responses: vec![MsgResponse {
                     type_url: "/neutron.interchainquery.v1.MsgIbcTransferResponse".to_string(),
-                    value: to_json_binary(&neutron_sdk::bindings::msg::MsgIbcTransferResponse {
-                        sequence_id: 0,
-                        channel: "channel-0".to_string(),
-                    })
-                    .unwrap(),
+                    value: Binary::from(
+                        neutron_std::types::neutron::interchaintxs::v1::MsgSubmitTxResponse {
+                            sequence_id: 0,
+                            channel: "channel-0".to_string(),
+                        }
+                        .encode_to_vec(),
+                    ),
                 }],
             }),
         },

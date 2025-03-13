@@ -23,6 +23,7 @@ library = []
 [dependencies]
 cosmos-sdk-proto = { workspace = true }
 neutron-sdk = { workspace = true }
+neutron-std = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
 thiserror = { workspace = true }

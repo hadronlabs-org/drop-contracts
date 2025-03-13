@@ -836,6 +836,7 @@ fn sudo_response(
         .identified_client_state
         .ok_or_else(|| StdError::generic_err("IBC client state identified_client_state not found"))?
         .client_state
+        .unwrap()
         .latest_height
         .ok_or_else(|| StdError::generic_err("IBC client state latest_height not found"))?
         .revision_height;
@@ -846,7 +847,7 @@ fn sudo_response(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
                 transaction: transaction.clone(),
                 local_height: env.block.height,
-                remote_height: remote_height.u64(),
+                remote_height,
             },)
         ))?
     ));
@@ -858,7 +859,7 @@ fn sudo_response(
                 ResponseHookMsg::Success(ResponseHookSuccessMsg {
                     transaction: transaction.clone(),
                     local_height: env.block.height,
-                    remote_height: remote_height.u64(),
+                    remote_height,
                 }),
             ))?,
             funds: vec![],
