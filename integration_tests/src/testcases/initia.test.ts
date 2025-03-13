@@ -1745,7 +1745,7 @@ describe('Core', () => {
           'initia',
           `initiad tx bank send ${context.temporaryRewardBuffer} ${context.rewardsPumpIcaAddress} ${moveBalance.amount}${context.moveDenom} --from=demo3 --home=/opt --chain-id=${context.park.config.networks['initia'].chain_id} --keyring-backend=test --fees=50000uinit --gas 300000 -y`,
         );
-        await sleep(3_000);
+        await sleep(10_000);
       });
       /// HERE END EXCHANGE
 
