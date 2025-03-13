@@ -9,6 +9,5 @@ authors = []
 initia_std = "0x1"
 std = "0x1"
 
-
 [dependencies]
 InitiaStdlib = { git = "https://github.com/initia-labs/movevm", subdir = "precompile/modules/initia_stdlib", rev = "v0.6.1" }
