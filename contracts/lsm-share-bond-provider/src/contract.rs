@@ -8,7 +8,7 @@ use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::{attr_coin, response};
 use drop_helpers::get_contracts;
-use drop_helpers::ibc_client_state::query_client_state;
+use drop_helpers::ibc_client_state::{query_client_state, ClientState};
 use drop_helpers::ibc_fee::query_ibc_fee;
 use drop_puppeteer_base::peripheral_hook::{
     IBCTransferReason, ReceiverExecuteMsg, ResponseHookErrorMsg, ResponseHookMsg,
@@ -58,7 +58,7 @@ pub fn instantiate(
     };
     CONFIG.save(deps.storage, config)?;
 
-    TOTAL_LSM_SHARES_REAL_AMOUNT.save(deps.storage, &0)?;
+    TOTAL_LSM_SHARES_REAL_AMOUNT.save(deps.storage, &Uint128::zero())?;
     LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
     TX_STATE.save(deps.storage, &TxState::default())?;
 
@@ -146,6 +146,7 @@ fn query_config(deps: Deps<NeutronQuery>, _env: Env) -> ContractResult<Binary> {
 }
 
 fn query_can_bond(deps: Deps<NeutronQuery>, denom: String) -> ContractResult<Binary> {
+    deps.api.debug("WASMDEBUG: Entering can bond in LSM");
     let config = CONFIG.load(deps.storage)?;
     let check_denom_result = check_denom::check_denom(&deps, &denom, &config);
 
@@ -205,6 +206,9 @@ fn query_token_amount(
     )?;
 
     let issue_amount = real_amount.mul_floor(Decimal::one() / exchange_rate);
+
+    deps.api
+        .debug(format!("WASMDEBUG: LSM issue_amount: {:?}", issue_amount).as_str());
 
     Ok(to_json_binary(&issue_amount)?)
 }
@@ -342,9 +346,8 @@ fn execute_bond(
         });
     }
 
-    TOTAL_LSM_SHARES_REAL_AMOUNT.update(deps.storage, |total| {
-        StdResult::Ok(total + real_amount.u128())
-    })?;
+    TOTAL_LSM_SHARES_REAL_AMOUNT
+        .update(deps.storage, |total| StdResult::Ok(total + real_amount))?;
     PENDING_LSM_SHARES.update(deps.storage, denom.to_string(), |one| {
         let mut new = one.unwrap_or((
             check_denom.remote_denom.to_string(),
@@ -400,7 +403,8 @@ fn execute_puppeteer_hook(
                 sum += real_amount.u128();
                 LSM_SHARES_TO_REDEEM.remove(deps.storage, item.local_denom.to_string());
             }
-            TOTAL_LSM_SHARES_REAL_AMOUNT.update(deps.storage, |one| StdResult::Ok(one - sum))?;
+            TOTAL_LSM_SHARES_REAL_AMOUNT
+                .update(deps.storage, |one| StdResult::Ok(one - Uint128::new(sum)))?;
             LAST_LSM_REDEEM.save(deps.storage, &env.block.time.seconds())?;
 
             TX_STATE.save(deps.storage, &TxState::default())?;
@@ -517,9 +521,9 @@ fn get_pending_lsm_share_msg(
                     deps,
                     msg,
                     Transaction::IBCTransfer {
-                        real_amount: real_amount.u128(),
+                        real_amount,
                         denom: local_denom,
-                        amount: share_amount.u128(),
+                        amount: share_amount,
                         recipient: ica_address.to_string(),
                         reason: IBCTransferReason::LSMShare,
                     },
@@ -695,10 +699,23 @@ fn sudo_response(
 
     let client_state = query_client_state(&deps.as_ref(), channel_id, port_id)?;
 
-    let remote_height = client_state
-        .identified_client_state
-        .ok_or_else(|| StdError::generic_err("IBC client state identified_client_state not found"))?
+    // First, extract the IdentifiedClientState.
+    let identified = client_state.identified_client_state.ok_or_else(|| {
+        StdError::generic_err("IBC client state identified_client_state not found")
+    })?;
+
+    // Next, get the inner Any wrapper from client_state.
+    let any = identified
         .client_state
+        .ok_or_else(|| StdError::generic_err("IBC client state's client_state not found"))?;
+
+    // Now decode the inner ClientState from the raw bytes in the Any message.
+    let inner_client_state = ClientState::decode(any.value.as_slice()).map_err(|e| {
+        StdError::generic_err(format!("failed to decode inner ClientState: {:?}", e))
+    })?;
+
+    // Finally, extract the revision_height from latest_height.
+    let remote_height = inner_client_state
         .latest_height
         .ok_or_else(|| StdError::generic_err("IBC client state latest_height not found"))?
         .revision_height;
@@ -714,8 +731,8 @@ fn sudo_response(
     {
         let current_pending = PENDING_LSM_SHARES.may_load(deps.storage, denom.to_string())?;
         if let Some((remote_denom, shares_amount, _real_amount)) = current_pending {
-            let sent_amount = Uint128::from(amount);
-            let sent_real_amount = Uint128::from(real_amount);
+            let sent_amount = amount;
+            let sent_real_amount = real_amount;
 
             LSM_SHARES_TO_REDEEM.update(deps.storage, denom.to_string(), |one| {
                 let mut new = one.unwrap_or((remote_denom, Uint128::zero(), Uint128::zero()));
@@ -750,7 +767,7 @@ fn sudo_response(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
                 transaction: transaction.clone(),
                 local_height: env.block.height,
-                remote_height: remote_height.u64(),
+                remote_height,
             },)
         ))?
     ));
@@ -760,7 +777,7 @@ fn sudo_response(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
                 transaction: transaction.clone(),
                 local_height: env.block.height,
-                remote_height: remote_height.u64(),
+                remote_height,
             }),
         ))?,
         funds: vec![],
@@ -796,7 +813,7 @@ pub fn migrate(
 
 pub mod check_denom {
     use cosmwasm_schema::cw_serde;
-    use cosmwasm_std::{GrpcQuery, QueryRequest, StdError, StdResult};
+    use cosmwasm_std::{StdError, StdResult};
 
     use super::*;
 
@@ -810,14 +827,17 @@ pub mod check_denom {
     // yet they don't derive serde::de::DeserializeOwned,
     // so I have to redefine them here manually >:(
 
-    #[cw_serde]
+    #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct QueryDenomTraceResponse {
-        pub denom_trace: DenomTrace,
+        #[prost(message, optional, tag = "1")]
+        pub denom_trace: Option<DenomTrace>,
     }
 
-    #[cw_serde]
+    #[derive(Clone, PartialEq, ::prost::Message)]
     pub struct DenomTrace {
+        #[prost(string, tag = "1")]
         pub path: String,
+        #[prost(string, tag = "2")]
         pub base_denom: String,
     }
 
@@ -826,20 +846,31 @@ pub mod check_denom {
         denom: impl Into<String>,
     ) -> StdResult<QueryDenomTraceResponse> {
         let denom = denom.into();
-        deps.querier
-            .query(&QueryRequest::Grpc(GrpcQuery {
-                path: "/ibc.applications.transfer.v1.Query/DenomTrace".to_string(),
-                data: cosmos_sdk_proto::ibc::applications::transfer::v1::QueryDenomTraceRequest {
-                    hash: denom.clone(),
-                }
-                    .encode_to_vec()
-                    .into(),
-            }))
+        let raw = deps.querier.query_grpc(
+            "/ibc.applications.transfer.v1.Query/DenomTrace".to_string(),
+            cosmos_sdk_proto::ibc::applications::transfer::v1::QueryDenomTraceRequest {
+                hash: denom.clone(),
+            }
+                .encode_to_vec()
+                .into(),
+        )
             .map_err(|e| {
                 StdError::generic_err(format!(
                     "Query denom trace for denom {denom} failed: {e}, perhaps, this is not an IBC denom?"
                 ))
-            })
+            })?;
+
+        let response = QueryDenomTraceResponse::decode(raw.as_slice()).map_err(|e| {
+            deps.api.debug(
+                format!(
+                    "WASMDEBUG: Failed to decode QueryDenomTraceResponse: {:?}",
+                    e
+                )
+                .as_str(),
+            );
+            StdError::generic_err(format!("Failed to decode QueryDenomTraceResponse: {:?}", e))
+        })?;
+        Ok(response)
     }
 
     pub fn check_denom(
@@ -847,13 +878,33 @@ pub mod check_denom {
         denom: &str,
         config: &Config,
     ) -> ContractResult<DenomData> {
+        deps.api.debug("WASMDEBUG: Entering check_denom");
+
         let addrs = get_contracts!(deps, config.factory_contract, validators_set_contract);
-        let trace = query_denom_trace(deps, denom)?.denom_trace;
+        deps.api
+            .debug(format!("WASMDEBUG: Retrieved contracts: {:?}", addrs).as_str());
+
+        // Extract the trace value, converting the Option into a concrete value.
+        let trace = query_denom_trace(deps, denom)?
+            .denom_trace
+            .ok_or(ContractError::InvalidDenom {})?;
+        deps.api
+            .debug(format!("WASMDEBUG: Denom trace: {:?}", trace).as_str());
+
         let (port, channel) = trace
             .path
             .split_once('/')
             .ok_or(ContractError::InvalidDenom {})?;
+        deps.api.debug(
+            format!(
+                "WASMDEBUG: Parsed path - port: {:?}, channel: {:?}",
+                port, channel
+            )
+            .as_str(),
+        );
+
         if port != "transfer" || channel != config.transfer_channel_id {
+            deps.api.debug("WASMDEBUG: Invalid port or channel");
             return Err(ContractError::InvalidDenom {});
         }
 
@@ -861,9 +912,18 @@ pub mod check_denom {
             .base_denom
             .split_once('/')
             .ok_or(ContractError::InvalidDenom {})?;
-        unbonding_index
-            .parse::<u64>()
-            .map_err(|_| ContractError::InvalidDenom {})?;
+        deps.api.debug(
+            format!(
+                "WASMDEBUG: Parsed base_denom - validator: {:?}, unbonding_index: {:?}",
+                validator, unbonding_index
+            )
+            .as_str(),
+        );
+
+        unbonding_index.parse::<u64>().map_err(|_| {
+            deps.api.debug("WASMDEBUG: Failed to parse unbonding_index");
+            ContractError::InvalidDenom {}
+        })?;
 
         let validator_info = deps
             .querier
@@ -874,12 +934,17 @@ pub mod check_denom {
                 },
             )?
             .validator;
+        deps.api
+            .debug(format!("WASMDEBUG: Retrieved validator info: {:?}", validator_info).as_str());
+
         if validator_info.is_none() {
+            deps.api.debug("WASMDEBUG: Validator info is none");
             return Err(ContractError::InvalidDenom {});
         }
 
+        deps.api.debug("WASMDEBUG: check_denom succeeded");
         Ok(DenomData {
-            remote_denom: trace.base_denom.to_string(),
+            remote_denom: trace.base_denom.clone(),
             validator: validator.to_string(),
         })
     }

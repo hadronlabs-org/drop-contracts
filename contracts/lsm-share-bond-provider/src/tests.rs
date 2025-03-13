@@ -4,8 +4,8 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, coins, from_json,
     testing::{message_info, mock_env, MockApi},
-    to_json_binary, Addr, Coin, Decimal, Decimal256, Event, MemoryStorage, OwnedDeps, Response,
-    SubMsg, Timestamp, Uint128,
+    to_json_binary, Addr, Binary, Coin, Decimal, Decimal256, Event, MemoryStorage, OwnedDeps,
+    Response, SubMsg, Timestamp, Uint128,
 };
 use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
@@ -72,25 +72,25 @@ fn lsm_denom_query_config(
                 )
                 .unwrap();
             if request.hash == "lsm_denom_1" {
-                cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&QueryDenomTraceResponse {
-                        denom_trace: DenomTrace {
+                cosmwasm_std::ContractResult::Ok(Binary::from(
+                    QueryDenomTraceResponse {
+                        denom_trace: Some(DenomTrace {
                             base_denom: "valoper12345/1".to_string(),
                             path: "transfer/transfer_channel_id".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                )
+                        }),
+                    }
+                    .encode_to_vec(),
+                ))
             } else {
-                cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&QueryDenomTraceResponse {
-                        denom_trace: DenomTrace {
+                cosmwasm_std::ContractResult::Ok(Binary::from(
+                    QueryDenomTraceResponse {
+                        denom_trace: Some(DenomTrace {
                             base_denom: "valoper12345/1".to_string(),
                             path: "wrong_denom".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                )
+                        }),
+                    }
+                    .encode_to_vec(),
+                ))
             }
         },
     );
@@ -538,7 +538,7 @@ fn test_execute_bond() {
         .unwrap();
 
     TOTAL_LSM_SHARES_REAL_AMOUNT
-        .save(deps_mut.storage, &0)
+        .save(deps_mut.storage, &Uint128::zero())
         .unwrap();
 
     let pending_lsm_shares = crate::contract::query(
@@ -587,7 +587,7 @@ fn test_execute_bond() {
     let total_lsm_shares = TOTAL_LSM_SHARES_REAL_AMOUNT
         .load(deps.as_ref().storage)
         .unwrap();
-    assert_eq!(total_lsm_shares, 100u128);
+    assert_eq!(total_lsm_shares, Uint128::new(100));
 
     assert_eq!(
         pending_lsm_shares,
@@ -1085,7 +1085,7 @@ mod query {
         let deps_mut = deps.as_mut();
 
         drop_staking_base::state::lsm_share_bond_provider::TOTAL_LSM_SHARES_REAL_AMOUNT
-            .save(deps_mut.storage, &100u128)
+            .save(deps_mut.storage, &Uint128::new(100))
             .unwrap();
 
         let can_bond = crate::contract::query(
@@ -1095,7 +1095,7 @@ mod query {
         )
         .unwrap();
 
-        assert_eq!(can_bond, to_json_binary(&100u128).unwrap());
+        assert_eq!(can_bond, to_json_binary(&Uint128::from(100u128)).unwrap());
     }
 
     #[test]
@@ -1294,7 +1294,7 @@ mod query {
 }
 
 mod check_denom {
-
+    use cosmwasm_std::Binary;
     use drop_staking_base::error::lsm_share_bond_provider::ContractError;
 
     use crate::contract::check_denom::{DenomData, DenomTrace, QueryDenomTraceResponse};
@@ -1311,15 +1311,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&QueryDenomTraceResponse {
-                        denom_trace: DenomTrace {
+                cosmwasm_std::ContractResult::Ok(Binary::from(
+                    QueryDenomTraceResponse {
+                        denom_trace: Some(DenomTrace {
                             base_denom: "valoper12345/1".to_string(),
                             path: "icahost/transfer_channel_id".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                )
+                        }),
+                    }
+                    .encode_to_vec(),
+                ))
             },
         );
         let err = crate::contract::check_denom::check_denom(
@@ -1341,15 +1341,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&QueryDenomTraceResponse {
-                        denom_trace: DenomTrace {
+                cosmwasm_std::ContractResult::Ok(Binary::from(
+                    QueryDenomTraceResponse {
+                        denom_trace: Some(DenomTrace {
                             base_denom: "valoper12345/1".to_string(),
                             path: "transfer/unknown_channel".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                )
+                        }),
+                    }
+                    .encode_to_vec(),
+                ))
             },
         );
         let err = crate::contract::check_denom::check_denom(
@@ -1371,15 +1371,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&QueryDenomTraceResponse {
-                        denom_trace: DenomTrace {
+                cosmwasm_std::ContractResult::Ok(Binary::from(
+                    QueryDenomTraceResponse {
+                        denom_trace: Some(DenomTrace {
                             base_denom: "valoper12345/1".to_string(),
                             path: "icahost/unknown_channel".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                )
+                        }),
+                    }
+                    .encode_to_vec(),
+                ))
             },
         );
         let err = crate::contract::check_denom::check_denom(
@@ -1401,15 +1401,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&QueryDenomTraceResponse {
-                        denom_trace: DenomTrace {
+                cosmwasm_std::ContractResult::Ok(Binary::from(
+                    QueryDenomTraceResponse {
+                        denom_trace: Some(DenomTrace {
                             base_denom: "unknown_denom".to_string(),
                             path: "transfer/transfer_channel_id".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                )
+                        }),
+                    }
+                    .encode_to_vec(),
+                ))
             },
         );
         let err = crate::contract::check_denom::check_denom(
@@ -1431,15 +1431,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&QueryDenomTraceResponse {
-                        denom_trace: DenomTrace {
+                cosmwasm_std::ContractResult::Ok(Binary::from(
+                    QueryDenomTraceResponse {
+                        denom_trace: Some(DenomTrace {
                             base_denom: "valoper98765/1".to_string(),
                             path: "transfer/transfer_channel_id".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                )
+                        }),
+                    }
+                    .encode_to_vec(),
+                ))
             },
         );
         let query_called = std::rc::Rc::new(std::cell::RefCell::new(false));
@@ -1485,15 +1485,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&QueryDenomTraceResponse {
-                        denom_trace: DenomTrace {
+                cosmwasm_std::ContractResult::Ok(Binary::from(
+                    QueryDenomTraceResponse {
+                        denom_trace: Some(DenomTrace {
                             base_denom: "valoper12345/1/2".to_string(),
                             path: "transfer/transfer_channel_id".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                )
+                        }),
+                    }
+                    .encode_to_vec(),
+                ))
             },
         );
         let err = crate::contract::check_denom::check_denom(
@@ -1515,15 +1515,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                cosmwasm_std::ContractResult::Ok(
-                    to_json_binary(&QueryDenomTraceResponse {
-                        denom_trace: DenomTrace {
+                cosmwasm_std::ContractResult::Ok(Binary::from(
+                    QueryDenomTraceResponse {
+                        denom_trace: Some(DenomTrace {
                             base_denom: "valoper12345/1".to_string(),
                             path: "transfer/transfer_channel_id".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                )
+                        }),
+                    }
+                    .encode_to_vec(),
+                ))
             },
         );
         deps.querier.add_wasm_query_response(

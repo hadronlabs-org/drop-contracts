@@ -7,7 +7,7 @@ use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::{attr_coin, response};
 use drop_helpers::get_contracts;
-use drop_helpers::ibc_client_state::query_client_state;
+use drop_helpers::ibc_client_state::{query_client_state, ClientState};
 use drop_helpers::ibc_fee::query_ibc_fee;
 use drop_puppeteer_base::peripheral_hook::{
     IBCTransferReason, ReceiverExecuteMsg, ResponseHookErrorMsg, ResponseHookMsg,
@@ -397,8 +397,8 @@ fn get_ibc_transfer_msg(
             msg,
             Transaction::IBCTransfer {
                 denom: pending_coin.denom,
-                amount: pending_coin.amount.u128(),
-                real_amount: pending_coin.amount.u128(),
+                amount: pending_coin.amount,
+                real_amount: pending_coin.amount,
                 recipient: ica_address.to_string(),
                 reason: IBCTransferReason::Delegate,
             },
@@ -518,9 +518,7 @@ fn transaction_reply(deps: DepsMut) -> ContractResult<Response> {
     TX_STATE.save(deps.storage, &tx_state)?;
 
     if let Some(Transaction::IBCTransfer { amount, .. }) = tx_state.transaction {
-        NON_STAKED_BALANCE.update(deps.storage, |balance| {
-            StdResult::Ok(balance + Uint128::from(amount))
-        })?;
+        NON_STAKED_BALANCE.update(deps.storage, |balance| StdResult::Ok(balance + amount))?;
     }
 
     Ok(Response::new())
@@ -572,9 +570,7 @@ fn sudo_error(
         .ok_or_else(|| StdError::generic_err("transaction not found"))?;
 
     if let Transaction::IBCTransfer { amount, .. } = transaction.clone() {
-        NON_STAKED_BALANCE.update(deps.storage, |balance| {
-            StdResult::Ok(balance - Uint128::from(amount))
-        })?;
+        NON_STAKED_BALANCE.update(deps.storage, |balance| StdResult::Ok(balance - amount))?;
     }
 
     TX_STATE.save(deps.storage, &TxState::default())?;
@@ -626,10 +622,24 @@ fn sudo_response(
 
     let client_state = query_client_state(&deps.as_ref(), channel_id, port_id)?;
 
-    let remote_height = client_state
-        .identified_client_state
-        .ok_or_else(|| StdError::generic_err("IBC client state identified_client_state not found"))?
+    // First, extract the IdentifiedClientState.
+    let identified = client_state.identified_client_state.ok_or_else(|| {
+        StdError::generic_err("IBC client state identified_client_state not found")
+    })?;
+
+    // Next, get the inner Any wrapper from client_state.
+    let any = identified
         .client_state
+        .ok_or_else(|| StdError::generic_err("IBC client state's client_state not found"))?;
+
+    // Now decode the inner ClientState from the raw bytes in the Any message.
+    let inner_client_state = <ClientState as prost::Message>::decode(any.value.as_slice())
+        .map_err(|e| {
+            StdError::generic_err(format!("failed to decode inner ClientState: {:?}", e))
+        })?;
+
+    // Finally, extract the revision_height from latest_height.
+    let remote_height = inner_client_state
         .latest_height
         .ok_or_else(|| StdError::generic_err("IBC client state latest_height not found"))?
         .revision_height;
@@ -647,7 +657,7 @@ fn sudo_response(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
                 transaction: transaction.clone(),
                 local_height: env.block.height,
-                remote_height: remote_height.u64(),
+                remote_height,
             },)
         ))?
     ));
@@ -657,7 +667,7 @@ fn sudo_response(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
                 transaction: transaction.clone(),
                 local_height: env.block.height,
-                remote_height: remote_height.u64(),
+                remote_height,
             }),
         ))?,
         funds: vec![],

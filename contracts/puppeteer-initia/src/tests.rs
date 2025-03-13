@@ -5,7 +5,7 @@ use cosmwasm_std::{
     coin, coins, from_json,
     testing::{message_info, mock_env},
     to_json_binary, Addr, Binary, CosmosMsg, Decimal256, DepsMut, Event, Response, StdError,
-    SubMsg, Timestamp, Uint128, Uint64,
+    SubMsg, Timestamp, Uint128,
 };
 use drop_helpers::{
     ibc_client_state::{
@@ -33,6 +33,7 @@ use neutron_sdk::{
     NeutronError,
 };
 use prost::Message;
+use prost_types::Duration;
 use schemars::_serde_json::to_string;
 
 use cosmwasm_std::testing::MockApi;
@@ -491,39 +492,51 @@ fn test_sudo_response_ok() {
     deps.querier.add_stargate_query_response(
         "/ibc.core.channel.v1.Query/ChannelClientState",
         |_data| {
-            cosmwasm_std::ContractResult::Ok(
-                to_json_binary(&ChannelClientStateResponse {
+            cosmwasm_std::ContractResult::Ok(Binary::from(
+                ChannelClientStateResponse {
                     identified_client_state: Some(IdentifiedClientState {
                         client_id: "07-tendermint-0".to_string(),
-                        client_state: ClientState {
-                            chain_id: "test-1".to_string(),
-                            type_url: "type_url".to_string(),
-                            trust_level: Fraction {
-                                numerator: Uint64::from(1u64),
-                                denominator: Uint64::from(3u64),
-                            },
-                            trusting_period: Some("1000".to_string()),
-                            unbonding_period: Some("1500".to_string()),
-                            max_clock_drift: Some("1000".to_string()),
-                            frozen_height: None,
-                            latest_height: Some(Height {
-                                revision_number: Uint64::from(0u64),
-                                revision_height: Uint64::from(54321u64),
-                            }),
-                            proof_specs: vec![],
-                            upgrade_path: vec![],
-                            allow_update_after_expiry: true,
-                            allow_update_after_misbehaviour: true,
-                        },
+                        client_state: Some(prost_types::Any {
+                            type_url: "/ibc.lightclients.tendermint.v1.ClientState".to_string(),
+                            value: ClientState {
+                                chain_id: "test-1".to_string(),
+                                trust_level: Some(Fraction {
+                                    numerator: 1u64,
+                                    denominator: 3u64,
+                                }),
+                                trusting_period: Some(Duration {
+                                    seconds: 1000,
+                                    nanos: 0,
+                                }),
+                                unbonding_period: Some(Duration {
+                                    seconds: 1500,
+                                    nanos: 0,
+                                }),
+                                max_clock_drift: Some(Duration {
+                                    seconds: 1000,
+                                    nanos: 0,
+                                }),
+                                frozen_height: None,
+                                latest_height: Some(Height {
+                                    revision_number: 0u64,
+                                    revision_height: 54321u64,
+                                }),
+                                proof_specs: vec![],
+                                upgrade_path: vec![],
+                                allow_update_after_expiry: true,
+                                allow_update_after_misbehaviour: true,
+                            }
+                            .encode_to_vec(),
+                        }),
                     }),
                     proof: None,
-                    proof_height: Height {
-                        revision_number: Uint64::from(0u64),
-                        revision_height: Uint64::from(33333u64),
-                    },
-                })
-                .unwrap(),
-            )
+                    proof_height: Some(Height {
+                        revision_number: 0u64,
+                        revision_height: 33333u64,
+                    }),
+                }
+                .encode_to_vec(),
+            ))
         },
     );
 
@@ -540,8 +553,8 @@ fn test_sudo_response_ok() {
     };
     let transaction = drop_puppeteer_base::peripheral_hook::Transaction::IBCTransfer {
         denom: "remote_denom".to_string(),
-        amount: 1000u128,
-        real_amount: 1000u128,
+        amount: 1000u128.into(),
+        real_amount: 1000u128.into(),
         recipient: api.addr_make("recipient").to_string(),
         reason: drop_puppeteer_base::peripheral_hook::IBCTransferReason::Delegate,
     };
@@ -625,8 +638,8 @@ fn test_sudo_response_error() {
     };
     let transaction = drop_puppeteer_base::peripheral_hook::Transaction::IBCTransfer {
         denom: "remote_denom".to_string(),
-        amount: 1000u128,
-        real_amount: 1000u128,
+        amount: 1000u128.into(),
+        real_amount: 1000u128.into(),
         recipient: api.addr_make("recipient").to_string(),
         reason: drop_puppeteer_base::peripheral_hook::IBCTransferReason::Delegate,
     };
@@ -735,8 +748,8 @@ fn test_sudo_response_timeout() {
     };
     let transaction = drop_puppeteer_base::peripheral_hook::Transaction::IBCTransfer {
         denom: "remote_denom".to_string(),
-        amount: 1000u128,
-        real_amount: 1000u128,
+        amount: 1000u128.into(),
+        real_amount: 1000u128.into(),
         recipient: "recipient".to_string(),
         reason: drop_puppeteer_base::peripheral_hook::IBCTransferReason::Delegate,
     };

@@ -252,6 +252,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "chrono"
+version = "0.4.40"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a7964611d71df112cb1730f2ee67324fcf4d0fc6606acbbe9bfe06df124637c"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "const-oid"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -854,8 +863,10 @@ dependencies = [
  "cw-storage-plus 2.0.0",
  "hex",
  "neutron-sdk",
+ "neutron-std",
  "once_cell",
  "prost 0.12.6",
+ "prost-types",
  "schemars",
  "serde",
  "serde-json-wasm 1.0.1",
@@ -939,6 +950,7 @@ dependencies = [
  "drop-puppeteer-base",
  "drop-staking-base",
  "neutron-sdk",
+ "prost 0.12.6",
  "semver",
  "serde-json-wasm 1.0.1",
 ]
@@ -1048,6 +1060,7 @@ dependencies = [
  "drop-puppeteer-base",
  "drop-staking-base",
  "neutron-sdk",
+ "neutron-std",
  "prost 0.12.6",
  "prost-types",
  "semver",
@@ -1064,6 +1077,7 @@ dependencies = [
  "cw-storage-plus 2.0.0",
  "drop-helpers",
  "neutron-sdk",
+ "neutron-std",
  "prost 0.12.6",
  "prost-types",
  "schemars",
@@ -1159,6 +1173,7 @@ dependencies = [
  "neutron-sdk",
  "optfield",
  "prost 0.12.6",
+ "schemars",
  "semver",
  "serde",
  "thiserror 1.0.69",
@@ -1718,6 +1733,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "neutron-std"
+version = "5.1.2"
+source = "git+https://github.com/neutron-org/neutron-std?branch=main#15d5fa8328cc55a6d3563268e67ff0206014681a"
+dependencies = [
+ "bech32 0.9.1",
+ "chrono",
+ "cosmos-sdk-proto",
+ "cosmwasm-schema 2.2.2",
+ "cosmwasm-std 2.2.2",
+ "neutron-std-derive",
+ "prost 0.12.6",
+ "prost-types",
+ "protobuf",
+ "schemars",
+ "serde",
+ "serde-cw-value",
+ "serde-json-wasm 1.0.1",
+ "serde_json",
+ "speedate",
+ "tendermint-proto",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "neutron-std-derive"
+version = "0.20.1"
+source = "git+https://github.com/neutron-org/neutron-std?branch=main#15d5fa8328cc55a6d3563268e67ff0206014681a"
+dependencies = [
+ "itertools 0.10.5",
+ "proc-macro2",
+ "prost-types",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "num-bigint"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2095,6 +2146,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f0e2c6ed6606019b4e29e69dbaba95b11854410e5347d525002456dbbb786b6"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde-cw-value"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a75d32da6b8ed758b7d850b6c3c08f1d7df51a4df3cb201296e63e34a78e99d4"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

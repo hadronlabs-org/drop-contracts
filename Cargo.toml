@@ -35,6 +35,7 @@ members = [
 [workspace.dependencies]
 cosmwasm-std = { version = "2.1.0", default-features = false, features = ["std", "cosmwasm_1_2", "cosmwasm_2_0"] }
 neutron-sdk = { version = "0.11.0" }
+neutron-std = { git = "https://github.com/neutron-org/neutron-std", branch = "main" }
 cosmos-sdk-proto = { version = "0.20.0", default-features = false }
 cw-ownable = { version = "2.0.0", default-features = false }
 prost = { version = "0.12.3", default-features = false }

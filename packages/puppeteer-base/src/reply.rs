@@ -4,7 +4,8 @@ use crate::{
 };
 use cosmwasm_std::{attr, DepsMut, Reply, Response, StdError, StdResult};
 use drop_helpers::{answer::response, query_id::get_query_id};
-use neutron_sdk::bindings::msg::{MsgIbcTransferResponse, MsgSubmitTxResponse};
+use neutron_sdk::interchain_txs::helpers::decode_message_response;
+use neutron_std::types::neutron::interchaintxs::v1::MsgSubmitTxResponse;
 use serde::{de::DeserializeOwned, Serialize};
 
 impl<'a, T, U, Z> PuppeteerBase<'a, T, U, Z>
@@ -76,17 +77,20 @@ where
     }
 
     pub fn submit_tx_reply(&self, deps: DepsMut, msg: Reply) -> StdResult<Response> {
-        let resp: MsgSubmitTxResponse = {
-            let result = msg.result.into_result().map_err(StdError::generic_err)?;
+        deps.api
+            .debug(format!("WASMDEBUG: submit_tx_reply; resp: {msg:?}").as_str());
 
-            if let Some(msg_response) = result.msg_responses.first() {
-                serde_json_wasm::from_slice(msg_response.value.as_slice()).map_err(|e| {
-                    StdError::generic_err(format!("failed to parse response: {e:?}"))
-                })?
-            } else {
-                return Err(StdError::generic_err("no result"));
-            }
-        };
+        let resp: MsgSubmitTxResponse = decode_message_response(
+            &msg.result
+                .into_result()
+                .map_err(StdError::generic_err)?
+                .msg_responses
+                .first()
+                .ok_or_else(|| StdError::generic_err("no msg_responses found"))?
+                .value
+                .to_vec(),
+        )
+        .map_err(|e| StdError::generic_err(format!("failed to parse response: {:?}", e)))?;
 
         deps.api
             .debug(format!("WASMDEBUG: prepare_sudo_payload received; resp: {resp:?}").as_str());
@@ -104,17 +108,17 @@ where
     }
 
     pub fn submit_ibc_transfer_reply(&self, deps: DepsMut, msg: Reply) -> StdResult<Response> {
-        let resp: MsgIbcTransferResponse = {
-            let result = msg.result.into_result().map_err(StdError::generic_err)?;
-
-            if let Some(msg_response) = result.msg_responses.first() {
-                serde_json_wasm::from_slice(msg_response.value.as_slice()).map_err(|e| {
-                    StdError::generic_err(format!("failed to parse response: {e:?}"))
-                })?
-            } else {
-                return Err(StdError::generic_err("no result"));
-            }
-        };
+        let resp: MsgSubmitTxResponse = decode_message_response(
+            &msg.result
+                .into_result()
+                .map_err(StdError::generic_err)?
+                .msg_responses
+                .first()
+                .ok_or_else(|| StdError::generic_err("no msg_responses found"))?
+                .value
+                .to_vec(),
+        )
+        .map_err(|e| StdError::generic_err(format!("failed to parse response: {:?}", e)))?;
 
         deps.api
             .debug(format!("WASMDEBUG: prepare_sudo_payload received; resp: {resp:?}").as_str());

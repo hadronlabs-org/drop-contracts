@@ -28,7 +28,7 @@ use drop_staking_base::{
             UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
-        withdrawal_voucher::{Metadata, Trait},
+        withdrawal_voucher::{NftExtensionMsg, Trait},
     },
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
@@ -159,7 +159,9 @@ fn query_bond_providers(deps: Deps<NeutronQuery>) -> ContractResult<Vec<Addr>> {
 
 fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractResult<Decimal> {
     let fsm_state = FSM.get_current_state(deps.storage)?;
+
     let addrs = drop_helpers::get_contracts!(deps, config.factory_contract, puppeteer_contract);
+
     if fsm_state != ContractState::Idle {
         return Ok(EXCHANGE_RATE
             .load(deps.storage)
@@ -191,9 +193,12 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
         .iter()
         .map(|d| d.amount.amount)
         .sum();
+
     let mut batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
+
     let mut unprocessed_dasset_to_unbond = Uint128::zero();
     let batch = unbond_batches_map().load(deps.storage, batch_id)?;
+
     if batch.status == UnbondBatchStatus::New {
         unprocessed_dasset_to_unbond += batch.total_dasset_amount_to_withdraw;
     }
@@ -219,6 +224,7 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
         return Ok(Decimal::one());
     }
     let exchange_rate = Decimal::from_ratio(exchange_rate_numerator, exchange_rate_denominator);
+
     Ok(exchange_rate)
 }
 
@@ -978,9 +984,9 @@ fn execute_bond(
     let mut attrs = vec![attr("action", "bond")];
     let exchange_rate = query_exchange_rate(deps.as_ref(), &config)?;
     attrs.push(attr("exchange_rate", exchange_rate.to_string()));
-
     let bond_providers = BOND_PROVIDERS.get_all_providers(deps.as_ref().storage)?;
     let mut bonded = false;
+
     for provider in bond_providers {
         let can_bond = deps.querier.query_wasm_smart::<bool>(
             provider.to_string(),
@@ -997,6 +1003,7 @@ fn execute_bond(
                     exchange_rate,
                 },
             )?;
+
             attrs.push(attr("issue_amount", issue_amount.to_string()));
 
             let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -1144,7 +1151,7 @@ fn execute_unbond(
     unbond_batch.total_dasset_amount_to_withdraw += dasset_amount;
     unbond_batches_map().save(deps.storage, unbond_batch_id, &unbond_batch)?;
 
-    let extension = Some(Metadata {
+    let extension = Some(NftExtensionMsg {
         description: Some("Withdrawal voucher".into()),
         name: "LDV voucher".to_string(),
         batch_id: unbond_batch_id.to_string(),

@@ -44,6 +44,20 @@ export type Uint64 = string;
  * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
  */
 export type Addr = string;
+/**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint128 = string;
 export type Null = null;
 /**
  * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
@@ -53,7 +67,7 @@ export type Null = null;
 export type Binary = string;
 export type Null1 = null;
 export type ArrayOfAttribute = Attribute[];
-export type NullableNftInfoResponseForEmpty = NftInfoResponseFor_Empty | null;
+export type NullableNftInfoResponseForNullableMetadata = NftInfoResponseFor_Nullable_Metadata | null;
 export type NullableString = string | null;
 /**
  * Actions that can be taken to alter the contract's ownership
@@ -82,28 +96,14 @@ export type UpdateCreatorOwnershipArgs = {
         new_owner: string;
     };
 } | "accept_ownership" | "renounce_ownership";
-/**
- * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u128` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
- *
- * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
- *
- * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
- */
-export type Uint128 = string;
 export interface DropWithdrawalVoucherSchema {
-    responses: AllNftInfoResponseForEmpty | OperatorsResponse | TokensResponse | ApprovalResponse | ApprovalsResponse | CollectionInfoAndExtensionResponseForEmpty | Null | AllInfoResponse | Null1 | ArrayOfAttribute | CollectionInfoAndExtensionResponseForEmpty1 | ConfigResponseForEmpty | OwnershipForAddr | OwnershipForAddr1 | NullableNftInfoResponseForEmpty | NullableString | MinterResponse | NftInfoResponseForEmpty | NumTokensResponse | OperatorResponse | OwnerOfResponse1 | OwnershipForAddr2 | TokensResponse1;
+    responses: AllNftInfoResponseForNullableMetadata | OperatorsResponse | TokensResponse | ApprovalResponse | ApprovalsResponse | CollectionInfoAndExtensionResponseForEmpty | Null | AllInfoResponse | Null1 | ArrayOfAttribute | CollectionInfoAndExtensionResponseForEmpty1 | ConfigResponseForEmpty | OwnershipForAddr | OwnershipForAddr1 | NullableNftInfoResponseForNullableMetadata | NullableString | MinterResponse | NftInfoResponseForNullableMetadata | NumTokensResponse | OperatorResponse | OwnerOfResponse1 | OwnershipForAddr2 | TokensResponse1;
     query: OwnerOfArgs | ApprovalArgs | ApprovalsArgs | OperatorArgs | AllOperatorsArgs | NftInfoArgs | GetNftByExtensionArgs | AllNftInfoArgs | TokensArgs | AllTokensArgs | ExtensionArgs | GetCollectionExtensionArgs;
     execute: UpdateOwnershipArgs | UpdateMinterOwnershipArgs | UpdateCreatorOwnershipArgs | UpdateCollectionInfoArgs | TransferNftArgs | SendNftArgs | ApproveArgs | RevokeArgs | ApproveAllArgs | RevokeAllArgs | MintArgs | BurnArgs | UpdateExtensionArgs | UpdateNftInfoArgs | SetWithdrawAddressArgs | WithdrawFundsArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
-export interface AllNftInfoResponseForEmpty {
+export interface AllNftInfoResponseForNullableMetadata {
     /**
      * Who can transfer the token
      */
@@ -111,7 +111,7 @@ export interface AllNftInfoResponseForEmpty {
     /**
      * Data on the token itself,
      */
-    info: NftInfoResponseFor_Empty;
+    info: NftInfoResponseFor_Nullable_Metadata;
 }
 export interface OwnerOfResponse {
     /**
@@ -133,22 +133,27 @@ export interface Approval {
      */
     spender: Addr;
 }
-export interface NftInfoResponseFor_Empty {
+export interface NftInfoResponseFor_Nullable_Metadata {
     /**
      * You can add any custom metadata here when you extend cw721-base
      */
-    extension: Empty;
+    extension?: Metadata | null;
     /**
      * Universal resource identifier for this NFT Should point to a JSON file that conforms to the ERC721 Metadata JSON Schema
      */
     token_uri?: string | null;
 }
-/**
- * An empty struct that serves as a placeholder in different places, such as contracts that don't set a custom message.
- *
- * It is designed to be expressible in correct JSON and JSON Schema but contains no meaningful data. Previously we used enums without cases, but those cannot represented as valid JSON Schema (https://github.com/CosmWasm/cosmwasm/issues/451)
- */
-export interface Empty {
+export interface Metadata {
+    amount: Uint128;
+    attributes?: Trait[] | null;
+    batch_id: string;
+    description?: string | null;
+    name: string;
+}
+export interface Trait {
+    display_type?: string | null;
+    trait_type: string;
+    value: string;
 }
 export interface OperatorsResponse {
     operators: Approval[];
@@ -173,6 +178,13 @@ export interface CollectionInfoAndExtensionResponseForEmpty {
     name: string;
     symbol: string;
     updated_at: Timestamp;
+}
+/**
+ * An empty struct that serves as a placeholder in different places, such as contracts that don't set a custom message.
+ *
+ * It is designed to be expressible in correct JSON and JSON Schema but contains no meaningful data. Previously we used enums without cases, but those cannot represented as valid JSON Schema (https://github.com/CosmWasm/cosmwasm/issues/451)
+ */
+export interface Empty {
 }
 /**
  * This is a wrapper around CollectionInfo that includes the extension, contract info, and number of tokens (supply).
@@ -289,11 +301,11 @@ export interface OwnershipForAddr1 {
 export interface MinterResponse {
     minter?: string | null;
 }
-export interface NftInfoResponseForEmpty {
+export interface NftInfoResponseForNullableMetadata {
     /**
      * You can add any custom metadata here when you extend cw721-base
      */
-    extension: Empty;
+    extension?: Metadata | null;
     /**
      * Universal resource identifier for this NFT Should point to a JSON file that conforms to the ERC721 Metadata JSON Schema
      */
@@ -372,7 +384,7 @@ export interface NftInfoArgs {
     token_id: string;
 }
 export interface GetNftByExtensionArgs {
-    extension: Empty;
+    extension?: Metadata | null;
     limit?: number | null;
     start_after?: string | null;
 }
@@ -449,18 +461,6 @@ export interface MintArgs {
      */
     token_uri?: string | null;
 }
-export interface Metadata {
-    amount: Uint128;
-    attributes?: Trait[] | null;
-    batch_id: string;
-    description?: string | null;
-    name: string;
-}
-export interface Trait {
-    display_type?: string | null;
-    trait_type: string;
-    value: string;
-}
 export interface BurnArgs {
     token_id: string;
 }
@@ -530,9 +530,9 @@ export declare class Client {
     queryMinter: () => Promise<MinterResponse>;
     queryGetMinterOwnership: () => Promise<OwnershipForAddr>;
     queryGetCreatorOwnership: () => Promise<OwnershipForAddr>;
-    queryNftInfo: (args: NftInfoArgs) => Promise<NftInfoResponseForEmpty>;
-    queryGetNftByExtension: (args: GetNftByExtensionArgs) => Promise<NullableNftInfoResponseForEmpty>;
-    queryAllNftInfo: (args: AllNftInfoArgs) => Promise<AllNftInfoResponseForEmpty>;
+    queryNftInfo: (args: NftInfoArgs) => Promise<NftInfoResponseForNullableMetadata>;
+    queryGetNftByExtension: (args: GetNftByExtensionArgs) => Promise<NullableNftInfoResponseForNullableMetadata>;
+    queryAllNftInfo: (args: AllNftInfoArgs) => Promise<AllNftInfoResponseForNullableMetadata>;
     queryTokens: (args: TokensArgs) => Promise<TokensResponse>;
     queryAllTokens: (args: AllTokensArgs) => Promise<TokensResponse>;
     queryExtension: (args: ExtensionArgs) => Promise<Null>;

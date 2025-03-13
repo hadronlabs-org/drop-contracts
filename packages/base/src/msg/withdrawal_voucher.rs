@@ -4,12 +4,13 @@ pub use cw721::msg::Cw721InstantiateMsg as CW721InstantiateMsg;
 pub use cw721::msg::MinterResponse;
 pub use cw721_base::error::ContractError;
 
-use crate::state::withdrawal_voucher::Metadata;
+use crate::state::withdrawal_voucher::{NftExtension, NftExtensionMsg};
 
-pub type Extension = Option<Metadata>;
+pub type Extension = Option<NftExtension>;
+pub type ExtensionMsg = Option<NftExtensionMsg>;
 pub type InstantiateMsg = CW721InstantiateMsg<Empty>;
-pub type ExecuteMsg = cw721::msg::Cw721ExecuteMsg<Extension, Empty, Empty>;
-pub type QueryMsg = cw721::msg::Cw721QueryMsg<Empty, Empty, Empty>;
+pub type ExecuteMsg = cw721::msg::Cw721ExecuteMsg<ExtensionMsg, Empty, Empty>;
+pub type QueryMsg = cw721::msg::Cw721QueryMsg<Extension, Empty, Empty>;
 
 #[cw_serde]
 pub struct MigrateMsg {}

@@ -32,3 +32,4 @@ drop-puppeteer-base = { workspace = true }
 drop-helpers = { workspace = true }
 serde-json-wasm = { workspace = true }
 semver = { workspace = true }
+prost = "0.12.6"

@@ -1,17 +1,30 @@
+use cosmwasm_std::Empty;
 pub use cw721::msg::MinterResponse;
 pub use cw721::traits::{Cw721Execute, Cw721Query};
 pub use cw721_base::error::ContractError;
-pub use cw721_base::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
+pub use drop_staking_base::msg::withdrawal_voucher::{
+    ExecuteMsg, Extension, ExtensionMsg, InstantiateMsg, MigrateMsg, QueryMsg,
+};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub type Cw721VoucherContract<'a> = cw721_base::Cw721BaseContract<'a>;
+pub type Cw721VoucherContract<'a> = cw721::extension::Cw721Extensions<
+    'a,
+    Extension,
+    ExtensionMsg,
+    Empty,
+    Empty,
+    Empty,
+    Empty,
+    Empty,
+>;
 
 #[cfg(not(feature = "library"))]
 pub mod entry {
     use super::*;
 
+    use crate::contract::Cw721VoucherContract;
     use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError};
 
     // This makes a conscious choice on the various generics used by the contract
@@ -38,7 +51,14 @@ pub mod entry {
 
     #[cosmwasm_std::entry_point]
     pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, ContractError> {
-        Cw721VoucherContract::default().query(deps, &env, msg)
+        deps.api
+            .debug(format!("WASMDEBUG: Received QueryMsg: {:?}", msg).as_str());
+
+        let result = Cw721VoucherContract::default().query(deps, &env, msg);
+
+        deps.api
+            .debug(format!("WASMDEBUG: Exiting query with result: {:?}", result).as_str());
+        result
     }
 
     #[cosmwasm_std::entry_point]
