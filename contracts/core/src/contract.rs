@@ -1,8 +1,8 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankMsg, BankQuery,
-    Binary, Coin, CosmosMsg, CustomQuery, Decimal, Decimal256, Deps, DepsMut, Env, MessageInfo,
-    Order, QueryRequest, Response, StdError, StdResult, Uint128, Uint256, Uint64, WasmMsg,
+    attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankQuery, Binary,
+    CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest,
+    Response, StdError, StdResult, Uint128, Uint64, WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
@@ -16,11 +16,7 @@ use drop_staking_base::{
             ExecuteMsg, FailedBatchResponse, InstantiateMsg, LastPuppeteerResponse,
             LastStakerResponse, MigrateMsg, QueryMsg,
         },
-        token::{
-            ConfigResponse as TokenConfigResponse, ExecuteMsg as TokenExecuteMsg,
-            QueryMsg as TokenQueryMsg,
-        },
-        withdrawal_voucher::ExecuteMsg as VoucherExecuteMsg,
+        token::{ConfigResponse as TokenConfigResponse, QueryMsg as TokenQueryMsg},
     },
     state::{
         core::{
@@ -31,11 +27,9 @@ use drop_staking_base::{
             LSM_SHARES_TO_REDEEM, PENDING_LSM_SHARES, TOTAL_LSM_SHARES, UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
-        withdrawal_voucher::{Metadata, Trait},
     },
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
-use neutron_sdk::interchain_queries::v047::types::DECIMAL_FRACTIONAL;
 use prost::Message;
 
 pub type MessageWithFeeResponse<T> = (CosmosMsg<T>, Option<CosmosMsg<T>>);
@@ -1008,77 +1002,14 @@ fn execute_tick_unbonding(
 }
 
 fn execute_bond(
-    deps: DepsMut<NeutronQuery>,
-    info: MessageInfo,
-    receiver: Option<String>,
-    r#ref: Option<String>,
+    _deps: DepsMut<NeutronQuery>,
+    _info: MessageInfo,
+    _receiver: Option<String>,
+    _: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let config = CONFIG.load(deps.storage)?;
-    let Coin { mut amount, denom } = cw_utils::one_coin(&info)?;
-    if let Some(bond_limit) = config.bond_limit {
-        if BONDED_AMOUNT.load(deps.storage)? + amount > bond_limit {
-            return Err(ContractError::BondLimitExceeded {});
-        }
-    }
-    let denom_type = check_denom::check_denom(&deps.as_ref(), &denom, &config)?;
-    let mut msgs = vec![];
-    let mut attrs = vec![attr("action", "bond")];
-    let exchange_rate = query_exchange_rate(deps.as_ref(), &config)?;
-    attrs.push(attr("exchange_rate", exchange_rate.to_string()));
-    if let check_denom::DenomType::LsmShare(remote_denom, validator) = denom_type {
-        let share_amount = amount;
-        let real_amount = calc_lsm_share_underlying_amount(
-            deps.as_ref(),
-            &config.puppeteer_contract,
-            &amount,
-            validator,
-        )?;
-        if real_amount < config.lsm_min_bond_amount {
-            return Err(ContractError::LSMBondAmountIsBelowMinimum {
-                min_stake_amount: config.lsm_min_bond_amount,
-                bond_amount: real_amount,
-            });
-        }
-        TOTAL_LSM_SHARES.update(deps.storage, |total| {
-            StdResult::Ok(total + real_amount.u128())
-        })?;
-        PENDING_LSM_SHARES.update(deps.storage, denom, |one| {
-            let mut new = one.unwrap_or((remote_denom, Uint128::zero(), Uint128::zero()));
-            new.1 += share_amount;
-            new.2 += real_amount;
-            StdResult::Ok(new)
-        })?;
-        amount = real_amount;
-    } else {
-        // if it's not LSM share, we send this amount to the staker
-        msgs.push(CosmosMsg::Bank(BankMsg::Send {
-            to_address: config.staker_contract.to_string(),
-            amount: vec![Coin::new(amount.u128(), denom)],
-        }));
-    }
-    BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total + amount))?;
-    let issue_amount = amount * (Decimal::one() / exchange_rate);
-    attrs.push(attr("issue_amount", issue_amount.to_string()));
-
-    let receiver = receiver.map_or(Ok::<String, ContractError>(info.sender.to_string()), |a| {
-        deps.api.addr_validate(&a)?;
-        Ok(a)
-    })?;
-    attrs.push(attr("receiver", receiver.clone()));
-    if let Some(r#ref) = r#ref {
-        if !r#ref.is_empty() {
-            attrs.push(attr("ref", r#ref));
-        }
-    }
-    msgs.push(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.token_contract.into_string(),
-        msg: to_json_binary(&TokenExecuteMsg::Mint {
-            amount: issue_amount,
-            receiver,
-        })?,
-        funds: vec![],
-    }));
-    Ok(response("execute-bond", CONTRACT_NAME, attrs).add_messages(msgs))
+    Err(ContractError::Std(StdError::generic_err(
+        "Bonding is temporarily disabled due to protocol upgrade",
+    )))
 }
 
 fn execute_update_config(
@@ -1206,64 +1137,12 @@ fn execute_update_config(
 }
 
 fn execute_unbond(
-    deps: DepsMut<NeutronQuery>,
-    info: MessageInfo,
+    _deps: DepsMut<NeutronQuery>,
+    _info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let attrs = vec![attr("action", "unbond")];
-    let unbond_batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
-    let config = CONFIG.load(deps.storage)?;
-    let ld_denom = LD_DENOM.load(deps.storage)?;
-    let dasset_amount = cw_utils::must_pay(&info, &ld_denom)?;
-    BONDED_AMOUNT.update(deps.storage, |total| StdResult::Ok(total - dasset_amount))?;
-    let mut unbond_batch = unbond_batches_map().load(deps.storage, unbond_batch_id)?;
-    unbond_batch.total_unbond_items += 1;
-    unbond_batch.total_dasset_amount_to_withdraw += dasset_amount;
-    unbond_batches_map().save(deps.storage, unbond_batch_id, &unbond_batch)?;
-
-    let extension = Some(Metadata {
-        description: Some("Withdrawal voucher".into()),
-        name: "LDV voucher".to_string(),
-        batch_id: unbond_batch_id.to_string(),
-        amount: dasset_amount,
-        attributes: Some(vec![
-            Trait {
-                display_type: None,
-                trait_type: "unbond_batch_id".to_string(),
-                value: unbond_batch_id.to_string(),
-            },
-            Trait {
-                display_type: None,
-                trait_type: "received_amount".to_string(),
-                value: dasset_amount.to_string(),
-            },
-        ]),
-    });
-
-    let msgs = vec![
-        CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.withdrawal_voucher_contract.into_string(),
-            msg: to_json_binary(&VoucherExecuteMsg::Mint {
-                owner: info.sender.to_string(),
-                token_id: unbond_batch_id.to_string()
-                    + "_"
-                    + info.sender.to_string().as_str()
-                    + "_"
-                    + &unbond_batch.total_unbond_items.to_string(),
-                token_uri: None,
-                extension,
-            })?,
-            funds: vec![],
-        }),
-        CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.token_contract.into_string(),
-            msg: to_json_binary(&TokenExecuteMsg::Burn {})?,
-            funds: vec![Coin {
-                denom: ld_denom,
-                amount: dasset_amount,
-            }],
-        }),
-    ];
-    Ok(response("execute-unbond", CONTRACT_NAME, attrs).add_messages(msgs))
+    Err(ContractError::Std(StdError::generic_err(
+        "Unbonding is temporarily disabled due to protocol upgrade",
+    )))
 }
 
 fn check_latest_icq_responses(
@@ -1580,38 +1459,6 @@ fn get_pending_lsm_share_msg<T, X: CustomQuery>(
         }
         None => Ok(None),
     }
-}
-
-fn calc_lsm_share_underlying_amount<T: CustomQuery>(
-    deps: Deps<T>,
-    puppeteer_contract: &Addr,
-    lsm_share: &Uint128,
-    validator: String,
-) -> ContractResult<Uint128> {
-    let delegations = deps
-        .querier
-        .query_wasm_smart::<drop_staking_base::msg::puppeteer::DelegationsResponse>(
-            puppeteer_contract,
-            &drop_puppeteer_base::msg::QueryMsg::Extension {
-                msg: drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {},
-            },
-        )?
-        .delegations
-        .delegations;
-    if delegations.is_empty() {
-        return Err(ContractError::NoDelegations {});
-    }
-    let validator_info = delegations
-        .iter()
-        .find(|one| one.validator == validator)
-        .ok_or(ContractError::ValidatorInfoNotFound {
-            validator: validator.clone(),
-        })?;
-    let share = Decimal256::from_atomics(*lsm_share, 0)?;
-    Ok(Uint128::try_from(
-        share.checked_mul(validator_info.share_ratio)?.atomics()
-            / Uint256::from(DECIMAL_FRACTIONAL),
-    )?)
 }
 
 pub mod check_denom {

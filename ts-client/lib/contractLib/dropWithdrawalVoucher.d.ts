@@ -326,8 +326,8 @@ export declare class Client {
     contractAddress: string;
     constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string);
     mustBeSigningClient(): Error;
-    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
-    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
+    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
+    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
     queryOwnerOf: (args: OwnerOfArgs) => Promise<OwnerOfResponse>;
     queryApproval: (args: ApprovalArgs) => Promise<ApprovalResponse>;
     queryApprovals: (args: ApprovalsArgs) => Promise<ApprovalsResponse>;
@@ -343,13 +343,43 @@ export declare class Client {
     queryExtension: (args: ExtensionArgs) => Promise<Null>;
     queryOwnership: () => Promise<OwnershipForString>;
     transferNft: (sender: string, args: TransferNftArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    transferNftMsg: (args: TransferNftArgs) => {
+        transfer_nft: TransferNftArgs;
+    };
     sendNft: (sender: string, args: SendNftArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    sendNftMsg: (args: SendNftArgs) => {
+        send_nft: SendNftArgs;
+    };
     approve: (sender: string, args: ApproveArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    approveMsg: (args: ApproveArgs) => {
+        approve: ApproveArgs;
+    };
     revoke: (sender: string, args: RevokeArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    revokeMsg: (args: RevokeArgs) => {
+        revoke: RevokeArgs;
+    };
     approveAll: (sender: string, args: ApproveAllArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    approveAllMsg: (args: ApproveAllArgs) => {
+        approve_all: ApproveAllArgs;
+    };
     revokeAll: (sender: string, args: RevokeAllArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    revokeAllMsg: (args: RevokeAllArgs) => {
+        revoke_all: RevokeAllArgs;
+    };
     mint: (sender: string, args: MintArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    mintMsg: (args: MintArgs) => {
+        mint: MintArgs;
+    };
     burn: (sender: string, args: BurnArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    burnMsg: (args: BurnArgs) => {
+        burn: BurnArgs;
+    };
     extension: (sender: string, args: ExtensionArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    extensionMsg: (args: ExtensionArgs) => {
+        extension: ExtensionArgs;
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
 }

@@ -14,15 +14,15 @@ class Client {
     mustBeSigningClient() {
         return new Error("This client is not a SigningCosmWasmClient");
     }
-    static async instantiate(client, sender, codeId, initMsg, label, fees, initCoins) {
+    static async instantiate(client, sender, codeId, initMsg, label, fees, initCoins, admin) {
         const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
-            ...(initCoins && initCoins.length && { funds: initCoins }),
+            ...(initCoins && initCoins.length && { funds: initCoins }), ...(admin && { admin: admin }),
         });
         return res;
     }
-    static async instantiate2(client, sender, codeId, salt, initMsg, label, fees, initCoins) {
+    static async instantiate2(client, sender, codeId, salt, initMsg, label, fees, initCoins, admin) {
         const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
-            ...(initCoins && initCoins.length && { funds: initCoins }),
+            ...(initCoins && initCoins.length && { funds: initCoins }), ...(admin && { admin: admin }),
         });
         return res;
     }

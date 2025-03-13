@@ -81,7 +81,9 @@ pub enum ExecuteMsg {
     AdminExecute { msgs: Vec<CosmosMsg<NeutronMsg>> },
 }
 #[cw_serde]
-pub struct MigrateMsg {}
+pub struct MigrateMsg {
+    pub core_code_id: u64,
+}
 
 #[cw_serde]
 #[derive(QueryResponses)]
