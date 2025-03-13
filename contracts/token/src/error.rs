@@ -1,4 +1,5 @@
 use cosmwasm_std::StdError;
+use drop_helpers::pause::PauseError;
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum ContractError {
@@ -25,6 +26,9 @@ pub enum ContractError {
 
     #[error("Semver parsing error: {0}")]
     SemVer(String),
+
+    #[error(transparent)]
+    PauseError(#[from] PauseError),
 }
 
 impl From<semver::Error> for ContractError {
