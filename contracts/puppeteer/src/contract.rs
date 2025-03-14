@@ -575,6 +575,10 @@ fn execute_setup_protocol(
         set_withdraw_address_msg,
         "/cosmos.distribution.v1beta1.MsgSetWithdrawAddress",
     )?);
+
+    deps.api
+        .debug(&format!("WASMDEBUG: {rewards_withdraw_address:?}",));
+
     let submsg = compose_submsg(
         deps.branch(),
         config.clone(),
@@ -586,6 +590,8 @@ fn execute_setup_protocol(
         "".to_string(),
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
+
+    deps.api.debug(&format!("WASMDEBUG: SUBMSG {submsg:?}",));
 
     Ok(Response::default().add_submessages(vec![submsg]))
 }
@@ -1004,6 +1010,7 @@ fn sudo_response(
         .identified_client_state
         .ok_or_else(|| StdError::generic_err("IBC client state identified_client_state not found"))?
         .client_state
+        .unwrap()
         .latest_height
         .ok_or_else(|| StdError::generic_err("IBC client state latest_height not found"))?
         .revision_height;
@@ -1014,7 +1021,7 @@ fn sudo_response(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
                 transaction: transaction.clone(),
                 local_height: env.block.height,
-                remote_height: remote_height.u64(),
+                remote_height,
             },)
         ))?
     ));
@@ -1026,7 +1033,7 @@ fn sudo_response(
                 ResponseHookMsg::Success(ResponseHookSuccessMsg {
                     transaction: transaction.clone(),
                     local_height: env.block.height,
-                    remote_height: remote_height.u64(),
+                    remote_height,
                 }),
             ))?,
             funds: vec![],

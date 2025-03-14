@@ -200,7 +200,6 @@ export interface Proposal {
   total_deposit: Coin[];
   voting_end_time?: number | null;
   voting_start_time?: number | null;
-  [k: string]: unknown;
 }
 /**
  * TallyResult defines a standard tally for a governance proposal.
@@ -210,12 +209,10 @@ export interface TallyResult {
   no: Uint128;
   no_with_veto: Uint128;
   yes: Uint128;
-  [k: string]: unknown;
 }
 export interface Coin {
   amount: Uint128;
   denom: string;
-  [k: string]: unknown;
 }
 /**
  * Proposal vote defines the core field members of a governance proposal votes.
@@ -224,7 +221,6 @@ export interface ProposalVote {
   options: WeightedVoteOption[];
   proposal_id: number;
   voter: string;
-  [k: string]: unknown;
 }
 /**
  * Proposal vote option defines the members of a governance proposal vote option.
@@ -232,7 +228,6 @@ export interface ProposalVote {
 export interface WeightedVoteOption {
   option: number;
   weight: string;
-  [k: string]: unknown;
 }
 export interface EditOnTopArgs {
   operations: OnTopEditOperation[];

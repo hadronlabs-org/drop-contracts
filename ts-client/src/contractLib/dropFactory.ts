@@ -77,8 +77,10 @@ export type CosmosMsgFor_NeutronMsg =
       stargate: {
         type_url: string;
         value: Binary;
-        [k: string]: unknown;
       };
+    }
+  | {
+      any: AnyMsg;
     }
   | {
       ibc: IbcMsg;
@@ -99,13 +101,11 @@ export type BankMsg =
       send: {
         amount: Coin[];
         to_address: string;
-        [k: string]: unknown;
       };
     }
   | {
       burn: {
         amount: Coin[];
-        [k: string]: unknown;
       };
     };
 /**
@@ -126,7 +126,6 @@ export type NeutronMsg =
          * *register_fee** is a fees required to be payed to register interchain account
          */
         register_fee?: Coin[] | null;
-        [k: string]: unknown;
       };
     }
   | {
@@ -155,7 +154,6 @@ export type NeutronMsg =
          * *timeout** is a timeout in seconds after which the packet times out.
          */
         timeout: number;
-        [k: string]: unknown;
       };
     }
   | {
@@ -180,7 +178,6 @@ export type NeutronMsg =
          * *update_period** is used to say how often the query must be updated.
          */
         update_period: number;
-        [k: string]: unknown;
       };
     }
   | {
@@ -201,7 +198,6 @@ export type NeutronMsg =
          * *query_id** is the ID of the query we want to update.
          */
         query_id: number;
-        [k: string]: unknown;
       };
     }
   | {
@@ -210,7 +206,6 @@ export type NeutronMsg =
          * *query_id** is ID of the query we want to remove.
          */
         query_id: number;
-        [k: string]: unknown;
       };
     }
   | {
@@ -224,26 +219,22 @@ export type NeutronMsg =
         timeout_height: RequestPacketTimeoutHeight;
         timeout_timestamp: number;
         token: Coin;
-        [k: string]: unknown;
       };
     }
   | {
       submit_admin_proposal: {
         admin_proposal: AdminProposal;
-        [k: string]: unknown;
       };
     }
   | {
       create_denom: {
         subdenom: string;
-        [k: string]: unknown;
       };
     }
   | {
       change_admin: {
         denom: string;
         new_admin_address: string;
-        [k: string]: unknown;
       };
     }
   | {
@@ -251,7 +242,6 @@ export type NeutronMsg =
         amount: Uint128;
         denom: string;
         mint_to_address: string;
-        [k: string]: unknown;
       };
     }
   | {
@@ -262,14 +252,12 @@ export type NeutronMsg =
          */
         burn_from_address: string;
         denom: string;
-        [k: string]: unknown;
       };
     }
   | {
       set_before_send_hook: {
         contract_addr: string;
         denom: string;
-        [k: string]: unknown;
       };
     }
   | {
@@ -278,7 +266,6 @@ export type NeutronMsg =
         denom: string;
         transfer_from_address: string;
         transfer_to_address: string;
-        [k: string]: unknown;
       };
     }
   | {
@@ -315,7 +302,6 @@ export type NeutronMsg =
          * **uri_hash** is a sha256 hash of a document pointed by URI. It's used to verify that the document didn't change. Optional.
          */
         uri_hash: string;
-        [k: string]: unknown;
       };
     }
   | {
@@ -332,19 +318,16 @@ export type NeutronMsg =
          * period in blocks with which `msgs` will be executed
          */
         period: number;
-        [k: string]: unknown;
       };
     }
   | {
       remove_schedule: {
         name: string;
-        [k: string]: unknown;
       };
     }
   | {
       resubmit_failure: {
         failure_id: number;
-        [k: string]: unknown;
       };
     }
   | {
@@ -428,7 +411,6 @@ export type DexMsg =
          * Denom for the opposing side of the deposit
          */
         token_b: string;
-        [k: string]: unknown;
       };
     }
   | {
@@ -457,7 +439,6 @@ export type DexMsg =
          * Denom for the opposing side of the deposit
          */
         token_b: string;
-        [k: string]: unknown;
       };
     }
   | {
@@ -470,6 +451,10 @@ export type DexMsg =
          * Expiration time for order. Only valid for GOOD_TIL_TIME limit orders
          */
         expiration_time?: number | null;
+        /**
+         * Accepts standard decimals and decimals with scientific notation (ie. 1234.23E-7)
+         */
+        limit_sell_price: string;
         /**
          * Maximum amount of TokenB can be bought. For everything except JUST_IN_TIME OrderType
          */
@@ -494,7 +479,6 @@ export type DexMsg =
          * Token being “bought”
          */
         token_out: string;
-        [k: string]: unknown;
       };
     }
   | {
@@ -503,7 +487,6 @@ export type DexMsg =
          * TrancheKey for the target limit order
          */
         tranche_key: string;
-        [k: string]: unknown;
       };
     }
   | {
@@ -512,7 +495,6 @@ export type DexMsg =
          * TrancheKey for the target limit order
          */
         tranche_key: string;
-        [k: string]: unknown;
       };
     }
   | {
@@ -537,7 +519,6 @@ export type DexMsg =
          * Array of possible routes
          */
         routes: MultiHopRoute[];
-        [k: string]: unknown;
       };
     };
 export type LimitOrderType =
@@ -561,6 +542,14 @@ export type IbcMsg =
          */
         channel_id: string;
         /**
+         * An optional memo. See the blog post ["Moving Beyond Simple Token Transfers"](https://medium.com/the-interchain-foundation/moving-beyond-simple-token-transfers-d42b2b1dc29b) for more information.
+         *
+         * There is no difference between setting this to `None` or an empty string.
+         *
+         * This field is only supported on chains with CosmWasm >= 2.0 and silently ignored on older chains. If you need support for both 1.x and 2.x chain with the same codebase, it is recommended to use `CosmosMsg::Stargate` with a custom MsgTransfer protobuf encoder instead.
+         */
+        memo?: string | null;
+        /**
          * when packet times out, measured on remote chain
          */
         timeout: IbcTimeout;
@@ -568,7 +557,6 @@ export type IbcMsg =
          * address on the remote chain to receive these tokens
          */
         to_address: string;
-        [k: string]: unknown;
       };
     }
   | {
@@ -579,13 +567,11 @@ export type IbcMsg =
          * when packet times out, measured on remote chain
          */
         timeout: IbcTimeout;
-        [k: string]: unknown;
       };
     }
   | {
       close_channel: {
         channel_id: string;
-        [k: string]: unknown;
       };
     };
 /**
@@ -602,7 +588,6 @@ export type WasmMsg =
          * msg is the json-encoded ExecuteMsg struct (as raw Binary)
          */
         msg: Binary;
-        [k: string]: unknown;
       };
     }
   | {
@@ -620,7 +605,6 @@ export type WasmMsg =
          * msg is the JSON-encoded InstantiateMsg struct (as raw Binary)
          */
         msg: Binary;
-        [k: string]: unknown;
       };
     }
   | {
@@ -639,7 +623,6 @@ export type WasmMsg =
          */
         msg: Binary;
         salt: Binary;
-        [k: string]: unknown;
       };
     }
   | {
@@ -653,20 +636,17 @@ export type WasmMsg =
          * the code_id of the new logic to place in the given contract
          */
         new_code_id: number;
-        [k: string]: unknown;
       };
     }
   | {
       update_admin: {
         admin: string;
         contract_addr: string;
-        [k: string]: unknown;
       };
     }
   | {
       clear_admin: {
         contract_addr: string;
-        [k: string]: unknown;
       };
     };
 /**
@@ -680,7 +660,7 @@ export type WasmMsg =
  *
  * ``` # use cosmwasm_std::{ #     HexBinary, #     Storage, Api, Querier, DepsMut, Deps, entry_point, Env, StdError, MessageInfo, #     Response, QueryResponse, # }; # type ExecuteMsg = (); use cosmwasm_std::{GovMsg, VoteOption};
  *
- * #[entry_point] pub fn execute( deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg, ) -> Result<Response, StdError> { // ... Ok(Response::new().add_message(GovMsg::Vote { proposal_id: 4, vote: VoteOption::Yes, })) } ```
+ * #[entry_point] pub fn execute( deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg, ) -> Result<Response, StdError> { // ... Ok(Response::new().add_message(GovMsg::Vote { proposal_id: 4, option: VoteOption::Yes, })) } ```
  *
  * Cast a weighted vote:
  *
@@ -691,21 +671,19 @@ export type WasmMsg =
 export type GovMsg =
   | {
       vote: {
-        proposal_id: number;
         /**
          * The vote option.
          *
-         * This should be called "option" for consistency with Cosmos SDK. Sorry for that. See <https://github.com/CosmWasm/cosmwasm/issues/1571>.
+         * This used to be called "vote", but was changed for consistency with Cosmos SDK.
          */
-        vote: VoteOption;
-        [k: string]: unknown;
+        option: VoteOption;
+        proposal_id: number;
       };
     }
   | {
       vote_weighted: {
         options: WeightedVoteOption[];
         proposal_id: number;
-        [k: string]: unknown;
       };
     };
 export type VoteOption = "yes" | "no" | "abstain" | "no_with_veto";
@@ -751,12 +729,8 @@ export interface OwnershipForString {
    */
   pending_owner?: string | null;
 }
-export interface MapOfString {
-  [k: string]: string;
-}
-export interface MapOfString1 {
-  [k: string]: string;
-}
+export interface MapOfString {}
+export interface MapOfString1 {}
 export interface ConfigOptional {
   base_denom?: string | null;
   emergency_address?: string | null;
@@ -785,7 +759,6 @@ export interface AdminExecuteArgs {
 export interface Coin {
   amount: Uint128;
   denom: string;
-  [k: string]: unknown;
 }
 /**
  * IbcFee defines struct for fees that refund the relayer for `SudoMsg` messages submission. Unused fee kind will be returned back to message sender. Please refer to these links for more information: IBC transaction structure - <https://docs.neutron.org/neutron/interchain-txs/messages/#msgsubmittx> General mechanics of fee payments - <https://docs.neutron.org/neutron/feerefunder/overview/#general-mechanics>
@@ -803,7 +776,6 @@ export interface IbcFee {
    * *timeout_fee** amount of coins to refund relayer for submitting timeout message for a particular IBC packet.
    */
   timeout_fee: Coin[];
-  [k: string]: unknown;
 }
 /**
  * Type for wrapping any protobuf message
@@ -817,7 +789,6 @@ export interface ProtobufAny {
    * *value** must be a valid serialized protocol buffer of the above specified type
    */
   value: Binary;
-  [k: string]: unknown;
 }
 /**
  * Describes a KV key for which you want to get value from the storage on remote chain
@@ -831,12 +802,10 @@ export interface KVKey {
    * *path** is a path to the storage (storage prefix) where you want to read value by key (usually name of cosmos-packages module: 'staking', 'bank', etc.)
    */
   path: string;
-  [k: string]: unknown;
 }
 export interface RequestPacketTimeoutHeight {
   revision_height?: number | null;
   revision_number?: number | null;
-  [k: string]: unknown;
 }
 /**
  * ParamChangeProposal defines the struct for single parameter change proposal.
@@ -854,7 +823,6 @@ export interface ParamChangeProposal {
    * *title** is a text title of proposal. Non unique.
    */
   title: string;
-  [k: string]: unknown;
 }
 /**
  * ParamChange defines the struct for parameter change request.
@@ -872,9 +840,9 @@ export interface ParamChange {
    * *value** is a new value for given parameter. Non unique.
    */
   value: string;
-  [k: string]: unknown;
 }
 /**
+ * @deprecated
  * UpgradeProposal defines the struct for IBC upgrade proposal.
  */
 export interface UpgradeProposal {
@@ -894,7 +862,6 @@ export interface UpgradeProposal {
    * *upgraded_client_state** is an upgraded client state.
    */
   upgraded_client_state: ProtobufAny;
-  [k: string]: unknown;
 }
 /**
  * Plan defines the struct for planned upgrade.
@@ -912,9 +879,9 @@ export interface Plan {
    * *name** is a name for the upgrade
    */
   name: string;
-  [k: string]: unknown;
 }
 /**
+ * @deprecated
  * ClientUpdateProposal defines the struct for client update proposal.
  */
 export interface ClientUpdateProposal {
@@ -934,7 +901,6 @@ export interface ClientUpdateProposal {
    * *title** is a text title of proposal.
    */
   title: string;
-  [k: string]: unknown;
 }
 /**
  * ProposalExecuteMessage defines the struct for sdk47 compatible admin proposal.
@@ -944,7 +910,6 @@ export interface ProposalExecuteMessage {
    * *message** is a json representing an sdk message passed to admin module to execute.
    */
   message: string;
-  [k: string]: unknown;
 }
 /**
  * @deprecated
@@ -963,7 +928,6 @@ export interface SoftwareUpgradeProposal {
    * *title** is a text title of proposal. Non unique.
    */
   title: string;
-  [k: string]: unknown;
 }
 /**
  * @deprecated
@@ -978,7 +942,6 @@ export interface CancelSoftwareUpgradeProposal {
    * *title** is a text title of proposal. Non unique.
    */
   title: string;
-  [k: string]: unknown;
 }
 /**
  * @deprecated
@@ -997,7 +960,6 @@ export interface PinCodesProposal {
    * *title** is a text title of proposal.
    */
   title: string;
-  [k: string]: unknown;
 }
 /**
  * @deprecated
@@ -1016,7 +978,6 @@ export interface UnpinCodesProposal {
    * *title** is a text title of proposal.
    */
   title: string;
-  [k: string]: unknown;
 }
 /**
  * @deprecated
@@ -1039,7 +1000,6 @@ export interface SudoContractProposal {
    * *title** is a text title of proposal.
    */
   title: string;
-  [k: string]: unknown;
 }
 /**
  * @deprecated
@@ -1062,7 +1022,6 @@ export interface UpdateAdminProposal {
    * *title** is a text title of proposal.
    */
   title: string;
-  [k: string]: unknown;
 }
 /**
  * @deprecated
@@ -1081,7 +1040,6 @@ export interface ClearAdminProposal {
    * *title** is a text title of proposal.
    */
   title: string;
-  [k: string]: unknown;
 }
 /**
  * Replicates the cosmos-sdk bank module DenomUnit type
@@ -1090,7 +1048,6 @@ export interface DenomUnit {
   aliases: string[];
   denom: string;
   exponent: number;
-  [k: string]: unknown;
 }
 /**
  * MsgExecuteContract defines a call to the contract execution
@@ -1104,19 +1061,22 @@ export interface MsgExecuteContract {
    * *msg** is a contract call message
    */
   msg: string;
-  [k: string]: unknown;
 }
 export interface DepositOption {
   disable_swap: boolean;
-  [k: string]: unknown;
 }
 export interface PrecDec {
   i: string;
-  [k: string]: unknown;
 }
 export interface MultiHopRoute {
   hops: string[];
-  [k: string]: unknown;
+}
+/**
+ * A message encoded the same way as a protobuf [Any](https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/any.proto). This is the same structure as messages in `TxBody` from [ADR-020](https://github.com/cosmos/cosmos-sdk/blob/master/docs/architecture/adr-020-protobuf-transaction-encoding.md)
+ */
+export interface AnyMsg {
+  type_url: string;
+  value: Binary;
 }
 /**
  * In IBC each package must set at least one type of timeout: the timestamp or the block height. Using this rather complex enum instead of two timeout fields we ensure that at least one timeout is set.
@@ -1124,7 +1084,6 @@ export interface MultiHopRoute {
 export interface IbcTimeout {
   block?: IbcTimeoutBlock | null;
   timestamp?: Timestamp | null;
-  [k: string]: unknown;
 }
 /**
  * IBCTimeoutHeight Height is a monotonically increasing data type that can be compared against another Height for the purposes of updating and freezing clients. Ordering is (revision_number, timeout_height)
@@ -1138,12 +1097,10 @@ export interface IbcTimeoutBlock {
    * the version that the client is currently on (e.g. after resetting the chain this could increment 1 as height drops to 0)
    */
   revision: number;
-  [k: string]: unknown;
 }
 export interface WeightedVoteOption {
   option: VoteOption;
   weight: Decimal;
-  [k: string]: unknown;
 }
 export interface InstantiateMsg {
   base_denom: string;

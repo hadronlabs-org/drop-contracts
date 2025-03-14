@@ -295,7 +295,6 @@ export interface TransferReadyBatchesMsg {
 export interface Coin {
   amount: Uint1281;
   denom: string;
-  [k: string]: unknown;
 }
 export interface ResponseHookErrorMsg {
   details: string;

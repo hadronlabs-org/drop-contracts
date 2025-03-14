@@ -99,6 +99,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
 }
 
 fn query_can_be_removed(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
+    #[allow(deprecated)]
     let all_balances = deps.querier.query_all_balances(env.contract.address)?;
     let all_balances_except_untrn = all_balances
         .into_iter()
@@ -182,7 +183,7 @@ fn query_token_amount(
     let config = CONFIG.load(deps.storage)?;
 
     if can_bond(config.base_denom, coin.denom) {
-        let issue_amount = coin.amount * (Decimal::one() / exchange_rate);
+        let issue_amount = coin.amount.mul_floor(Decimal::one() / exchange_rate);
 
         return Ok(to_json_binary(&issue_amount)?);
     }
@@ -290,7 +291,7 @@ fn execute_process_on_idle(
     let addrs = get_contracts!(deps, config.factory_contract, core_contract);
 
     ensure_eq!(
-        info.sender,
+        info.sender.as_str(),
         addrs.core_contract,
         ContractError::Unauthorized {}
     );
@@ -425,7 +426,7 @@ fn execute_puppeteer_hook(
     );
 
     ensure_eq!(
-        info.sender,
+        info.sender.as_str(),
         addrs.puppeteer_contract,
         ContractError::Unauthorized {}
     );
@@ -629,6 +630,7 @@ fn sudo_response(
         .identified_client_state
         .ok_or_else(|| StdError::generic_err("IBC client state identified_client_state not found"))?
         .client_state
+        .unwrap()
         .latest_height
         .ok_or_else(|| StdError::generic_err("IBC client state latest_height not found"))?
         .revision_height;
@@ -646,7 +648,7 @@ fn sudo_response(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
                 transaction: transaction.clone(),
                 local_height: env.block.height,
-                remote_height: remote_height.u64(),
+                remote_height,
             },)
         ))?
     ));
@@ -656,7 +658,7 @@ fn sudo_response(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
                 transaction: transaction.clone(),
                 local_height: env.block.height,
-                remote_height: remote_height.u64(),
+                remote_height,
             }),
         ))?,
         funds: vec![],

@@ -1,4 +1,3 @@
-pub mod astroport_exchange_handler;
 pub mod bond_providers;
 pub mod core;
 pub mod factory;

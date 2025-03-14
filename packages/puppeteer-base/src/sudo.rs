@@ -103,7 +103,7 @@ where
         env: Env,
         query_id: u64,
         version: &str,
-        storage: cw_storage_plus::Item<'a, BalancesAndDelegationsState<X>>,
+        storage: cw_storage_plus::Item<BalancesAndDelegationsState<X>>,
     ) -> NeutronResult<Response<NeutronMsg>> {
         let registered_query_result = get_raw_interchain_query_result(deps.as_ref(), query_id)?;
         let data = PuppeteerReconstruct::reconstruct(
