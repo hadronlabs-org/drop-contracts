@@ -107,6 +107,10 @@ export type Transaction = {
         interchain_account_id: string;
         rewards_withdraw_address: string;
     };
+} | {
+    enable_tokenize_shares: {};
+} | {
+    disable_tokenize_shares: {};
 };
 export type IBCTransferReason = "l_s_m_share" | "delegate";
 /**

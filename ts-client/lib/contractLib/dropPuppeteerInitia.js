@@ -145,6 +145,20 @@ class Client {
         return this.client.execute(sender, this.contractAddress, this.updateConfigMsg(args), fee || "auto", memo, funds);
     };
     updateConfigMsg = (args) => { return { update_config: args }; };
+    enableTokenizeShares = async (sender, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, this.enableTokenizeSharesMsg(), fee || "auto", memo, funds);
+    };
+    enableTokenizeSharesMsg = () => { return { enable_tokenize_shares: {} }; };
+    disableTokenizeShares = async (sender, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, this.disableTokenizeSharesMsg(), fee || "auto", memo, funds);
+    };
+    disableTokenizeSharesMsg = () => { return { disable_tokenize_shares: {} }; };
     updateOwnership = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
