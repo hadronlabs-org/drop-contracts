@@ -86,6 +86,8 @@ pub enum ExecuteMsg {
     UpdateConfig {
         new_config: ConfigOptional,
     },
+    EnableTokenizeShares {},
+    DisableTokenizeShares {},
 }
 
 impl ExecuteMsg {
