@@ -3461,7 +3461,7 @@ describe('Core', () => {
 
         expect(parseInt(nativeBondProviderBalanceAfter, 10)).toEqual(10000);
       });
-      it('puppteer account state after bond provider ibc transfer', async () => {
+      it('puppeteer account state after bond provider ibc transfer', async () => {
         await waitFor(async () => {
           const res =
             await context.nativeBondProviderContractClient.queryTxState();
