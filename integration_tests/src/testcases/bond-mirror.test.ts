@@ -143,7 +143,7 @@ describe('Mirror', () => {
       `http://127.0.0.1:${context.park.ports.gaia.rpc}`,
       context.gaiaWallet,
       {
-        gasPrice: GasPrice.fromString('0.025stake'),
+        gasPrice: GasPrice.fromString('1.1stake'),
       },
     );
     context.neutronStargateClient =
@@ -449,7 +449,7 @@ describe('Mirror', () => {
       account.address,
       res.codeId,
       {
-        sdk_version: process.env.SDK_VERSION || '0.47.10',
+        sdk_version: process.env.SDK_VERSION || '0.47.16',
         local_denom: 'untrn',
         code_ids: {
           core_code_id: context.codeIds.core,

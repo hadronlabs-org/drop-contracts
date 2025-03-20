@@ -190,7 +190,7 @@ describe('Core Slashing', () => {
       `http://127.0.0.1:${context.park.ports.gaia.rpc}`,
       context.gaiaWallet,
       {
-        gasPrice: GasPrice.fromString('0.025stake'),
+        gasPrice: GasPrice.fromString('1.1stake'),
       },
     );
     const tmClient = await Tendermint34Client.connect(
@@ -657,7 +657,7 @@ describe('Core Slashing', () => {
           connection_id: 'connection-0',
           port_id: 'transfer',
           transfer_channel_id: 'channel-0',
-          sdk_version: process.env.SDK_VERSION || '0.47.10',
+          sdk_version: process.env.SDK_VERSION || '0.47.16',
           timeout: 60,
           factory_contract: context.predefinedContractAddresses.factoryAddress,
         },
