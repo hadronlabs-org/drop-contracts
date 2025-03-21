@@ -1,23 +1,24 @@
+use crate::error::{ContractError, ContractResult};
+use crate::msg::{
+    ExecuteMsg, FailedReceiverResponse, FungibleTokenPacketData, InstantiateMsg, MigrateMsg,
+    QueryMsg,
+};
+use crate::state::{
+    Config, ConfigOptional, BOND_REPLY_ID, BOND_REPLY_RECEIVER, CONFIG, FAILED_TRANSFERS,
+    IBC_TRANSFER_REPLY_ID, REPLY_TRANSFER_COIN, SUDO_SEQ_ID_TO_COIN, TIMEOUT_RANGE,
+};
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, from_json, to_json_binary, BankMsg, Binary, Coin, CosmosMsg, Deps,
-    DepsMut, Env, IbcQuery, MessageInfo, Order, Reply, Response, SubMsg, WasmMsg,
+    attr, ensure, from_json, to_json_binary, Attribute, Binary, Coin, Deps, DepsMut, Env, IbcQuery,
+    MessageInfo, Reply, Response, StdError, SubMsg, Uint128, WasmMsg,
 };
 use cw_ownable::update_ownership;
 use drop_helpers::answer::response;
 use drop_helpers::ibc_fee::query_ibc_fee;
-use drop_staking_base::msg::mirror::{ExecuteMsg, FungibleTokenPacketData};
-use drop_staking_base::state::mirror::{
-    BondItem, BondState, Config, ConfigOptional, ReturnType, BONDS, CONFIG, COUNTER,
+use neutron_sdk::bindings::{
+    msg::{MsgIbcTransferResponse, NeutronMsg},
+    query::NeutronQuery,
 };
-use drop_staking_base::{
-    error::mirror::{ContractError, ContractResult},
-    msg::mirror::{InstantiateMsg, MigrateMsg, QueryMsg},
-    state::mirror::TIMEOUT_RANGE,
-};
-use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, TransferSudoMsg};
-
-use std::marker::PhantomData;
 use std::str::FromStr;
 use std::{env, vec};
 
@@ -39,15 +40,22 @@ pub fn instantiate(
     CONFIG.save(
         deps.storage,
         &Config {
-            core_contract: msg.core_contract,
-            source_port: msg.source_port,
-            source_channel: msg.source_channel,
+            core_contract: msg.core_contract.clone(),
+            source_port: msg.source_port.clone(),
+            source_channel: msg.source_channel.clone(),
             ibc_timeout: msg.ibc_timeout,
-            prefix: msg.prefix,
+            prefix: msg.prefix.clone(),
         },
     )?;
-    COUNTER.save(deps.storage, &0)?;
-    let attrs = vec![attr("action", "instantiate"), attr("owner", owner)];
+    let attrs = vec![
+        attr("action", "instantiate"),
+        attr("owner", owner),
+        attr("core_contract", msg.core_contract),
+        attr("source_port", msg.source_port),
+        attr("source_channel", msg.source_channel),
+        attr("ibc_timeout", msg.ibc_timeout.to_string()),
+        attr("prefix", msg.prefix),
+    ];
     Ok(response("instantiate", CONTRACT_NAME, attrs))
 }
 
@@ -56,33 +64,34 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
     match msg {
         QueryMsg::Ownership {} => Ok(to_json_binary(&cw_ownable::get_ownership(deps.storage)?)?),
         QueryMsg::Config {} => Ok(to_json_binary(&CONFIG.load(deps.storage)?)?),
-        QueryMsg::One { id } => query_one(deps, id),
-        QueryMsg::All { start_after, limit } => query_all(deps, start_after, limit),
+        QueryMsg::FailedReceiver { receiver } => query_failed_receiver(deps, receiver),
+        QueryMsg::AllFailed {} => query_all_failed(deps),
     }
 }
 
-pub fn query_one(deps: Deps<NeutronQuery>, id: u64) -> ContractResult<Binary> {
-    let bond = BONDS.load(deps.storage, id)?;
-    to_json_binary(&bond).map_err(ContractError::Std)
+fn query_all_failed(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
+    let failed_transfers: Vec<FailedReceiverResponse> = FAILED_TRANSFERS
+        .range(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+        .map(|pair| {
+            let (r, d) = pair.unwrap(); // safe because it's a range map
+            FailedReceiverResponse {
+                receiver: r,
+                failed_transfers: d,
+            }
+        })
+        .collect();
+    Ok(to_json_binary(&failed_transfers)?)
 }
 
-pub fn query_all(
-    deps: Deps<NeutronQuery>,
-    start_after: Option<u64>,
-    limit: Option<u32>,
-) -> ContractResult<Binary> {
-    let limit = limit.map(|x| x as usize).unwrap_or(usize::MAX);
-    let bonds = BONDS
-        .range(
-            deps.storage,
-            start_after.map(|x| cw_storage_plus::Bound::Inclusive((x, PhantomData))),
-            None,
-            Order::Ascending,
-        )
-        .take(limit)
-        .map(|item| item.map_err(ContractError::Std))
-        .collect::<ContractResult<Vec<_>>>()?;
-    to_json_binary(&bonds).map_err(ContractError::Std)
+fn query_failed_receiver(deps: Deps<NeutronQuery>, receiver: String) -> ContractResult<Binary> {
+    let failed_transfers = FAILED_TRANSFERS.may_load(deps.storage, receiver.clone())?;
+    if let Some(failed_transfers) = failed_transfers {
+        return Ok(to_json_binary(&Some(FailedReceiverResponse {
+            receiver,
+            failed_transfers,
+        }))?);
+    }
+    Ok(to_json_binary::<Option<FailedReceiverResponse>>(&None)?)
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
@@ -93,37 +102,76 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::Bond {
-            receiver,
-            backup,
-            r#ref,
-        } => execute_bond(deps, env, info, receiver, r#ref, backup),
+        ExecuteMsg::Bond { receiver, r#ref } => execute_bond(deps, env, info, receiver, r#ref),
         ExecuteMsg::UpdateOwnership(action) => {
             update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
             Ok(Response::new())
         }
-        ExecuteMsg::Complete { items } => execute_complete(deps, env, info, items),
-        ExecuteMsg::ChangeReturnType { id, return_type } => {
-            execute_change_return_type(deps, env, info, id, return_type)
-        }
-        ExecuteMsg::UpdateBond {
-            id,
-            receiver,
-            backup,
-            return_type,
-        } => execute_update_bond(deps, env, info, id, receiver, backup, return_type),
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, new_config),
+        ExecuteMsg::Retry { receiver } => execute_retry(deps, env, receiver),
     }
 }
 
-pub fn execute_update_config(
+fn execute_retry(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    receiver: String,
+) -> ContractResult<Response<NeutronMsg>> {
+    let Config {
+        source_port,
+        source_channel,
+        ibc_timeout,
+        prefix,
+        ..
+    } = CONFIG.load(deps.storage)?;
+
+    ensure!(receiver.starts_with(&prefix), ContractError::InvalidPrefix);
+    bech32::decode(&receiver).map_err(|_| ContractError::WrongReceiverAddress)?;
+
+    let failed_transfers = FAILED_TRANSFERS.may_load(deps.storage, receiver.clone())?;
+    let mut ibc_transfer_submsgs: Vec<SubMsg<NeutronMsg>> = vec![];
+    let mut attrs: Vec<Attribute> = vec![attr("action", "execute_retry")];
+    if let Some(mut failed_transfers) = failed_transfers {
+        let receiver_latest_coin = failed_transfers.pop();
+        if let Some(receiver_latest_coin) = receiver_latest_coin {
+            ibc_transfer_submsgs.push(SubMsg::reply_on_success(
+                NeutronMsg::IbcTransfer {
+                    source_port: source_port.clone(),
+                    source_channel: source_channel.clone(),
+                    token: receiver_latest_coin.clone(),
+                    sender: env.contract.address.to_string(),
+                    receiver: receiver.clone(),
+                    timeout_height: RequestPacketTimeoutHeight {
+                        revision_number: None,
+                        revision_height: None,
+                    },
+                    timeout_timestamp: env.block.time.plus_seconds(ibc_timeout).nanos(),
+                    memo: "".to_string(),
+                    fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
+                },
+                IBC_TRANSFER_REPLY_ID,
+            ));
+            REPLY_TRANSFER_COIN.save(deps.storage, &receiver_latest_coin)?;
+            attrs.push(attr("receiver", receiver.clone()));
+            attrs.push(attr("amount", receiver_latest_coin.to_string()));
+        }
+        if failed_transfers.is_empty() {
+            FAILED_TRANSFERS.remove(deps.storage, receiver);
+        } else {
+            FAILED_TRANSFERS.save(deps.storage, receiver, &failed_transfers)?;
+        }
+    }
+    Ok(response("execute_retry", CONTRACT_NAME, attrs).add_submessages(ibc_transfer_submsgs))
+}
+
+fn execute_update_config(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
     new_config: ConfigOptional,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
     let mut config = CONFIG.load(deps.storage)?;
-    let mut attrs = vec![attr("action", "update_config")];
+    let mut attrs = vec![attr("action", "execute_update_config")];
     if let Some(core_contract) = new_config.core_contract {
         deps.api.addr_validate(&core_contract)?;
         attrs.push(attr("core_contract", &core_contract));
@@ -161,212 +209,104 @@ pub fn execute_update_config(
         }
     }
     CONFIG.save(deps.storage, &config)?;
-    Ok(response("update_config", CONTRACT_NAME, attrs))
+    Ok(response("execute_update_config", CONTRACT_NAME, attrs))
 }
 
-pub fn execute_change_return_type(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    info: MessageInfo,
-    id: u64,
-    return_type: ReturnType,
-) -> ContractResult<Response<NeutronMsg>> {
-    let mut bond = BONDS.load(deps.storage, id)?;
-    ensure!(
-        bond.state == BondState::Bonded,
-        ContractError::WrongBondState {
-            expected: BondState::Bonded.to_string(),
-            got: bond.state.to_string(),
-        }
-    );
-    let backup = bond.backup.clone().ok_or(ContractError::BackupIsNotSet)?;
-
-    ensure_eq!(info.sender, backup, ContractError::Unauthorized);
-    bond.return_type = return_type.clone();
-    BONDS.save(deps.storage, id, &bond)?;
-    let attrs = vec![
-        attr("action", "change_return_type"),
-        attr("id", id.to_string()),
-        attr("return_type", return_type.to_string()),
-    ];
-    Ok(response("change_return_type", CONTRACT_NAME, attrs))
-}
-
-pub fn execute_update_bond(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    info: MessageInfo,
-    id: u64,
-    receiver: String,
-    backup: Option<String>,
-    return_type: ReturnType,
-) -> ContractResult<Response<NeutronMsg>> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let mut bond = BONDS.load(deps.storage, id)?;
-    bond.receiver = receiver.clone();
-    bond.backup = backup
-        .clone()
-        .map(|a| deps.api.addr_validate(&a))
-        .transpose()?;
-    bond.return_type = return_type.clone();
-    BONDS.save(deps.storage, id, &bond)?;
-    let attrs = vec![
-        attr("action", "update_bond"),
-        attr("id", id.to_string()),
-        attr("receiver", receiver),
-        attr("backup", backup.unwrap_or_default()),
-        attr("return_type", return_type.to_string()),
-    ];
-    Ok(response("update_bond_state", CONTRACT_NAME, attrs))
-}
-
-/// The backup address is an optional address on the Neutron chain where the bond will
-/// be sent if it cannot be successfully delivered to the receiver on the remote chain.
-/// This option is particularly useful in scenarios where deriving a valid receiver
-/// address is challenging, such as with EVM-based chains like Initia, where the derivation path may differ
 pub fn execute_bond(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     info: MessageInfo,
     receiver: String,
     r#ref: Option<String>,
-    backup: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     let Config {
         core_contract,
         prefix,
         ..
     } = CONFIG.load(deps.storage)?;
-    let backup = backup
-        .as_ref()
-        .map(|addr| deps.api.addr_validate(addr))
-        .transpose()?;
+
     ensure!(receiver.starts_with(&prefix), ContractError::InvalidPrefix);
     bech32::decode(&receiver).map_err(|_| ContractError::WrongReceiverAddress)?;
+
     let coin = cw_utils::one_coin(&info)?;
-    let counter = COUNTER.load(deps.storage)?;
-    let id = counter + 1;
-    COUNTER.save(deps.storage, &id)?;
-    let attrs = vec![
-        attr("action", "bond"),
-        attr("id", id.to_string()),
-        attr("receiver", receiver.to_string()),
-        attr("ref", r#ref.clone().unwrap_or_default()),
-        attr(
-            "backup",
-            backup.as_ref().map(|x| x.to_string()).unwrap_or_default(),
-        ),
-    ];
-    BONDS.save(
-        deps.storage,
-        id,
-        &BondItem {
-            receiver,
-            backup,
-            received: None,
-            amount: coin.amount,
-            return_type: drop_staking_base::state::mirror::ReturnType::default(),
-            state: drop_staking_base::state::mirror::BondState::default(),
-        },
-    )?;
     let msg = SubMsg::reply_on_success(
         WasmMsg::Execute {
             contract_addr: core_contract,
             msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::Bond {
                 receiver: None,
-                r#ref,
+                r#ref: r#ref.clone(),
             })?,
-            funds: vec![coin],
+            funds: vec![coin.clone()],
         },
-        id,
+        BOND_REPLY_ID,
     );
-    Ok(response("bond", CONTRACT_NAME, attrs).add_submessage(msg))
-}
-
-pub fn execute_complete(
-    deps: DepsMut<NeutronQuery>,
-    env: Env,
-    _info: MessageInfo,
-    items: Vec<u64>,
-) -> ContractResult<Response<NeutronMsg>> {
-    let mut msgs = vec![];
-    let mut attrs = vec![attr("action", "complete")];
-    let Config {
-        source_port,
-        source_channel,
-        ibc_timeout,
-        ..
-    } = CONFIG.load(deps.storage)?;
-    for id in items {
-        let mut bond = BONDS.load(deps.storage, id)?;
-        attrs.push(attr("id", id.to_string()));
-        attrs.push(attr("return_type", bond.state.to_string()));
-        attrs.push(attr("coin", bond.received.clone().unwrap().to_string())); // at this point unwrap is safe as bond is finalized already
-        ensure_eq!(
-            bond.state,
-            BondState::Bonded,
-            ContractError::WrongBondState {
-                expected: BondState::Bonded.to_string(),
-                got: bond.state.to_string(),
-            }
-        );
-        match bond.return_type {
-            ReturnType::Remote => {
-                bond.state = BondState::Sent;
-                BONDS.save(deps.storage, id, &bond)?;
-                msgs.push(CosmosMsg::Custom(NeutronMsg::IbcTransfer {
-                    source_port: source_port.clone(),
-                    source_channel: source_channel.clone(),
-                    token: bond.received.unwrap(), // at this point unwrap is safe as bond is finalized already
-                    sender: env.contract.address.to_string(),
-                    receiver: bond.receiver,
-                    timeout_height: RequestPacketTimeoutHeight {
-                        revision_number: None,
-                        revision_height: None,
-                    },
-                    timeout_timestamp: env.block.time.plus_seconds(ibc_timeout).nanos(),
-                    memo: id.to_string(),
-                    fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
-                }));
-            }
-            ReturnType::Local => {
-                if let Some(backup) = bond.backup {
-                    BONDS.remove(deps.storage, id);
-                    msgs.push(CosmosMsg::Bank(BankMsg::Send {
-                        to_address: backup.to_string(),
-                        amount: vec![bond.received.unwrap()],
-                    }));
-                }
-            }
-        }
-    }
-    Ok(response("complete", CONTRACT_NAME, attrs).add_messages(msgs))
+    let attrs = vec![
+        attr("action", "execute_bond"),
+        attr("receiver", receiver.to_string()),
+        attr("ref", r#ref.clone().unwrap_or_default()),
+        attr("coin", coin.to_string()),
+    ];
+    // We can't pass receiver directly to reply from bond execution
+    // The only way to pass it is to overwrite receiver here and then read in reply
+    BOND_REPLY_RECEIVER.save(deps.storage, &receiver)?;
+    Ok(response("execute_bond", CONTRACT_NAME, attrs).add_submessage(msg))
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn reply(
     deps: DepsMut<NeutronQuery>,
-    _env: Env,
+    env: Env,
     msg: Reply,
 ) -> ContractResult<Response<NeutronMsg>> {
-    finalize_bond(deps, msg)
+    match msg.id {
+        BOND_REPLY_ID => finalize_bond(deps, env, msg),
+        IBC_TRANSFER_REPLY_ID => store_seq_id(deps, msg),
+        _ => unimplemented!(),
+    }
+}
+
+pub fn store_seq_id(
+    deps: DepsMut<NeutronQuery>,
+    msg: Reply,
+) -> ContractResult<Response<NeutronMsg>> {
+    let msg_ibc_transfer_response: MsgIbcTransferResponse = serde_json_wasm::from_slice(
+        msg.result
+            .into_result()
+            .map_err(StdError::generic_err)?
+            .data
+            .ok_or_else(|| StdError::generic_err("no result"))?
+            .as_slice(),
+    )
+    .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?;
+    let seq_id = msg_ibc_transfer_response.sequence_id;
+    let coin = REPLY_TRANSFER_COIN.load(deps.storage)?;
+    SUDO_SEQ_ID_TO_COIN.save(deps.storage, seq_id, &coin)?;
+    let attrs = vec![
+        attr("action", "store_seq_id"),
+        attr("popped", coin.to_string()),
+    ];
+    Ok(response("reply_store_seq_id", CONTRACT_NAME, attrs))
 }
 
 pub fn finalize_bond(
     deps: DepsMut<NeutronQuery>,
+    env: Env,
     msg: Reply,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg.result {
         cosmwasm_std::SubMsgResult::Ok(res) => {
-            let mut bond = BONDS.load(deps.storage, msg.id)?;
-            bond.state = BondState::Bonded;
-            // get token factory mint event
+            let Config {
+                source_port,
+                source_channel,
+                ibc_timeout,
+                ..
+            } = CONFIG.load(deps.storage)?;
+            let receiver = BOND_REPLY_RECEIVER.load(deps.storage)?;
             let tf_mint_event = res
                 .events
                 .iter()
                 .find(|x| x.ty == "tf_mint")
                 .ok_or(ContractError::NoTokensMinted)?;
-            // get amount from mint event
             let coin = Coin::from_str(
                 &tf_mint_event
                     .attributes
@@ -375,14 +315,35 @@ pub fn finalize_bond(
                     .ok_or(ContractError::NoTokensMintedAmountFound)?
                     .value,
             )?;
-            bond.received = Some(coin);
-            BONDS.save(deps.storage, msg.id, &bond)?;
             let attrs = vec![
-                attr("action", "finalize_bond"),
-                attr("id", msg.id.to_string()),
-                attr("state", bond.state.to_string()),
+                attr("action", "reply_finalize_bond"),
+                attr("amount", coin.to_string()),
+                attr("to_address", receiver.clone()),
+                attr("source_port", source_port.to_string()),
+                attr("source_channel", source_channel.clone()),
+                attr("ibc-timeout", ibc_timeout.to_string()),
             ];
-            Ok(response("finalize_bond", CONTRACT_NAME, attrs))
+            // Send all tokens that we got from the bond action back to the remote chain
+            let ibc_transfer_submsg: SubMsg<NeutronMsg> = SubMsg::reply_on_success(
+                NeutronMsg::IbcTransfer {
+                    source_port: source_port.clone(),
+                    source_channel: source_channel.clone(),
+                    token: coin.clone(),
+                    sender: env.contract.address.to_string(),
+                    receiver: receiver.clone(),
+                    timeout_height: RequestPacketTimeoutHeight {
+                        revision_number: None,
+                        revision_height: None,
+                    },
+                    timeout_timestamp: env.block.time.plus_seconds(ibc_timeout).nanos(),
+                    memo: "".to_string(),
+                    fee: query_ibc_fee(deps.as_ref(), LOCAL_DENOM)?,
+                },
+                IBC_TRANSFER_REPLY_ID,
+            );
+            REPLY_TRANSFER_COIN.save(deps.storage, &coin)?;
+            Ok(response("reply_finalize_bond", CONTRACT_NAME, attrs)
+                .add_submessage(ibc_transfer_submsg))
         }
         cosmwasm_std::SubMsgResult::Err(_) => unreachable!(), // as there is only SubMsg::reply_on_success()
     }
@@ -395,72 +356,53 @@ pub fn sudo(
     msg: TransferSudoMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        TransferSudoMsg::Response { request, data } => sudo_response(deps, request, data),
-        TransferSudoMsg::Error { request, details } => sudo_error(deps, request, details),
-        TransferSudoMsg::Timeout { request } => sudo_timeout(deps, request),
+        TransferSudoMsg::Response { request, .. } => sudo_response(deps, request),
+        TransferSudoMsg::Error { request, .. } => sudo_error(deps, request, "sudo_error"),
+        TransferSudoMsg::Timeout { request } => sudo_error(deps, request, "sudo_timeout"),
     }
-}
-
-fn handle_sudo_error(
-    err_type: &str,
-    deps: DepsMut<NeutronQuery>,
-    req: RequestPacket,
-) -> ContractResult<Response<NeutronMsg>> {
-    let id = get_id_from_request_memo(&req)?;
-    deps.api.debug(
-        format!(
-            "WASMDEBUG: {}: ack received: {:?} id: {:?}",
-            err_type, req, id
-        )
-        .as_str(),
-    );
-    let mut bond = BONDS.load(deps.storage, id)?;
-    bond.state = BondState::Bonded;
-    BONDS.save(deps.storage, id, &bond)?;
-    let attrs = vec![
-        attr("action", err_type),
-        attr("id", id.to_string()),
-        attr("state", bond.state.to_string()),
-    ];
-    Ok(response(err_type, CONTRACT_NAME, attrs))
 }
 
 fn sudo_error(
     deps: DepsMut<NeutronQuery>,
     req: RequestPacket,
-    _data: String,
+    ty: &str,
 ) -> ContractResult<Response<NeutronMsg>> {
-    handle_sudo_error("sudo_error", deps, req)
-}
+    // https://github.com/cosmos/ibc/blob/main/spec/app/ics-020-fungible-token-transfer/README.md#data-structures
+    // Unfortunately, ics-20 says that if you transfer IBC denom, then in sudo handler you will get back a trace
+    // instead of the original denomination. 123ibc/... -> 123transfer/channel-0/denom. In order to handle this
+    // we're using a SUDO_SEQ_ID_TO_COIN map, where we store an IBC transfer sequence id with a denomination.
+    // We get sequence id from the reply handler, where IBC transfer message is constructed. And then unwrap it here
+    let seq_id = req.sequence.unwrap();
+    let actual_denom = SUDO_SEQ_ID_TO_COIN.load(deps.storage, seq_id)?.denom;
+    let packet: FungibleTokenPacketData = from_json(req.data.unwrap())?;
+    let packet_amount = Uint128::from_str(packet.amount.as_str())?;
 
-fn sudo_timeout(
-    deps: DepsMut<NeutronQuery>,
-    req: RequestPacket,
-) -> ContractResult<Response<NeutronMsg>> {
-    handle_sudo_error("sudo_timeout", deps, req)
+    // If given ibc-transfer for given receiver on the remote chain fails then
+    // current contract owns these tokens right now. Memorize in the map, that
+    // for given user our contract obtains these failed-to-process tokens
+    FAILED_TRANSFERS.update(deps.storage, packet.receiver, |current_debt| {
+        let mut new_debt = current_debt.unwrap_or_default();
+        new_debt.push(Coin {
+            denom: actual_denom,
+            amount: packet_amount,
+        });
+        Ok::<Vec<Coin>, ContractError>(new_debt)
+    })?;
+    SUDO_SEQ_ID_TO_COIN.remove(deps.storage, seq_id);
+    Ok(response(ty, CONTRACT_NAME, Vec::<Attribute>::new()))
 }
 
 fn sudo_response(
     deps: DepsMut<NeutronQuery>,
     req: RequestPacket,
-    data: Binary,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let request_data: FungibleTokenPacketData = from_json(req.data.clone().unwrap())?; // must present as there is only IBC transfer for this contract
-    let id: u64 = get_id_from_request_memo(&req)?;
-    deps.api.debug(
-        format!(
-            "WASMDEBUG: sudo_response: sudo received: {:?} {:?} {:?} id: {:?}",
-            req, data, request_data, id
-        )
-        .as_str(),
-    );
-    BONDS.remove(deps.storage, id);
-    let attrs = vec![
-        attr("action", "sudo_response"),
-        attr("request", format!("{:?}", req)),
-        attr("id", id.to_string()),
-    ];
-    Ok(response("sudo_response", CONTRACT_NAME, attrs))
+    let seq_id = req.sequence.unwrap();
+    SUDO_SEQ_ID_TO_COIN.remove(deps.storage, seq_id);
+    Ok(response(
+        "sudo_response",
+        CONTRACT_NAME,
+        Vec::<Attribute>::new(),
+    ))
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
@@ -477,18 +419,5 @@ pub fn migrate(
             contract_name: CONTRACT_NAME.to_string(),
         });
     }
-
-    let storage_version: semver::Version = contract_version_metadata.version.parse()?;
-    let version: semver::Version = CONTRACT_VERSION.parse()?;
-
-    if storage_version < version {
-        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    }
     Ok(Response::new())
-}
-
-fn get_id_from_request_memo(req: &RequestPacket) -> ContractResult<u64> {
-    let request_data: FungibleTokenPacketData = from_json(req.data.clone().unwrap())?; // must present as there is only IBC transfer for this contract
-    let id: u64 = request_data.memo.parse().unwrap(); // can be safelly unwrapped as it is serialized in execute_complete
-    Ok(id)
 }
