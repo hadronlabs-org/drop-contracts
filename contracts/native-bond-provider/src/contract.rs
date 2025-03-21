@@ -7,7 +7,7 @@ use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::{attr_coin, response};
 use drop_helpers::get_contracts;
-use drop_helpers::ibc_client_state::{query_client_state, ClientState};
+use drop_helpers::ibc_client_state::{extract_identified_client_state, query_client_state};
 use drop_helpers::ibc_fee::query_ibc_fee;
 use drop_puppeteer_base::peripheral_hook::{
     IBCTransferReason, ReceiverExecuteMsg, ResponseHookErrorMsg, ResponseHookMsg,
@@ -621,25 +621,10 @@ fn sudo_response(
         .ok_or_else(|| StdError::generic_err("source_port not found"))?;
 
     let client_state = query_client_state(&deps.as_ref(), channel_id, port_id)?;
-
-    // First, extract the IdentifiedClientState.
-    let identified = client_state.identified_client_state.ok_or_else(|| {
-        StdError::generic_err("IBC client state identified_client_state not found")
-    })?;
-
-    // Next, get the inner Any wrapper from client_state.
-    let any = identified
-        .client_state
-        .ok_or_else(|| StdError::generic_err("IBC client state's client_state not found"))?;
-
-    // Now decode the inner ClientState from the raw bytes in the Any message.
-    let inner_client_state = <ClientState as prost::Message>::decode(any.value.as_slice())
-        .map_err(|e| {
-            StdError::generic_err(format!("failed to decode inner ClientState: {:?}", e))
-        })?;
+    let identified_client_state = extract_identified_client_state(&deps.as_ref(), client_state)?;
 
     // Finally, extract the revision_height from latest_height.
-    let remote_height = inner_client_state
+    let remote_height = identified_client_state
         .latest_height
         .ok_or_else(|| StdError::generic_err("IBC client state latest_height not found"))?
         .revision_height;

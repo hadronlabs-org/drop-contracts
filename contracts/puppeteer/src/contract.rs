@@ -7,11 +7,10 @@ use cosmwasm_std::{
     StdError, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
-use drop_helpers::ibc_client_state::ClientState;
+use drop_helpers::ibc_client_state::{extract_identified_client_state, query_client_state};
 use drop_helpers::{
     answer::response,
     get_contracts,
-    ibc_client_state::query_client_state,
     ibc_fee::query_ibc_fee,
     icq::{
         new_delegations_and_balance_query_msg, new_multiple_balances_query_msg,
@@ -1007,28 +1006,9 @@ fn sudo_response(
     )?;
 
     let client_state = query_client_state(&deps.as_ref(), channel_id, port_id)?;
+    let identified_client_state = extract_identified_client_state(&deps.as_ref(), client_state)?;
 
-    deps.api
-        .debug(&format!("WASMDEBUG: client state: {:?}", client_state));
-
-    // First, extract the IdentifiedClientState.
-    let identified = client_state.identified_client_state.ok_or_else(|| {
-        StdError::generic_err("IBC client state identified_client_state not found")
-    })?;
-
-    // Next, get the inner Any wrapper from client_state.
-    let any = identified
-        .client_state
-        .ok_or_else(|| StdError::generic_err("IBC client state's client_state not found"))?;
-
-    // Now decode the inner ClientState from the raw bytes in the Any message.
-    let inner_client_state = <ClientState as prost::Message>::decode(any.value.as_slice())
-        .map_err(|e| {
-            StdError::generic_err(format!("failed to decode inner ClientState: {:?}", e))
-        })?;
-
-    // Finally, extract the revision_height from latest_height.
-    let remote_height = inner_client_state
+    let remote_height = identified_client_state
         .latest_height
         .ok_or_else(|| StdError::generic_err("IBC client state latest_height not found"))?
         .revision_height;

@@ -203,3 +203,41 @@ pub fn query_client_state(
 
     Ok(state)
 }
+
+pub fn extract_identified_client_state(
+    deps: &Deps<NeutronQuery>,
+    state: ChannelClientStateResponse,
+) -> StdResult<ClientState> {
+    if let Some(ref identified) = state.identified_client_state {
+        if let Some(ref any) = identified.client_state {
+            if any.type_url == "/ibc.lightclients.tendermint.v1.ClientState" {
+                let cs = ClientState::decode(any.value.as_slice()).map_err(|e| {
+                    StdError::generic_err(format!(
+                        "WASMDEBUG: failed to decode inner ClientState: {:?}",
+                        e
+                    ))
+                })?;
+                deps.api
+                    .debug(&format!("WASMDEBUG: Decoded ClientState: {:?}", cs));
+                return Ok(cs);
+            } else {
+                deps.api.debug(&format!(
+                    "WASMDEBUG: Unexpected client_state type_url: {}",
+                    any.type_url
+                ));
+                return Err(StdError::generic_err(format!(
+                    "Unexpected client_state type_url: {}",
+                    any.type_url
+                )));
+            }
+        } else {
+            deps.api
+                .debug("WASMDEBUG: No client_state found in IdentifiedClientState");
+            return Err(StdError::generic_err("No client_state found"));
+        }
+    }
+
+    deps.api
+        .debug("WASMDEBUG: No identified_client_state found");
+    Err(StdError::generic_err("No identified_client_state found"))
+}
