@@ -143,7 +143,7 @@ describe('Mirror', () => {
       `http://127.0.0.1:${context.park.ports.gaia.rpc}`,
       context.gaiaWallet,
       {
-        gasPrice: GasPrice.fromString('1.1stake'),
+        gasPrice: GasPrice.fromString('0.025stake'),
       },
     );
     context.neutronStargateClient =

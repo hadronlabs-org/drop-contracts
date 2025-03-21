@@ -85,7 +85,7 @@ describe('POC Proposal Votes', () => {
       `http://127.0.0.1:${context.park.ports.gaia.rpc}`,
       context.gaiaWallet,
       {
-        gasPrice: GasPrice.fromString('1.1stake'),
+        gasPrice: GasPrice.fromString('0.025stake'),
       },
     );
     const tmClient = await Tendermint34Client.connect(
