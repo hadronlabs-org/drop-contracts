@@ -67,7 +67,7 @@ export type Null = null;
 export type Binary = string;
 export type Null1 = null;
 export type ArrayOfAttribute = Attribute[];
-export type NullableNftInfoResponseForNullableMetadata = NftInfoResponseFor_Nullable_Metadata | null;
+export type NullableNftInfoResponseForNullableNftExtension = NftInfoResponseFor_Nullable_NftExtension | null;
 export type NullableString = string | null;
 /**
  * Actions that can be taken to alter the contract's ownership
@@ -97,13 +97,13 @@ export type UpdateCreatorOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropWithdrawalVoucherSchema {
-    responses: AllNftInfoResponseForNullableMetadata | OperatorsResponse | TokensResponse | ApprovalResponse | ApprovalsResponse | CollectionInfoAndExtensionResponseForEmpty | Null | AllInfoResponse | Null1 | ArrayOfAttribute | CollectionInfoAndExtensionResponseForEmpty1 | ConfigResponseForEmpty | OwnershipForAddr | OwnershipForAddr1 | NullableNftInfoResponseForNullableMetadata | NullableString | MinterResponse | NftInfoResponseForNullableMetadata | NumTokensResponse | OperatorResponse | OwnerOfResponse1 | OwnershipForAddr2 | TokensResponse1;
+    responses: AllNftInfoResponseForNullableNftExtension | OperatorsResponse | TokensResponse | ApprovalResponse | ApprovalsResponse | CollectionInfoAndExtensionResponseForEmpty | Null | AllInfoResponse | Null1 | ArrayOfAttribute | CollectionInfoAndExtensionResponseForEmpty1 | ConfigResponseForEmpty | OwnershipForAddr | OwnershipForAddr1 | NullableNftInfoResponseForNullableNftExtension | NullableString | MinterResponse | NftInfoResponseForNullableNftExtension | NumTokensResponse | OperatorResponse | OwnerOfResponse1 | OwnershipForAddr2 | TokensResponse1;
     query: OwnerOfArgs | ApprovalArgs | ApprovalsArgs | OperatorArgs | AllOperatorsArgs | NftInfoArgs | GetNftByExtensionArgs | AllNftInfoArgs | TokensArgs | AllTokensArgs | ExtensionArgs | GetCollectionExtensionArgs;
     execute: UpdateOwnershipArgs | UpdateMinterOwnershipArgs | UpdateCreatorOwnershipArgs | UpdateCollectionInfoArgs | TransferNftArgs | SendNftArgs | ApproveArgs | RevokeArgs | ApproveAllArgs | RevokeAllArgs | MintArgs | BurnArgs | UpdateExtensionArgs | UpdateNftInfoArgs | SetWithdrawAddressArgs | WithdrawFundsArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
-export interface AllNftInfoResponseForNullableMetadata {
+export interface AllNftInfoResponseForNullableNftExtension {
     /**
      * Who can transfer the token
      */
@@ -111,7 +111,7 @@ export interface AllNftInfoResponseForNullableMetadata {
     /**
      * Data on the token itself,
      */
-    info: NftInfoResponseFor_Nullable_Metadata;
+    info: NftInfoResponseFor_Nullable_NftExtension;
 }
 export interface OwnerOfResponse {
     /**
@@ -133,17 +133,17 @@ export interface Approval {
      */
     spender: Addr;
 }
-export interface NftInfoResponseFor_Nullable_Metadata {
+export interface NftInfoResponseFor_Nullable_NftExtension {
     /**
      * You can add any custom metadata here when you extend cw721-base
      */
-    extension?: Metadata | null;
+    extension?: NftExtension | null;
     /**
      * Universal resource identifier for this NFT Should point to a JSON file that conforms to the ERC721 Metadata JSON Schema
      */
     token_uri?: string | null;
 }
-export interface Metadata {
+export interface NftExtension {
     amount: Uint128;
     attributes?: Trait[] | null;
     batch_id: string;
@@ -301,11 +301,11 @@ export interface OwnershipForAddr1 {
 export interface MinterResponse {
     minter?: string | null;
 }
-export interface NftInfoResponseForNullableMetadata {
+export interface NftInfoResponseForNullableNftExtension {
     /**
      * You can add any custom metadata here when you extend cw721-base
      */
-    extension?: Metadata | null;
+    extension?: NftExtension | null;
     /**
      * Universal resource identifier for this NFT Should point to a JSON file that conforms to the ERC721 Metadata JSON Schema
      */
@@ -384,7 +384,7 @@ export interface NftInfoArgs {
     token_id: string;
 }
 export interface GetNftByExtensionArgs {
-    extension?: Metadata | null;
+    extension?: NftExtension | null;
     limit?: number | null;
     start_after?: string | null;
 }
@@ -447,7 +447,7 @@ export interface MintArgs {
     /**
      * Any custom extension used by this contract
      */
-    extension?: Metadata | null;
+    extension?: NftExtensionMsg | null;
     /**
      * The owner of the newly minter NFT
      */
@@ -461,6 +461,13 @@ export interface MintArgs {
      */
     token_uri?: string | null;
 }
+export interface NftExtensionMsg {
+    amount: Uint128;
+    attributes?: Trait[] | null;
+    batch_id: string;
+    description?: string | null;
+    name: string;
+}
 export interface BurnArgs {
     token_id: string;
 }
@@ -468,7 +475,7 @@ export interface UpdateExtensionArgs {
     msg: Empty;
 }
 export interface UpdateNftInfoArgs {
-    extension?: Metadata | null;
+    extension?: NftExtensionMsg | null;
     token_id: string;
     /**
      * NOTE: Empty string is handled as None
@@ -530,9 +537,9 @@ export declare class Client {
     queryMinter: () => Promise<MinterResponse>;
     queryGetMinterOwnership: () => Promise<OwnershipForAddr>;
     queryGetCreatorOwnership: () => Promise<OwnershipForAddr>;
-    queryNftInfo: (args: NftInfoArgs) => Promise<NftInfoResponseForNullableMetadata>;
-    queryGetNftByExtension: (args: GetNftByExtensionArgs) => Promise<NullableNftInfoResponseForNullableMetadata>;
-    queryAllNftInfo: (args: AllNftInfoArgs) => Promise<AllNftInfoResponseForNullableMetadata>;
+    queryNftInfo: (args: NftInfoArgs) => Promise<NftInfoResponseForNullableNftExtension>;
+    queryGetNftByExtension: (args: GetNftByExtensionArgs) => Promise<NullableNftInfoResponseForNullableNftExtension>;
+    queryAllNftInfo: (args: AllNftInfoArgs) => Promise<AllNftInfoResponseForNullableNftExtension>;
     queryTokens: (args: TokensArgs) => Promise<TokensResponse>;
     queryAllTokens: (args: AllTokensArgs) => Promise<TokensResponse>;
     queryExtension: (args: ExtensionArgs) => Promise<Null>;

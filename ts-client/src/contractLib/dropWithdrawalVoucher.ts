@@ -70,7 +70,7 @@ export type Null = null;
 export type Binary = string;
 export type Null1 = null;
 export type ArrayOfAttribute = Attribute[];
-export type NullableNftInfoResponseForNullableMetadata = NftInfoResponseFor_Nullable_Metadata | null;
+export type NullableNftInfoResponseForNullableNftExtension = NftInfoResponseFor_Nullable_NftExtension | null;
 export type NullableString = string | null;
 /**
  * Actions that can be taken to alter the contract's ownership
@@ -111,7 +111,7 @@ export type UpdateCreatorOwnershipArgs =
 
 export interface DropWithdrawalVoucherSchema {
   responses:
-    | AllNftInfoResponseForNullableMetadata
+    | AllNftInfoResponseForNullableNftExtension
     | OperatorsResponse
     | TokensResponse
     | ApprovalResponse
@@ -125,10 +125,10 @@ export interface DropWithdrawalVoucherSchema {
     | ConfigResponseForEmpty
     | OwnershipForAddr
     | OwnershipForAddr1
-    | NullableNftInfoResponseForNullableMetadata
+    | NullableNftInfoResponseForNullableNftExtension
     | NullableString
     | MinterResponse
-    | NftInfoResponseForNullableMetadata
+    | NftInfoResponseForNullableNftExtension
     | NumTokensResponse
     | OperatorResponse
     | OwnerOfResponse1
@@ -167,7 +167,7 @@ export interface DropWithdrawalVoucherSchema {
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
 }
-export interface AllNftInfoResponseForNullableMetadata {
+export interface AllNftInfoResponseForNullableNftExtension {
   /**
    * Who can transfer the token
    */
@@ -175,7 +175,7 @@ export interface AllNftInfoResponseForNullableMetadata {
   /**
    * Data on the token itself,
    */
-  info: NftInfoResponseFor_Nullable_Metadata;
+  info: NftInfoResponseFor_Nullable_NftExtension;
 }
 export interface OwnerOfResponse {
   /**
@@ -197,17 +197,17 @@ export interface Approval {
    */
   spender: Addr;
 }
-export interface NftInfoResponseFor_Nullable_Metadata {
+export interface NftInfoResponseFor_Nullable_NftExtension {
   /**
    * You can add any custom metadata here when you extend cw721-base
    */
-  extension?: Metadata | null;
+  extension?: NftExtension | null;
   /**
    * Universal resource identifier for this NFT Should point to a JSON file that conforms to the ERC721 Metadata JSON Schema
    */
   token_uri?: string | null;
 }
-export interface Metadata {
+export interface NftExtension {
   amount: Uint128;
   attributes?: Trait[] | null;
   batch_id: string;
@@ -364,11 +364,11 @@ export interface OwnershipForAddr1 {
 export interface MinterResponse {
   minter?: string | null;
 }
-export interface NftInfoResponseForNullableMetadata {
+export interface NftInfoResponseForNullableNftExtension {
   /**
    * You can add any custom metadata here when you extend cw721-base
    */
-  extension?: Metadata | null;
+  extension?: NftExtension | null;
   /**
    * Universal resource identifier for this NFT Should point to a JSON file that conforms to the ERC721 Metadata JSON Schema
    */
@@ -447,7 +447,7 @@ export interface NftInfoArgs {
   token_id: string;
 }
 export interface GetNftByExtensionArgs {
-  extension?: Metadata | null;
+  extension?: NftExtension | null;
   limit?: number | null;
   start_after?: string | null;
 }
@@ -510,7 +510,7 @@ export interface MintArgs {
   /**
    * Any custom extension used by this contract
    */
-  extension?: Metadata | null;
+  extension?: NftExtensionMsg | null;
   /**
    * The owner of the newly minter NFT
    */
@@ -524,6 +524,13 @@ export interface MintArgs {
    */
   token_uri?: string | null;
 }
+export interface NftExtensionMsg {
+  amount: Uint128;
+  attributes?: Trait[] | null;
+  batch_id: string;
+  description?: string | null;
+  name: string;
+}
 export interface BurnArgs {
   token_id: string;
 }
@@ -531,7 +538,7 @@ export interface UpdateExtensionArgs {
   msg: Empty;
 }
 export interface UpdateNftInfoArgs {
-  extension?: Metadata | null;
+  extension?: NftExtensionMsg | null;
   token_id: string;
   /**
    * NOTE: Empty string is handled as None
@@ -663,13 +670,13 @@ export class Client {
   queryGetCreatorOwnership = async(): Promise<OwnershipForAddr> => {
     return this.client.queryContractSmart(this.contractAddress, { get_creator_ownership: {} });
   }
-  queryNftInfo = async(args: NftInfoArgs): Promise<NftInfoResponseForNullableMetadata> => {
+  queryNftInfo = async(args: NftInfoArgs): Promise<NftInfoResponseForNullableNftExtension> => {
     return this.client.queryContractSmart(this.contractAddress, { nft_info: args });
   }
-  queryGetNftByExtension = async(args: GetNftByExtensionArgs): Promise<NullableNftInfoResponseForNullableMetadata> => {
+  queryGetNftByExtension = async(args: GetNftByExtensionArgs): Promise<NullableNftInfoResponseForNullableNftExtension> => {
     return this.client.queryContractSmart(this.contractAddress, { get_nft_by_extension: args });
   }
-  queryAllNftInfo = async(args: AllNftInfoArgs): Promise<AllNftInfoResponseForNullableMetadata> => {
+  queryAllNftInfo = async(args: AllNftInfoArgs): Promise<AllNftInfoResponseForNullableNftExtension> => {
     return this.client.queryContractSmart(this.contractAddress, { all_nft_info: args });
   }
   queryTokens = async(args: TokensArgs): Promise<TokensResponse> => {
