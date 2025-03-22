@@ -934,7 +934,12 @@ dependencies = [
  "drop-helpers",
  "drop-staking-base",
  "neutron-sdk",
+ "neutron-std",
+ "prost 0.12.6",
+ "prost-types",
  "semver",
+ "serde-json-wasm 1.0.1",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

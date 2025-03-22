@@ -26,9 +26,14 @@ cosmwasm-std = { workspace = true }
 cw-ownable = { workspace = true }
 cw2 = { workspace = true }
 neutron-sdk = { workspace = true }
+neutron-std = { workspace = true }
 drop-staking-base = { workspace = true }
 drop-helpers = { workspace = true }
 semver = { workspace = true }
 cw-storage-plus = { workspace = true }
 cw-utils = { workspace = true }
 bech32 = { workspace = true }
+thiserror = { workspace = true }
+serde-json-wasm = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
