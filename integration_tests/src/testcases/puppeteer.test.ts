@@ -1,8 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { DropPuppeteer } from 'drop-ts-client';
-import {
-  SigningStargateClient,
-} from '@cosmjs/stargate';
+import { SigningStargateClient } from '@cosmjs/stargate';
 import { join } from 'path';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
@@ -80,7 +78,9 @@ describe('Puppeteer', () => {
     const res = await client.upload(
       account.address,
       Uint8Array.from(
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_puppeteer.wasm')),
+        fs.readFileSync(
+          join(__dirname, '../../../artifacts/drop_puppeteer.wasm'),
+        ),
       ),
       1.5,
     );
