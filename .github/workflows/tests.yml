@@ -89,6 +89,18 @@ jobs:
       - run: cargo test --verbose --all
         env:
           RUST_BACKTRACE: 1
+  initia-unit-test:
+    name: Actions - initia unit test
+    runs-on: ubicloud-standard-4
+    needs:
+      - images-prepare
+    container:
+      image: initia-test:latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - run: initiad move test --verbose --named-addresses "me=0x1"
   lint-test:
     name: Actions - integration tests lint
     runs-on: ubicloud-standard-4
