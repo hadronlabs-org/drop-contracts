@@ -98,7 +98,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - run: cd ../movevm/liquidity-provider
+      - run: cd movevm/liquidity-provider
       - run: echo "CONTAINER_ID=$(docker create --name temp-container initia-test:1.0.19)" >> $GITHUB_ENV
       - run: docker cp $GITHUB_ENV:/usr/local/bin/initiad ./initiad
       - run: chmod +x ./initiad
