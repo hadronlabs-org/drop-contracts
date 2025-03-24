@@ -721,7 +721,7 @@ describe('Mirror', () => {
 
       it('resume relayer', async () => {
         await context.park.resumeRelayer('hermes', 0);
-        await sleep(10_000); // sudo-timeout
+        await sleep(20_000); // sudo-timeout
       });
     });
 
