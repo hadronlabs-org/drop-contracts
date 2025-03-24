@@ -61,7 +61,7 @@ const integrationTestsWorkflow = (name: string) => [
 const integrationWorkflow = (name: string) => ({
   name: `${name} Integration Tests`,
   needs: ['images-prepare', 'artifacts-prepare'],
-  'runs-on': 'self-hosted',
+  'runs-on': 'ubicloud-standard-4',
   steps: integrationTestsWorkflow(name),
 });
 
