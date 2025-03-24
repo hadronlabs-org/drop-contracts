@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "contracts/unbonding-mirror",
     "contracts/auto-withdrawer",
     "contracts/core",
     "contracts/distribution",

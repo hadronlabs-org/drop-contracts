@@ -1,0 +1,31 @@
+[package]
+authors = ["Vladislav Vasilev <vfaust.thefuture@gmail.com>"]
+description = "Contract for unbonding mirror logic"
+edition = "2021"
+name = "drop-unbonding-mirror"
+version = "1.0.0"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+library = []
+
+[dependencies]
+cosmwasm-std = { workspace = true }
+neutron-sdk = { workspace = true }
+neutron-std = { workspace = true }
+drop-staking-base = { workspace = true }
+cw2 = { workspace = true }
+cw-ownable = { workspace = true }
+drop-helpers = { workspace = true }
+thiserror = { workspace = true }
+semver = { workspace = true }
+cw-storage-plus = { workspace = true }
+cosmwasm-schema = { workspace = true }
+cw-utils = { workspace = true }
+bech32 = { workspace = true }
+cw721 = { workspace = true }
+serde-json-wasm = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }

@@ -1221,6 +1221,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-unbonding-mirror"
+version = "1.0.0"
+dependencies = [
+ "bech32 0.11.0",
+ "cosmwasm-schema 2.2.2",
+ "cosmwasm-std 2.2.2",
+ "cw-ownable",
+ "cw-storage-plus 2.0.0",
+ "cw-utils 2.0.0",
+ "cw2 2.0.0",
+ "cw721 0.20.0",
+ "drop-helpers",
+ "drop-staking-base",
+ "neutron-sdk",
+ "neutron-std",
+ "prost 0.12.6",
+ "prost-types",
+ "semver",
+ "serde-json-wasm 1.0.1",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "drop-val-ref"
 version = "1.0.0"
 dependencies = [

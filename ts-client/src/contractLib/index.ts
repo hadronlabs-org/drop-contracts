@@ -55,17 +55,20 @@ export const DropStrategy = _17;
 import * as _18 from './dropToken';
 export const DropToken = _18;
 
-import * as _19 from './dropValRef';
-export const DropValRef = _19;
+import * as _19 from './dropUnbondingMirror';
+export const DropUnbondingMirror = _19;
 
-import * as _20 from './dropValidatorsSet';
-export const DropValidatorsSet = _20;
+import * as _20 from './dropValRef';
+export const DropValRef = _20;
 
-import * as _21 from './dropValidatorsStats';
-export const DropValidatorsStats = _21;
+import * as _21 from './dropValidatorsSet';
+export const DropValidatorsSet = _21;
 
-import * as _22 from './dropWithdrawalManager';
-export const DropWithdrawalManager = _22;
+import * as _22 from './dropValidatorsStats';
+export const DropValidatorsStats = _22;
 
-import * as _23 from './dropWithdrawalVoucher';
-export const DropWithdrawalVoucher = _23;
+import * as _23 from './dropWithdrawalManager';
+export const DropWithdrawalManager = _23;
+
+import * as _24 from './dropWithdrawalVoucher';
+export const DropWithdrawalVoucher = _24;
