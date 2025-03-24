@@ -157,9 +157,6 @@ pub fn query_client_state(
             ))
         })?;
 
-    deps.api
-        .debug(&format!("WASMDEBUG: query_client_state raw: {:?}", raw));
-
     let state = match ChannelClientStateResponse::decode(raw.as_slice()) {
         Ok(s) => s,
         Err(e) => {
@@ -171,35 +168,6 @@ pub fn query_client_state(
             )));
         }
     };
-
-    deps.api.debug(&format!("WASMDEBUG: state: {:?}", state));
-
-    // If we have an IdentifiedClientState, decode its client_state field from the Any wrapper.
-    if let Some(ref identified) = state.identified_client_state {
-        if let Some(ref any) = identified.client_state {
-            if any.type_url == "/ibc.lightclients.tendermint.v1.ClientState" {
-                let cs = ClientState::decode(any.value.as_slice()).map_err(|e| {
-                    StdError::generic_err(format!(
-                        "WASMDEBUG: failed to decode inner ClientState: {:?}",
-                        e
-                    ))
-                })?;
-                deps.api
-                    .debug(&format!("WASMDEBUG: Decoded ClientState: {:?}", cs));
-            } else {
-                deps.api.debug(&format!(
-                    "WASMDEBUG: Unexpected client_state type_url: {}",
-                    any.type_url
-                ));
-            }
-        } else {
-            deps.api
-                .debug("WASMDEBUG: No client_state found in IdentifiedClientState");
-        }
-    } else {
-        deps.api
-            .debug("WASMDEBUG: No identified_client_state found");
-    }
 
     Ok(state)
 }
