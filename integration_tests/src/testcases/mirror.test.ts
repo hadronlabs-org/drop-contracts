@@ -28,6 +28,8 @@ import { waitFor } from '../helpers/waitFor';
 import { stringToPath } from '@cosmjs/crypto';
 import { instrumentCoreClass } from '../helpers/knot';
 import { sleep } from '../helpers/sleep';
+import { sha256 } from '@cosmjs/crypto';
+import { toHex } from '@cosmjs/encoding';
 
 const DropMirrorClass = DropMirror.Client;
 const DropFactoryClass = DropFactory.Client;
@@ -85,6 +87,7 @@ describe('Mirror', () => {
     exchangeRate?: number;
     neutronIBCDenom?: string;
     ldDenom?: string;
+    remoteLdDenom?: string;
   } = { codeIds: {} };
 
   beforeAll(async (t) => {
@@ -569,6 +572,11 @@ describe('Mirror', () => {
       res.puppeteer_contract,
     );
     context.ldDenom = `factory/${res.token_contract}/drop`;
+
+    const te = new TextEncoder();
+    context.remoteLdDenom = `ibc/${toHex(
+      sha256(te.encode(`transfer/channel-0/${context.ldDenom}`)),
+    ).toUpperCase()}`;
   });
 
   it('register native bond provider in the core', async () => {
@@ -649,38 +657,36 @@ describe('Mirror', () => {
   });
 
   it('proper bond', async () => {
-    await context.mirrorContractClient.bond(
+    const {
+      remoteLdDenom,
+      neutronIBCDenom,
+      mirrorContractClient,
+      gaiaClient,
+      gaiaUserAddress,
+    } = context;
+    await mirrorContractClient.bond(
       context.neutronUserAddress,
       {
-        receiver: context.gaiaUserAddress,
+        receiver: gaiaUserAddress,
       },
       1.6,
       undefined,
       [
         {
-          denom: context.neutronIBCDenom,
+          denom: neutronIBCDenom,
           amount: '1000',
         },
       ],
     );
     await waitFor(
       async () =>
-        (
-          await context.gaiaClient.getBalance(
-            context.gaiaUserAddress,
-            'ibc/1C3BF59376B26C1AC4E7BB85230733C373A0F2DC366FF9A4B1BD74B578F6A946',
-          )
-        ).amount !== '0',
+        (await gaiaClient.getBalance(gaiaUserAddress, remoteLdDenom)).amount !==
+        '0',
       20000,
       1000,
     );
     expect(
-      (
-        await context.gaiaClient.getBalance(
-          context.gaiaUserAddress,
-          'ibc/1C3BF59376B26C1AC4E7BB85230733C373A0F2DC366FF9A4B1BD74B578F6A946',
-        )
-      ).amount,
+      (await gaiaClient.getBalance(gaiaUserAddress, remoteLdDenom)).amount,
     ).toBe('1000');
   });
 
@@ -726,20 +732,18 @@ describe('Mirror', () => {
     });
 
     it("expect new assets to appear in contract's state", async () => {
-      expect(await context.mirrorContractClient.queryAllFailed()).toStrictEqual(
-        [
-          {
-            receiver: context.gaiaUserAddress,
-            failed_transfers: [
-              {
-                denom:
-                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
-                amount: '1000',
-              },
-            ],
-          },
-        ],
-      );
+      const { mirrorContractClient, gaiaUserAddress, ldDenom } = context;
+      expect(await mirrorContractClient.queryAllFailed()).toStrictEqual([
+        {
+          receiver: gaiaUserAddress,
+          failed_transfers: [
+            {
+              denom: ldDenom,
+              amount: '1000',
+            },
+          ],
+        },
+      ]);
     });
 
     describe('bond, timeout packet', () => {
@@ -748,16 +752,22 @@ describe('Mirror', () => {
       });
 
       it('bond', async () => {
-        await context.mirrorContractClient.bond(
-          context.neutronUserAddress,
+        const {
+          mirrorContractClient,
+          gaiaUserAddress2,
+          neutronUserAddress,
+          neutronIBCDenom,
+        } = context;
+        await mirrorContractClient.bond(
+          neutronUserAddress,
           {
-            receiver: context.gaiaUserAddress2,
+            receiver: gaiaUserAddress2,
           },
           1.6,
           undefined,
           [
             {
-              denom: context.neutronIBCDenom,
+              denom: neutronIBCDenom,
               amount: '1000',
             },
           ],
@@ -772,24 +782,28 @@ describe('Mirror', () => {
     });
 
     it("expect new assets to appear in contract's state", async () => {
-      expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+      const {
+        mirrorContractClient,
+        gaiaUserAddress,
+        gaiaUserAddress2,
+        ldDenom,
+      } = context;
+      expect(await mirrorContractClient.queryAllFailed()).toEqual(
         expect.arrayContaining([
           {
-            receiver: context.gaiaUserAddress2,
+            receiver: gaiaUserAddress2,
             failed_transfers: [
               {
-                denom:
-                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                denom: ldDenom,
                 amount: '1000',
               },
             ],
           },
           {
-            receiver: context.gaiaUserAddress,
+            receiver: gaiaUserAddress,
             failed_transfers: [
               {
-                denom:
-                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                denom: ldDenom,
                 amount: '1000',
               },
             ],
@@ -828,29 +842,32 @@ describe('Mirror', () => {
     });
 
     it("expect new assets to appear in contract's state", async () => {
-      expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+      const {
+        mirrorContractClient,
+        gaiaUserAddress,
+        gaiaUserAddress2,
+        ldDenom,
+      } = context;
+      expect(await mirrorContractClient.queryAllFailed()).toEqual(
         expect.arrayContaining([
           {
-            receiver: context.gaiaUserAddress,
+            receiver: gaiaUserAddress,
             failed_transfers: [
               {
-                denom:
-                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                denom: ldDenom,
                 amount: '1000',
               },
               {
-                denom:
-                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                denom: ldDenom,
                 amount: '1000',
               },
             ],
           },
           {
-            receiver: context.gaiaUserAddress2,
+            receiver: gaiaUserAddress2,
             failed_transfers: [
               {
-                denom:
-                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                denom: ldDenom,
                 amount: '1000',
               },
             ],
@@ -865,32 +882,37 @@ describe('Mirror', () => {
       });
 
       it('failed retry', async () => {
-        await context.mirrorContractClient.retry(
-          context.neutronUserAddress,
+        const {
+          mirrorContractClient,
+          gaiaUserAddress,
+          gaiaUserAddress2,
+          neutronUserAddress,
+          ldDenom,
+        } = context;
+
+        await mirrorContractClient.retry(
+          neutronUserAddress,
           {
-            receiver: context.gaiaUserAddress,
+            receiver: gaiaUserAddress,
           },
           1.6,
         );
-
-        expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+        expect(await mirrorContractClient.queryAllFailed()).toEqual(
           expect.arrayContaining([
             {
-              receiver: context.gaiaUserAddress,
+              receiver: gaiaUserAddress,
               failed_transfers: [
                 {
-                  denom:
-                    'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                  denom: ldDenom,
                   amount: '1000',
                 },
               ],
             },
             {
-              receiver: context.gaiaUserAddress2,
+              receiver: gaiaUserAddress2,
               failed_transfers: [
                 {
-                  denom:
-                    'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                  denom: ldDenom,
                   amount: '1000',
                 },
               ],
@@ -906,35 +928,39 @@ describe('Mirror', () => {
       });
 
       it('restored values after sudo-timeout', async () => {
+        const {
+          mirrorContractClient,
+          gaiaUserAddress,
+          gaiaUserAddress2,
+          ldDenom,
+        } = context;
+
         await waitFor(
           async () =>
-            (await context.mirrorContractClient.queryAllFailed()).length === 2,
+            (await mirrorContractClient.queryAllFailed()).length === 2,
           60_000,
           5_000,
         );
-        expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+        expect(await mirrorContractClient.queryAllFailed()).toEqual(
           expect.arrayContaining([
             {
-              receiver: context.gaiaUserAddress,
+              receiver: gaiaUserAddress,
               failed_transfers: [
                 {
-                  denom:
-                    'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                  denom: ldDenom,
                   amount: '1000',
                 },
                 {
-                  denom:
-                    'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                  denom: ldDenom,
                   amount: '1000',
                 },
               ],
             },
             {
-              receiver: context.gaiaUserAddress2,
+              receiver: gaiaUserAddress2,
               failed_transfers: [
                 {
-                  denom:
-                    'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                  denom: ldDenom,
                   amount: '1000',
                 },
               ],
@@ -945,42 +971,46 @@ describe('Mirror', () => {
     });
 
     it('retry with the working relayer (1)', async () => {
-      await context.mirrorContractClient.retry(
-        context.neutronUserAddress,
+      const {
+        mirrorContractClient,
+        gaiaUserAddress,
+        gaiaUserAddress2,
+        neutronUserAddress,
+        gaiaClient,
+        ldDenom,
+        remoteLdDenom,
+      } = context;
+
+      await mirrorContractClient.retry(
+        neutronUserAddress,
         {
-          receiver: context.gaiaUserAddress,
+          receiver: gaiaUserAddress,
         },
         1.6,
       );
       await waitFor(
         async () =>
-          (
-            await context.gaiaClient.getBalance(
-              context.gaiaUserAddress,
-              'ibc/1C3BF59376B26C1AC4E7BB85230733C373A0F2DC366FF9A4B1BD74B578F6A946',
-            )
-          ).amount !== '2000',
+          (await gaiaClient.getBalance(gaiaUserAddress, remoteLdDenom))
+            .amount !== '2000',
         20000,
         1000,
       );
-      expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+      expect(await mirrorContractClient.queryAllFailed()).toEqual(
         expect.arrayContaining([
           {
-            receiver: context.gaiaUserAddress,
+            receiver: gaiaUserAddress,
             failed_transfers: [
               {
-                denom:
-                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                denom: ldDenom,
                 amount: '1000',
               },
             ],
           },
           {
-            receiver: context.gaiaUserAddress2,
+            receiver: gaiaUserAddress2,
             failed_transfers: [
               {
-                denom:
-                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                denom: ldDenom,
                 amount: '1000',
               },
             ],
@@ -990,32 +1020,37 @@ describe('Mirror', () => {
     });
 
     it('retry with the working relayer (2)', async () => {
-      await context.mirrorContractClient.retry(
-        context.neutronUserAddress,
+      const {
+        mirrorContractClient,
+        gaiaUserAddress,
+        gaiaUserAddress2,
+        neutronUserAddress,
+        gaiaClient,
+        ldDenom,
+        remoteLdDenom,
+      } = context;
+
+      await mirrorContractClient.retry(
+        neutronUserAddress,
         {
-          receiver: context.gaiaUserAddress2,
+          receiver: gaiaUserAddress2,
         },
         1.6,
       );
       await waitFor(
         async () =>
-          (
-            await context.gaiaClient.getBalance(
-              context.gaiaUserAddress2,
-              'ibc/1C3BF59376B26C1AC4E7BB85230733C373A0F2DC366FF9A4B1BD74B578F6A946',
-            )
-          ).amount !== '1000',
+          (await gaiaClient.getBalance(gaiaUserAddress2, remoteLdDenom))
+            .amount !== '1000',
         20000,
         1000,
       );
-      expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+      expect(await mirrorContractClient.queryAllFailed()).toEqual(
         expect.arrayContaining([
           {
-            receiver: context.gaiaUserAddress,
+            receiver: gaiaUserAddress,
             failed_transfers: [
               {
-                denom:
-                  'factory/neutron1kcwqugre093ggkx46hdpemueltlrwnjkq7jfkjsxsx9rrgrfj2fss2p4aj/drop',
+                denom: ldDenom,
                 amount: '1000',
               },
             ],
@@ -1025,27 +1060,29 @@ describe('Mirror', () => {
     });
 
     it('retry with the working relayer (3)', async () => {
-      await context.mirrorContractClient.retry(
-        context.neutronUserAddress,
+      const {
+        mirrorContractClient,
+        gaiaUserAddress,
+        neutronUserAddress,
+        gaiaClient,
+        remoteLdDenom,
+      } = context;
+
+      await mirrorContractClient.retry(
+        neutronUserAddress,
         {
-          receiver: context.gaiaUserAddress,
+          receiver: gaiaUserAddress,
         },
         1.6,
       );
       await waitFor(
         async () =>
-          (
-            await context.gaiaClient.getBalance(
-              context.gaiaUserAddress,
-              'ibc/1C3BF59376B26C1AC4E7BB85230733C373A0F2DC366FF9A4B1BD74B578F6A946',
-            )
-          ).amount !== '3000',
+          (await gaiaClient.getBalance(gaiaUserAddress, remoteLdDenom))
+            .amount !== '3000',
         20000,
         1000,
       );
-      expect(await context.mirrorContractClient.queryAllFailed()).toStrictEqual(
-        [],
-      );
+      expect(await mirrorContractClient.queryAllFailed()).toStrictEqual([]);
     });
   });
 });
