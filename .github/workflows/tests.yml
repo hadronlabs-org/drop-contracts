@@ -109,8 +109,10 @@ jobs:
       - run: |
           docker pull docker.io/neutronorg/lionco-contracts:initia-test_1.0.19
           CONTAINER_ID=$(docker create --name temp-container docker.io/neutronorg/lionco-contracts:initia-test_1.0.19)
-          docker cp $CONTAINER_ID:/lib/libmovevm.so /lib/libmovevm.`uname -m`.so
+          docker cp $CONTAINER_ID:/lib/libmovevm.so ./libmovevm.`uname -m`.so
+          docker cp $CONTAINER_ID:/lib/libcompiler.so ./libcompiler.`uname -m`.so
           docker cp $CONTAINER_ID:/usr/local/bin/initiad ./initiad
+          patchelf --set-rpath "$(pwd):$(patchelf --print-rpath /home/vfaust/repos/initia/build/initiad)" /home/vfaust/repos/initia/build/initiad
           chmod +x ./initiad
           ./initiad move test --verbose --named-addresses "me=0x1"
   lint-test:
