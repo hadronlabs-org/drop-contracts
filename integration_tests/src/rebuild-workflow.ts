@@ -71,7 +71,8 @@ const packageJson = JSON.parse(
 
 const names = Object.keys(packageJson.scripts)
   .filter((name) => name.includes(':'))
-  .filter((name) => name.includes('test'));
+  .filter((name) => name.includes('test'))
+  .filter((name) => !name.includes('poc-'));
 
 const workflow = parse(readFileSync(__dirname + `/tests.yml`).toString());
 names.forEach((name) => {
