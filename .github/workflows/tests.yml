@@ -106,10 +106,13 @@ jobs:
           password: ${{ secrets.DOCKER_TOKEN }}
       - name: Clean volumes
         run: docker volume prune -f
-      - run: docker pull docker.io/neutronorg/lionco-contracts:initia-test_1.0.19
-      - run: CONTAINER_ID=$(docker create --name temp-container docker.io/neutronorg/lionco-contracts:initia-test_1.0.19) && docker cp $CONTAINER_ID:/usr/local/bin/initiad ./initiad
-      - run: chmod +x ./initiad
-      - run: ./initiad move test --verbose --named-addresses "me=0x1"
+      - run: |
+          docker pull docker.io/neutronorg/lionco-contracts:initia-test_1.0.19
+          CONTAINER_ID=$(docker create --name temp-container docker.io/neutronorg/lionco-contracts:initia-test_1.0.19)
+          docker cp /lib/libmovevm.so /lib/libmovevm.`uname -m`.so
+          docker cp $CONTAINER_ID:/usr/local/bin/initiad ./initiad
+          chmod +x ./initiad
+          ./initiad move test --verbose --named-addresses "me=0x1"
   lint-test:
     name: Actions - integration tests lint
     runs-on: ubicloud-standard-4
