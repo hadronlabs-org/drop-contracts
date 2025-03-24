@@ -112,7 +112,7 @@ jobs:
           docker cp $CONTAINER_ID:/lib/libmovevm.so ./libmovevm.`uname -m`.so
           docker cp $CONTAINER_ID:/lib/libcompiler.so ./libcompiler.`uname -m`.so
           docker cp $CONTAINER_ID:/usr/local/bin/initiad ./initiad
-          ABSOLUTE_INITIAD_PATH=$(pwd)/initiad patchelf --set-rpath "$(pwd):$(patchelf --print-rpath $ABSOLUTE_INITIAD_PATH)" $ABSOLUTE_INITIAD_PATH
+          patchelf --set-rpath "$(pwd):$(patchelf --print-rpath $(pwd)/initiad)" $(pwd)/initiad
           chmod +x ./initiad
           ./initiad move test --verbose --named-addresses "me=0x1"
   lint-test:
