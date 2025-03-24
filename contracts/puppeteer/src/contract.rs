@@ -607,7 +607,7 @@ fn execute_enable_tokenize_shares(
 
     any_msgs.push(prepare_any_msg(
         enable_tokenize_shares_msg,
-        "/cosmos.staking.v1beta1.Msg/EnableTokenizeShares",
+        "/cosmos.staking.v1beta1.MsgEnableTokenizeShares",
     )?);
     let submsg = compose_submsg(
         deps.branch(),
@@ -638,7 +638,7 @@ fn execute_disable_tokenize_shares(
 
     any_msgs.push(prepare_any_msg(
         disable_tokenize_shares_msg,
-        "/cosmos.staking.v1beta1.Msg/DisableTokenizeShares",
+        "/cosmos.staking.v1beta1.MsgDisableTokenizeShares",
     )?);
     let submsg = compose_submsg(
         deps.branch(),

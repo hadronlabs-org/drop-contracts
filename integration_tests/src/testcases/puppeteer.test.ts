@@ -146,19 +146,82 @@ describe('Puppeteer', () => {
     expect(ica.startsWith('cosmos')).toBeTruthy();
     context.icaAddress = ica;
   });
-  it('send some funds to ICA', async () => {
-    const { gaiaClient, gaiaUserAddress, icaAddress } = context;
-    const res = await gaiaClient.sendTokens(
-      gaiaUserAddress,
-      icaAddress,
+
+  it('validate tokenize shares enabled', async () => {
+    const status = JSON.parse(
+      (
+        await context.park.executeInNetwork(
+          'gaia',
+          `${context.park.config.networks['gaia'].binary} query staking tokenize-share-lock-info ${context.icaAddress} --output json`,
+        )
+      ).out,
+    ).status;
+    expect(status).toEqual('TOKENIZE_SHARE_LOCK_STATUS_UNLOCKED');
+  });
+
+  it('disable tokenize shares', async () => {
+    const { contractClient, neutronUserAddress } = context;
+
+    const res = await contractClient.disableTokenizeShares(
+      neutronUserAddress,
+      1.5,
+      undefined,
       [
         {
-          amount: '10000000',
-          denom: 'stake',
+          amount: '100000',
+          denom: 'untrn',
         },
       ],
-      1.5,
     );
+    expect(res).toBeTruthy();
     expect(res.transactionHash).toHaveLength(64);
+
+    await waitFor(async () => {
+      const res = await contractClient.queryTxState();
+      return res.status === 'idle';
+    }, 100_000);
+
+    const status = JSON.parse(
+      (
+        await context.park.executeInNetwork(
+          'gaia',
+          `${context.park.config.networks['gaia'].binary} query staking tokenize-share-lock-info ${context.icaAddress} --output json`,
+        )
+      ).out,
+    ).status;
+    expect(status).toEqual('TOKENIZE_SHARE_LOCK_STATUS_LOCKED');
+  });
+
+  it('enable tokenize shares', async () => {
+    const { contractClient, neutronUserAddress } = context;
+
+    const res = await contractClient.enableTokenizeShares(
+      neutronUserAddress,
+      1.5,
+      undefined,
+      [
+        {
+          amount: '100000',
+          denom: 'untrn',
+        },
+      ],
+    );
+    expect(res).toBeTruthy();
+    expect(res.transactionHash).toHaveLength(64);
+
+    await waitFor(async () => {
+      const res = await contractClient.queryTxState();
+      return res.status === 'idle';
+    }, 100_000);
+
+    const status = JSON.parse(
+      (
+        await context.park.executeInNetwork(
+          'gaia',
+          `${context.park.config.networks['gaia'].binary} query staking tokenize-share-lock-info ${context.icaAddress} --output json`,
+        )
+      ).out,
+    ).status;
+    expect(status).toEqual('TOKENIZE_SHARE_LOCK_STATUS_LOCK_EXPIRING');
   });
 });
