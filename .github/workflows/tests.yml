@@ -32,19 +32,19 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2023-12-21
+          toolchain: 1.81.0
           profile: minimal
           override: true
       - name: Install cargo-tarpaulin
         run: cargo install cargo-tarpaulin --version 0.29.1
-      - run: cargo tarpaulin --verbose --exclude-files "packages/*" --exclude-files "*/proto/*"
+      - run:
+          cargo tarpaulin --exclude-files "packages/*" --exclude-files "*/proto/*"
           --exclude-files "contracts/price-provider/*" --exclude-files
           "contracts/auto-withdrawer/*" --exclude-files
           "contracts/hook-tester/*" --exclude-files
           "contracts/astroport-exchange-handler/*" --exclude-files
           "contracts/proposal-votes-poc/*" --exclude-files
           "contracts/rewards-manager/*" --exclude-files
-          "contracts/puppeteer-authz/*" --exclude-files
           "contracts/validators-stats/*" --exclude-files
           "contracts/provider-proposals-poc/*" --exclude-files
           "contracts/redemption-rate-adapter/*" --exclude-files "*schema*" --out
@@ -55,7 +55,7 @@ jobs:
           path: ./cobertura.xml
           threshold: 45
           fail: true
-          publish: false
+          publish: true
           diff: false
           coverage-summary-title: Code Coverage Summary
   rustfmt:
@@ -153,6 +153,51 @@ jobs:
         with:
           path: artifacts
           key: ${{ runner.os }}-${{ github.sha }}
+  test-unbonding-mirror:
+    name: test:unbonding-mirror Integration Tests
+    needs:
+      - images-prepare
+      - artifacts-prepare
+    runs-on: ubicloud-standard-4
+    steps:
+      - name: Upgrade docker compose to use v2
+        run: sudo curl -L
+          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
+          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
+          /usr/local/bin/docker-compose
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.12.2
+      - name: Install Yarn
+        run: npm install -g yarn
+      - name: Log in to Private Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Clean volumes
+        run: docker volume prune -f
+      - name: Download images
+        run: |
+          cd integration_tests
+          yarn build-images
+      - name: Download artifacts
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: ${{ runner.os }}-${{ github.sha }}
+      - name: Run test test:unbonding-mirror
+        run: cd integration_tests && yarn && yarn test:unbonding-mirror
+      - name: Cleanup resources
+        if: always()
+        run: |
+          docker stop -t0 $(docker ps -a -q) || true
+          docker container prune -f || true
+          docker volume rm $(docker volume ls -q) || true
   test-core:
     name: test:core Integration Tests
     needs:
@@ -288,8 +333,8 @@ jobs:
           docker stop -t0 $(docker ps -a -q) || true
           docker container prune -f || true
           docker volume rm $(docker volume ls -q) || true
-  test-mirror:
-    name: test:mirror Integration Tests
+  test-bond-mirror:
+    name: test:bond-mirror Integration Tests
     needs:
       - images-prepare
       - artifacts-prepare
@@ -325,8 +370,8 @@ jobs:
         with:
           path: artifacts
           key: ${{ runner.os }}-${{ github.sha }}
-      - name: Run test test:mirror
-        run: cd integration_tests && yarn && yarn test:mirror
+      - name: Run test test:bond-mirror
+        run: cd integration_tests && yarn && yarn test:bond-mirror
       - name: Cleanup resources
         if: always()
         run: |
