@@ -98,7 +98,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - run: cd movevm/liquidity-provider
       - name: Log in to Private Registry
         uses: docker/login-action@v3
         with:
@@ -114,7 +113,8 @@ jobs:
           docker cp $CONTAINER_ID:/usr/local/bin/initiad ./initiad
           patchelf --set-rpath "$(pwd):$(patchelf --print-rpath $(pwd)/initiad)" $(pwd)/initiad
           chmod +x ./initiad
-          ./initiad move test --path ./movevm/liquidity-provider --verbose --named-addresses "me=0x1"
+      - name: Run unit tests
+        run: ./initiad move test --path ./movevm/liquidity-provider --verbose --named-addresses "me=0x1"
   lint-test:
     name: Actions - integration tests lint
     runs-on: ubicloud-standard-4
