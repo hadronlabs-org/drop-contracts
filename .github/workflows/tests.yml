@@ -107,7 +107,7 @@ jobs:
       - name: Clean volumes
         run: docker volume prune -f
       - run: docker pull docker.io/neutronorg/lionco-contracts:initia-test_1.0.19
-      - run: CONTAINER_ID=$(docker create --name temp-container docker.io/neutronorg/lionco-contracts:initia-test_1.0.19)
+      - run: CONTAINER_ID=$(docker create --name temp-container initia-test:1.0.19)
       - run: docker cp $CONTAINER_ID:/usr/local/bin/initiad ./initiad
       - run: chmod +x ./initiad
       - run: ./initiad move test --verbose --named-addresses "me=0x1"
