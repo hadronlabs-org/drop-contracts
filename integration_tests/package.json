@@ -1,6 +1,6 @@
 {
   "name": "drop-cosmos-integration-tests",
-  "version": "1.0.24",
+  "version": "1.0.19",
   "main": "vitest",
   "license": "MIT",
   "scripts": {
