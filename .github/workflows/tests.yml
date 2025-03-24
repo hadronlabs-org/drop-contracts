@@ -94,13 +94,15 @@ jobs:
     runs-on: ubicloud-standard-4
     needs:
       - images-prepare
-    container:
-      image: initia-test:latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-      - run: initiad move test --verbose --named-addresses "me=0x1"
+      - run: cd ../movevm/liquidity-provider
+      - run: echo "CONTAINER_ID=$(docker create --name temp-container initia-test:1.0.19)" >> $GITHUB_ENV
+      - run: docker cp $GITHUB_ENV:/usr/local/bin/initiad ./initiad
+      - run: chmod +x ./initiad
+      - run: ./initiad move test --verbose --named-addresses "me=0x1"
   lint-test:
     name: Actions - integration tests lint
     runs-on: ubicloud-standard-4
