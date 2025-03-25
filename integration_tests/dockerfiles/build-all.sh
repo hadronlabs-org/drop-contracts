@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 VERSION=$(cat ./package.json | jq -r '.version')
 cd dockerfiles
 IMAGES=$(ls -1 | grep -v build-all.sh | grep -v '^$')
