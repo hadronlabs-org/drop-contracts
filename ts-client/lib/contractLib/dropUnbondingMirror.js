@@ -35,16 +35,15 @@ class Client {
     queryAllFailed = async () => {
         return this.client.queryContractSmart(this.contractAddress, { all_failed: {} });
     };
+    queryUnbondReady = async (args) => {
+        return this.client.queryContractSmart(this.contractAddress, { unbond_ready: args });
+    };
+    queryVoucherToNft = async (args) => {
+        return this.client.queryContractSmart(this.contractAddress, { voucher_to_nft: args });
+    };
     queryOwnership = async () => {
         return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
     };
-    bond = async (sender, args, fee, memo, funds) => {
-        if (!isSigningCosmWasmClient(this.client)) {
-            throw this.mustBeSigningClient();
-        }
-        return this.client.execute(sender, this.contractAddress, this.bondMsg(args), fee || "auto", memo, funds);
-    };
-    bondMsg = (args) => { return { bond: args }; };
     updateConfig = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
@@ -52,6 +51,20 @@ class Client {
         return this.client.execute(sender, this.contractAddress, this.updateConfigMsg(args), fee || "auto", memo, funds);
     };
     updateConfigMsg = (args) => { return { update_config: args }; };
+    withdraw = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, this.withdrawMsg(args), fee || "auto", memo, funds);
+    };
+    withdrawMsg = (args) => { return { withdraw: args }; };
+    unbond = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, this.unbondMsg(args), fee || "auto", memo, funds);
+    };
+    unbondMsg = (args) => { return { unbond: args }; };
     retry = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();

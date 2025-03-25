@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "test": "vitest --run",
+    "test:unbonding-mirror": "vitest --run unbonding-mirror.test.ts --bail 1",
     "test:poc-provider-proposals": "vitest --run poc-provider-proposals.test.ts --bail 1",
     "test:poc-proposal-votes": "vitest --run poc-proposal-votes.test.ts --bail 1",
     "test:core": "REMOTE_CHAIN_OPTS=./dockerfiles/gaia/options.json vitest --run core.test.ts --bail 1",
@@ -12,7 +13,7 @@
     "test:core:native": "REMOTE_CHAIN_OPTS=./dockerfiles/neutronv2/options.json vitest --run core-native.test.ts --bail 1",
     "test:core:native:long": "REMOTE_CHAIN_OPTS=./dockerfiles/neutronv2/options.json vitest --run core-native-long-idle.test.ts --bail 1",
     "test:pump": "vitest --run pump.test.ts --bail 1",
-    "test:mirror": "vitest --run mirror.test.ts --bail 1",
+    "test:bond-mirror": "vitest --run bond-mirror.test.ts --bail 1",
     "test:pump-multi": "vitest --run pump-multi.test.ts --bail 1",
     "test:validators-stats": "vitest --run validators-stats.test.ts --bail 1",
     "test:validator-set": "vitest --run validator-set.test.ts --bail 1",
