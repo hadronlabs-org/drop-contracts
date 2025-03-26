@@ -1,5 +1,11 @@
 import { ManagerModule } from '../../types/Module';
-import { LCDClient, Wallet, MnemonicKey, MsgExecute } from '@initia/initia.js';
+import {
+  LCDClient,
+  Wallet,
+  MnemonicKey,
+  MsgExecute,
+  bcs,
+} from '@initia/initia.js';
 import { MoveLiquidityProviderConfig } from './types/config';
 import { Context } from '../../types/Context';
 import pino from 'pino';
@@ -9,6 +15,7 @@ export class MoveLiquidityProviderModule extends ManagerModule {
     private context: Context,
     private log: pino.Logger,
     lpModuleAddress: string,
+    lpModuleObject: string,
   ) {
     super();
     const lcd = new LCDClient(context.config.target.rest, {
@@ -24,6 +31,7 @@ export class MoveLiquidityProviderModule extends ManagerModule {
       lcd,
       wallet,
       moduleAddress: lpModuleAddress,
+      moduleObject: lpModuleObject,
     };
   }
 
@@ -38,25 +46,28 @@ export class MoveLiquidityProviderModule extends ManagerModule {
     const msg = new MsgExecute(
       this.config.wallet.key.accAddress,
       this.config.moduleAddress,
-      'liquidity_provider',
+      'drop_lp',
       'provide',
       [],
-      [],
+      [bcs.address().serialize(this.config.moduleObject).toBase64()],
     );
     const signedTx = await this.config.wallet.createAndSignTx({
       msgs: [msg],
       memo: 'sample memo',
     });
     const broadcastResult = await this.config.lcd.tx.broadcast(signedTx);
-    this.log.info(`Move LP module tx broadcast result: ${JSON.stringify(broadcastResult)}`);
+    this.log.info(
+      `Move LP module tx broadcast result: ${JSON.stringify(broadcastResult)}`,
+    );
   }
 
   static verifyConfig(
     log: pino.Logger,
     lpModuleAddress: string | undefined,
+    lpModuleObject: string | undefined,
   ): boolean {
-    if (!lpModuleAddress) {
-      log.error('move LP module address is not provided');
+    if (!lpModuleAddress || !lpModuleObject) {
+      log.error('move LP configuration is incomplete');
       return false;
     }
 

@@ -32,12 +32,13 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2023-12-21
+          toolchain: 1.81.0
           profile: minimal
           override: true
       - name: Install cargo-tarpaulin
         run: cargo install cargo-tarpaulin --version 0.29.1
-      - run: cargo tarpaulin --verbose --exclude-files "packages/*" --exclude-files "*/proto/*"
+      - run:
+          cargo tarpaulin --verbose --exclude-files "packages/*" --exclude-files "*/proto/*"
           --exclude-files "contracts/price-provider/*" --exclude-files
           "contracts/auto-withdrawer/*" --exclude-files
           "contracts/hook-tester/*" --exclude-files
@@ -88,6 +89,32 @@ jobs:
       - run: cargo test --verbose --all
         env:
           RUST_BACKTRACE: 1
+  initia-unit-test:
+    name: Actions - initia unit test
+    runs-on: ubicloud-standard-4
+    needs:
+      - images-prepare
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Log in to Private Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Clean volumes
+        run: docker volume prune -f
+      - run: |
+          docker pull docker.io/neutronorg/lionco-contracts:initia-test_1.0.19
+          CONTAINER_ID=$(docker create --name temp-container docker.io/neutronorg/lionco-contracts:initia-test_1.0.19)
+          docker cp $CONTAINER_ID:/lib/libmovevm.so ./libmovevm.`uname -m`.so
+          docker cp $CONTAINER_ID:/lib/libcompiler.so ./libcompiler.`uname -m`.so
+          docker cp $CONTAINER_ID:/usr/local/bin/initiad ./initiad
+          patchelf --set-rpath "$(pwd):$(patchelf --print-rpath $(pwd)/initiad)" $(pwd)/initiad
+          chmod +x ./initiad
+      - name: Run unit tests
+        run: ./initiad move test --path ./movevm/liquidity-provider --verbose --named-addresses "me=0x1"
   lint-test:
     name: Actions - integration tests lint
     runs-on: ubicloud-standard-4
