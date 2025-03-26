@@ -67,7 +67,7 @@ export class MoveLiquidityProviderModule extends ManagerModule {
     lpModuleObject: string | undefined,
   ): boolean {
     if (!lpModuleAddress || !lpModuleObject) {
-      log.error('move LP configuration is wrong');
+      log.error('move LP configuration is incomplete');
       return false;
     }
 
