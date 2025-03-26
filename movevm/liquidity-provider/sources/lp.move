@@ -1232,6 +1232,5 @@ module me::drop_lp {
             )
         );
         assert!(pool_coin_a_amount_after == pool_coin_a_amount_before + 123)
-    
     }
 }

@@ -35,14 +35,14 @@ initiad move deploy --path "$(pwd)" --upgrade-policy COMPATIBLE --from <name of 
 Method `create_liquidity_provider` has several arguments:
 
 - string:\<name\> Name for a visual reference, e.g. "testnet_uinit"
-- option\<address\>:\<address\> Priviliged account with a permission to withdraw any coins from the module object, will be set to `account` if omitted
+- address:\<address\> Priviliged account with a permission to withdraw any coins from the module object, will be set to `account` if omitted
 - string:\<name\> Name of a slinky pair, e.g. "INIT/USD"
 - object:\<address\> Address of liquidity pool, e.g. 0xdbf06c48af3984ec6d9ae8a9aa7dbb0bb1e784aa9b8c4a5681af660cf8558d7d for uinit-usdc on initiation-2 testnet
 - object:\<address\> Address of asset, e.g. 0x8e4733bdabcf7d4afc3d14f0dd46c9bf52fb0fce9e4b996c939e195b8bc891d9 for uinit on initiation-2 testnet
 - address:\<address\> Address which will be receiving all LP tokens (Rewards Pump ICA on Initia)
 
 ```bash
-initiad tx move execute <your hex address from the step 2> drop_lp create_liquidity_provider --args '["string:<name>", "option<address>:null", "string:INIT/USD", "object:<lp_metadata_address>", "object:<input_token_address>", "address:<lp_recepient>"]' --from <name of your key> --node https://rpc.initiation-2.initia.xyz:443 --chain-id initiation-2 --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit
+initiad tx move execute <your hex address from the step 2> drop_lp create_liquidity_provider --args '["string:<name>", "address:<backup address>", "string:INIT/USD", "object:<lp_metadata_address>", "object:<input_token_address>", "address:<lp_recepient>"]' --from <name of your key> --node https://rpc.initiation-2.initia.xyz:443 --chain-id initiation-2 --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit
 ```
 
 To get Liquidity Provider instance object's address use this:
