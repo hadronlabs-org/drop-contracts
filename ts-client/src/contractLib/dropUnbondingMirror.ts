@@ -54,6 +54,7 @@ export type Timestamp = Uint64;
  */
 export type Uint64 = string;
 export type Boolean = boolean;
+export type String = string;
 /**
  * Actions that can be taken to alter the contract's ownership
  */
@@ -68,8 +69,14 @@ export type UpdateOwnershipArgs =
   | "renounce_ownership";
 
 export interface DropUnbondingMirrorSchema {
-  responses: ArrayOfFailedReceiverResponse | Config | NullableFailedReceiverResponse | OwnershipForString | Boolean;
-  query: FailedReceiverArgs | UnbondReadyArgs;
+  responses:
+    | ArrayOfFailedReceiverResponse
+    | Config
+    | NullableFailedReceiverResponse
+    | OwnershipForString
+    | Boolean
+    | String;
+  query: FailedReceiverArgs | UnbondReadyArgs | VoucherToNftArgs;
   execute: UpdateConfigArgs | WithdrawArgs | UnbondArgs | RetryArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
@@ -113,6 +120,9 @@ export interface FailedReceiverArgs {
   receiver: string;
 }
 export interface UnbondReadyArgs {
+  id: string;
+}
+export interface VoucherToNftArgs {
   id: string;
 }
 export interface UpdateConfigArgs {
@@ -204,6 +214,9 @@ export class Client {
   }
   queryUnbondReady = async(args: UnbondReadyArgs): Promise<Boolean> => {
     return this.client.queryContractSmart(this.contractAddress, { unbond_ready: args });
+  }
+  queryVoucherToNft = async(args: VoucherToNftArgs): Promise<String> => {
+    return this.client.queryContractSmart(this.contractAddress, { voucher_to_nft: args });
   }
   queryOwnership = async(): Promise<OwnershipForString> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });

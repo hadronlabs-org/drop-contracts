@@ -38,6 +38,9 @@ class Client {
     queryUnbondReady = async (args) => {
         return this.client.queryContractSmart(this.contractAddress, { unbond_ready: args });
     };
+    queryVoucherToNft = async (args) => {
+        return this.client.queryContractSmart(this.contractAddress, { voucher_to_nft: args });
+    };
     queryOwnership = async () => {
         return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
     };

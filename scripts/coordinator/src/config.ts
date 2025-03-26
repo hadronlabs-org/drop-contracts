@@ -20,8 +20,10 @@ export class Config {
     rest: string;
     denom: string;
     gasPrice: GasPrice;
+    gasAdjustment: string;
     accountPrefix: string;
     validatorAccountPrefix: string;
+    chainId: string;
   };
 
   constructor(private logContext: pino.Logger) {
@@ -55,9 +57,11 @@ export class Config {
       gasPrice: GasPrice.fromString(
         process.env.RELAYER_TARGET_CHAIN_GAS_PRICES,
       ),
+      gasAdjustment: process.env.RELAYER_TARGET_CHAIN_GAS_ADJUSTMENT,
       accountPrefix: process.env.RELAYER_TARGET_CHAIN_ACCOUNT_PREFIX,
       validatorAccountPrefix:
-        process.env.RELAYER_TARGET_CHAIN_VALIDATOR_ACCOUNT_PREFIX,
+      process.env.RELAYER_TARGET_CHAIN_VALIDATOR_ACCOUNT_PREFIX,
+      chainId: process.env.RELAYER_TARGET_CHAIN_ID,
     };
 
     this.logContext.info('Config loaded');

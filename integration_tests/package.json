@@ -1,6 +1,6 @@
 {
   "name": "drop-cosmos-integration-tests",
-  "version": "1.0.8",
+  "version": "1.0.27",
   "main": "vitest",
   "license": "MIT",
   "scripts": {
@@ -41,7 +41,7 @@
     "@cosmjs/tendermint-rpc": "^0.32.4",
     "@initia/initia.js": "^0.2.16",
     "@neutron-org/client-ts": "^1.4.0",
-    "@neutron-org/cosmopark": "^1.7.3",
+    "@neutron-org/cosmopark": "^1.7.9",
     "bech32": "^1.1.4",
     "bech32-buffer": "0.2.1",
     "decimal.js": "^10.4.3",
