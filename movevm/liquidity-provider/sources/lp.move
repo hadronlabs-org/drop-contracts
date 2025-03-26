@@ -205,10 +205,10 @@ module me::drop_lp {
         );
         event::emit(ProvideEvent {
             ty: string::utf8(b"execute_provide"),
-            lp_address: lp_address,
-            callback_function: callback_function,
+            lp_address,
+            callback_function,
             fid: PROVIDE_CB_ID,
-            msg: msg,
+            msg,
         });
     }
 
@@ -231,7 +231,7 @@ module me::drop_lp {
         event::emit(BackupEvent {
             ty: string::utf8(b"execute_backup"),
             account: signer::address_of(account),
-            coin: coin,
+            coin,
             amount: amount_out,
             recipient: lp_config.backup,
         });
@@ -547,7 +547,9 @@ module me::drop_lp {
         let lp_config = borrow_global<LpConfig>(lp_object_address);
         // It's impossible to verify extend_ref here because we're allowed to create object
         // only once, so we can't create object with the same address in these tests,
-        // let's just pray it's valid
+        // the best we can do is to assert that this address exists and has a correct length:
+        // 2 characters for "0x", then 2 characters per address byte (32 bytes)
+        assert!(string::length(&address::to_string(object::address_from_extend_ref(&lp_config.extend_ref))) == 66);
         assert!(lp_config.name == string::utf8(b"name"));
         assert!(lp_config.backup == chain_addr);
         assert!(lp_config.slinky_pair == string::utf8(b"slinky_pair"));
@@ -742,15 +744,17 @@ module me::drop_lp {
                 string::utf8(b"SYMBOL")
             )
         );
+        let recipient_lp_amount_before = coin::balance(chain_addr, object::address_to_object(pair_metadata_address));
         provide_liquidity(&lp_signer, lp_object_config);
-
 
         let pool_coin_a_amount_after = dex::get_coin_a_amount_from_pool_info_response(
             &dex::get_pool_info_by_denom(
                 string::utf8(b"SYMBOL")
             )
         );
+        let recipient_lp_amount_after = coin::balance(chain_addr, object::address_to_object(pair_metadata_address));
         assert!(pool_coin_a_amount_after == pool_coin_a_amount_before + 100000);
+        assert!(recipient_lp_amount_after > recipient_lp_amount_before);
     }
 
     #[test(chain = @me)]
@@ -882,7 +886,16 @@ module me::drop_lp {
 
         let seed = b"drop_lp_name";
         let lp_object_address = object::create_object_address(&chain_addr, seed);
+        coin::transfer(chain, lp_object_address, init_metadata, coin::balance(chain_addr, init_metadata));
+
+        let object_balance_before = coin::balance(lp_object_address, init_metadata);
+        let backup_balance_before = coin::balance(chain_addr, init_metadata);
         backup(chain, lp_object_address, init_metadata);
+        let object_balance_after = coin::balance(lp_object_address, init_metadata);
+        let backup_balance_after = coin::balance(chain_addr, init_metadata);
+
+        assert!(object_balance_after == 0);
+        assert!(backup_balance_after == object_balance_before + backup_balance_before);
     }
 
     #[test(chain = @me)]
