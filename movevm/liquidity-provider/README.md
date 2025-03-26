@@ -67,7 +67,7 @@ then get some INIT tokens on the Liquidity Provider bech32 instance address that
 - address:\<address\> Hex address of the liquidity provider instance
 
 ```bash
-initiad tx move execute <name of your key> drop_lp provide '["address:<hex_lp_address>"]' --from <name of your key> --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --node https://rpc.initiation-2.initia.xyz:443 --chain-id initiation-2
+initiad tx move execute <your hex address from step 2> drop_lp provide '["address:<hex_lp_address>"]' --from <name of your key> --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --node https://rpc.initiation-2.initia.xyz:443 --chain-id initiation-2
 ```
 
 #### 8. Validate
