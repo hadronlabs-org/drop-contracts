@@ -50,6 +50,8 @@ export type Timestamp = Uint64;
  * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
  */
 export type Uint64 = string;
+export type Boolean = boolean;
+export type String = string;
 /**
  * Actions that can be taken to alter the contract's ownership
  */
@@ -59,10 +61,10 @@ export type UpdateOwnershipArgs = {
         new_owner: string;
     };
 } | "accept_ownership" | "renounce_ownership";
-export interface DropMirrorSchema {
-    responses: ArrayOfFailedReceiverResponse | Config | NullableFailedReceiverResponse | OwnershipForString;
-    query: FailedReceiverArgs;
-    execute: BondArgs | UpdateConfigArgs | RetryArgs | UpdateOwnershipArgs;
+export interface DropUnbondingMirrorSchema {
+    responses: ArrayOfFailedReceiverResponse | Config | NullableFailedReceiverResponse | OwnershipForString | Boolean | String;
+    query: FailedReceiverArgs | UnbondReadyArgs | VoucherToNftArgs;
+    execute: UpdateConfigArgs | WithdrawArgs | UnbondArgs | RetryArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -81,6 +83,8 @@ export interface Config {
     prefix: string;
     source_channel: string;
     source_port: string;
+    withdrawal_manager: string;
+    withdrawal_voucher: string;
 }
 /**
  * The contract's ownership info
@@ -102,9 +106,11 @@ export interface OwnershipForString {
 export interface FailedReceiverArgs {
     receiver: string;
 }
-export interface BondArgs {
-    receiver: string;
-    ref?: string | null;
+export interface UnbondReadyArgs {
+    id: string;
+}
+export interface VoucherToNftArgs {
+    id: string;
 }
 export interface UpdateConfigArgs {
     new_config: ConfigOptional;
@@ -115,6 +121,14 @@ export interface ConfigOptional {
     prefix?: string | null;
     source_channel?: string | null;
     source_port?: string | null;
+    withdrawal_manager?: string | null;
+    withdrawal_voucher?: string | null;
+}
+export interface WithdrawArgs {
+    receiver: string;
+}
+export interface UnbondArgs {
+    receiver: string;
 }
 export interface RetryArgs {
     receiver: string;
@@ -126,6 +140,8 @@ export interface InstantiateMsg {
     prefix: string;
     source_channel: string;
     source_port: string;
+    withdrawal_manager: string;
+    withdrawal_voucher: string;
 }
 export declare class Client {
     private readonly client;
@@ -137,9 +153,12 @@ export declare class Client {
     queryConfig: () => Promise<Config>;
     queryFailedReceiver: (args: FailedReceiverArgs) => Promise<NullableFailedReceiverResponse>;
     queryAllFailed: () => Promise<ArrayOfFailedReceiverResponse>;
+    queryUnbondReady: (args: UnbondReadyArgs) => Promise<Boolean>;
+    queryVoucherToNft: (args: VoucherToNftArgs) => Promise<String>;
     queryOwnership: () => Promise<OwnershipForString>;
-    bond: (sender: string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    withdraw: (sender: string, args: WithdrawArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    unbond: (sender: string, args: UnbondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     retry: (sender: string, args: RetryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
 }

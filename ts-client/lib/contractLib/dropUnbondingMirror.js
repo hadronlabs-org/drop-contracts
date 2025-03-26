@@ -35,20 +35,32 @@ class Client {
     queryAllFailed = async () => {
         return this.client.queryContractSmart(this.contractAddress, { all_failed: {} });
     };
+    queryUnbondReady = async (args) => {
+        return this.client.queryContractSmart(this.contractAddress, { unbond_ready: args });
+    };
+    queryVoucherToNft = async (args) => {
+        return this.client.queryContractSmart(this.contractAddress, { voucher_to_nft: args });
+    };
     queryOwnership = async () => {
         return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
-    };
-    bond = async (sender, args, fee, memo, funds) => {
-        if (!isSigningCosmWasmClient(this.client)) {
-            throw this.mustBeSigningClient();
-        }
-        return this.client.execute(sender, this.contractAddress, { bond: args }, fee || "auto", memo, funds);
     };
     updateConfig = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();
         }
         return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+    };
+    withdraw = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { withdraw: args }, fee || "auto", memo, funds);
+    };
+    unbond = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { unbond: args }, fee || "auto", memo, funds);
     };
     retry = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
