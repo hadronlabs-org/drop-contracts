@@ -129,7 +129,7 @@ module me::drop_lp {
     public entry fun create_liquidity_provider(
         account: &signer,
         name: String,                            // Just a name for a visual reference, e.g. "testnet_uinit"
-        backup: Option<address>,                 // Priviliged account with a right to withdraw any coins from module object,
+        backup: address,                         // Priviliged account with a right to withdraw any coins from module object,
                                                  // will be set to `account` if omitted
 
         slinky_pair: String,                     // Name of a slinky pair, e.g. "INIT/USD"
@@ -161,10 +161,6 @@ module me::drop_lp {
         let extend_ref = object::generate_extend_ref(&constructor_ref);
         let lp_signer = object::generate_signer_for_extending(&extend_ref);
         let lp_address = signer::address_of(&lp_signer);
-        let backup = option::destroy_with_default(
-            backup,
-            signer::address_of(account),
-        );
         move_to(
             &lp_signer,
             LpConfig {
@@ -449,7 +445,7 @@ module me::drop_lp {
         create_liquidity_provider(
             chain,
             string::utf8(b"name"),
-            option::none(),
+            chain_addr,
             string::utf8(b""),
             config_object,
             init_metadata,
@@ -490,7 +486,7 @@ module me::drop_lp {
         create_liquidity_provider(
             chain,
             string::utf8(b""),
-            option::none(),
+            chain_addr,
             string::utf8(b"slinky_pair"),
             config_object,
             init_metadata,
@@ -531,7 +527,7 @@ module me::drop_lp {
         create_liquidity_provider(
             chain,
             string::utf8(vector::map<u64, u8>(vector::range(0, 65), |e| e as u8)),
-            option::none(),
+            chain_addr,
             string::utf8(b"slinky_pair"),
             config_object,
             init_metadata,
@@ -571,7 +567,7 @@ module me::drop_lp {
         create_liquidity_provider(
             chain,
             string::utf8(b"name"),
-            option::none(),
+            chain_addr,
             string::utf8(b"slinky_pair"),
             config_object,
             init_metadata,
@@ -628,7 +624,7 @@ module me::drop_lp {
         create_liquidity_provider(
             chain,
             string::utf8(b"name"),
-            option::none(),
+            chain_addr,
             string::utf8(b"slinky_pair"),
             config_object,
             init_metadata,
@@ -669,7 +665,7 @@ module me::drop_lp {
         create_liquidity_provider(
             chain,
             string::utf8(b"name"),
-            option::none(),
+            chain_addr,
             string::utf8(b"slinky_pair"),
             config_object,
             init_metadata,
@@ -714,7 +710,7 @@ module me::drop_lp {
         create_liquidity_provider(
             chain,
             string::utf8(b"name"),
-            option::none(),
+            chain_addr,
             string::utf8(b"slinky_pair"),
             config_object,
             init_metadata,
@@ -760,7 +756,7 @@ module me::drop_lp {
         create_liquidity_provider(
             chain,
             string::utf8(b"name"),
-            option::none(),
+            chain_addr,
             string::utf8(b"slinky_pair"),
             config_object,
             init_metadata,
@@ -822,7 +818,7 @@ module me::drop_lp {
         create_liquidity_provider(
             chain,
             string::utf8(b"name"),
-            option::none(),
+            chain_addr,
             string::utf8(b"slinky_pair"),
             config_object,
             init_metadata,
@@ -865,7 +861,7 @@ module me::drop_lp {
         create_liquidity_provider(
             chain,
             string::utf8(b"name"),
-            option::none(),
+            chain_addr,
             string::utf8(b"slinky_pair"),
             config_object,
             init_metadata,
@@ -909,7 +905,7 @@ module me::drop_lp {
         create_liquidity_provider(
             chain,
             string::utf8(b"name"),
-            option::none(),
+            chain_addr,
             string::utf8(b"slinky_pair"),
             config_object,
             init_metadata,
@@ -954,7 +950,7 @@ module me::drop_lp {
         create_liquidity_provider(
             chain,
             string::utf8(b"name"),
-            option::none(),
+            chain_addr,
             string::utf8(b"slinky_pair"),
             config_object,
             init_metadata,
@@ -996,7 +992,7 @@ module me::drop_lp {
         create_liquidity_provider(
             chain,
             string::utf8(b"name"),
-            option::none(),
+            chain_addr,
             string::utf8(b"slinky_pair"),
             config_object,
             init_metadata,
@@ -1071,7 +1067,7 @@ module me::drop_lp {
         create_liquidity_provider(
             chain,
             string::utf8(b"name"),
-            option::none(),
+            chain_addr,
             string::utf8(b"slinky_pair"),
             config_object,
             init_metadata,
@@ -1139,7 +1135,7 @@ module me::drop_lp {
         create_liquidity_provider(
             chain,
             string::utf8(b"name"),
-            option::none(),
+            chain_addr,
             string::utf8(b"slinky_pair"),
             config_object,
             init_metadata,
@@ -1180,7 +1176,7 @@ module me::drop_lp {
         create_liquidity_provider(
             chain,
             string::utf8(b"name"),
-            option::none(),
+            chain_addr,
             string::utf8(b"slinky_pair"),
             config_object,
             init_metadata,
@@ -1242,7 +1238,7 @@ module me::drop_lp {
         create_liquidity_provider(
             chain,
             string::utf8(b"name"),
-            option::none(),
+            chain_addr,
             string::utf8(b"slinky_pair"),
             config_object,
             init_metadata,
@@ -1303,7 +1299,7 @@ module me::drop_lp {
         create_liquidity_provider(
             chain,
             string::utf8(b"name"),
-            option::none(),
+            chain_addr,
             string::utf8(b"slinky_pair"),
             config_object,
             init_metadata,
