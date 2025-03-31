@@ -1,4 +1,4 @@
-FROM ubuntu:24.04
+FROM ubuntu:24.10
 ARG HERMES_VERSION=v1.8.2
 WORKDIR /app
 RUN apt-get update && apt-get install -y wget && \
