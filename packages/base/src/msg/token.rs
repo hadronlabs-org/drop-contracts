@@ -1,3 +1,4 @@
+use crate::state::token::Pause;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
@@ -8,6 +9,8 @@ use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 pub enum QueryMsg {
     #[returns(ConfigResponse)]
     Config {},
+    #[returns(Pause)]
+    Pause {},
 }
 
 #[cw_serde]
@@ -22,6 +25,7 @@ pub enum ExecuteMsg {
     Mint { amount: Uint128, receiver: String },
     Burn {},
     SetTokenMetadata { token_metadata: DenomMetadata },
+    SetPause(Pause),
 }
 
 #[cw_serde]

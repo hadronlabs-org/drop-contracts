@@ -11,6 +11,7 @@ use cw_ownable::{Action, Ownership};
 use cw_utils::PaymentError;
 use drop_helpers::{
     ica::IcaState,
+    pause::PauseError,
     testing::{mock_dependencies, mock_state_query, WasmMockQuerier},
 };
 use drop_staking_base::{
@@ -18,8 +19,8 @@ use drop_staking_base::{
     msg::puppeteer::DelegationsResponse,
     state::{
         lsm_share_bond_provider::{
-            Config, ConfigOptional, ReplyMsg, TxState, CONFIG, LAST_LSM_REDEEM, PENDING_LSM_SHARES,
-            TOTAL_LSM_SHARES_REAL_AMOUNT, TX_STATE,
+            Config, ConfigOptional, ReplyMsg, TxState, CONFIG, LAST_LSM_REDEEM, PAUSE,
+            PENDING_LSM_SHARES, TOTAL_LSM_SHARES_REAL_AMOUNT, TX_STATE,
         },
         puppeteer::{Delegations, DropDelegation},
     },
@@ -345,8 +346,54 @@ fn test_update_ownership() {
 }
 
 #[test]
+fn execute_set_pause() {
+    let mut deps = mock_dependencies(&[]);
+    let deps_mut = deps.as_mut();
+    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("core")).unwrap();
+    PAUSE.save(deps.as_mut().storage, &false).unwrap();
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("core", &[]),
+        drop_staking_base::msg::lsm_share_bond_provider::ExecuteMsg::SetPause(true),
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        cosmwasm_std::Response::new().add_event(
+            Event::new("crates.io:drop-staking__drop-lsm-share-bond-provider-execute-set-pause")
+                .add_attributes(vec![attr("process_on_idle", "true")])
+        )
+    );
+    assert!(PAUSE.load(deps.as_ref().storage).unwrap());
+}
+
+#[test]
+fn process_on_idle_paused() {
+    let mut deps = mock_dependencies(&[]);
+    PAUSE.save(deps.as_mut().storage, &true).unwrap();
+
+    let error = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_core_contract", &[]),
+        drop_staking_base::msg::lsm_share_bond_provider::ExecuteMsg::ProcessOnIdle {},
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        error,
+        drop_staking_base::error::lsm_share_bond_provider::ContractError::PauseError(
+            PauseError::Paused {}
+        )
+    );
+}
+
+#[test]
 fn process_on_idle_not_core_contract() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE.save(deps.as_mut().storage, &false).unwrap();
     mock_state_query(&mut deps);
 
     CONFIG
@@ -372,7 +419,7 @@ fn test_process_on_idle_lsm_share_not_ready() {
     let mut deps = mock_dependencies(&[]);
     mock_state_query(&mut deps);
     let deps_mut = deps.as_mut();
-
+    PAUSE.save(deps_mut.storage, &false).unwrap();
     CONFIG
         .save(deps_mut.storage, &get_default_config(100u64, 200u64))
         .unwrap();
@@ -400,6 +447,7 @@ fn test_process_on_idle_lsm_share_not_ready() {
 #[test]
 fn test_process_on_idle_supported() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE.save(deps.as_mut().storage, &false).unwrap();
     mock_state_query(&mut deps);
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {

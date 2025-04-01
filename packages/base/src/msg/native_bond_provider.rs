@@ -27,6 +27,7 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     UpdateConfig { new_config: ConfigOptional },
     PeripheralHook(Box<PuppeteerResponseHookMsg>),
+    SetPause(bool),
 }
 
 #[bond_provider_query]
@@ -42,6 +43,8 @@ pub enum QueryMsg {
     TxState {},
     #[returns(LastPuppeteerResponse)]
     LastPuppeteerResponse {},
+    #[returns(bool)]
+    Pause {},
 }
 
 #[cw_serde]

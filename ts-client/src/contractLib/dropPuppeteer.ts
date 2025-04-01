@@ -118,6 +118,9 @@ export type QueryExtMsg =
       unbonding_delegations: {};
     }
   | {
+      pause: {};
+    }
+  | {
       ownership: {};
     };
 /**
@@ -196,6 +199,7 @@ export interface DropPuppeteerSchema {
     | TransferArgs
     | ClaimRewardsAndOptionalyTransferArgs
     | UpdateConfigArgs
+    | SetPauseArgs
     | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
@@ -287,6 +291,14 @@ export interface ConfigOptional {
   timeout?: number | null;
   transfer_channel_id?: string | null;
   update_period?: number | null;
+}
+export interface SetPauseArgs {
+  type?: "object";
+  required?: ["claim_rewards_and_optionally_transfer", "delegate", "redeem_shares", "tokenize_share", "undelegate"];
+  properties?: {
+    [k: string]: unknown;
+  };
+  additionalProperties?: never;
 }
 export interface InstantiateMsg {
   allowed_senders: string[];
@@ -421,6 +433,10 @@ export class Client {
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+  }
+  setPause = async(sender:string, args: SetPauseArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, { set_pause: args }, fee || "auto", memo, funds);
   }
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }

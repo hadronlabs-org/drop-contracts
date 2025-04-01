@@ -2,6 +2,7 @@ use cosmwasm_std::{
     ConversionOverflowError, Decimal256RangeExceeded, OverflowError, StdError, Uint128,
 };
 use cw_ownable::OwnershipError;
+use drop_helpers::pause::PauseError;
 use neutron_sdk::NeutronError;
 use thiserror::Error;
 
@@ -63,6 +64,9 @@ pub enum ContractError {
 
     #[error("LSM shares is not ready")]
     LSMSharesIsNotReady {},
+
+    #[error(transparent)]
+    PauseError(#[from] PauseError),
 }
 
 impl From<semver::Error> for ContractError {

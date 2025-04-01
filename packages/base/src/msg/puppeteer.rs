@@ -1,3 +1,4 @@
+use crate::state::puppeteer::Pause;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Timestamp, Uint128};
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
@@ -86,6 +87,7 @@ pub enum ExecuteMsg {
     UpdateConfig {
         new_config: ConfigOptional,
     },
+    SetPause(Pause),
 }
 
 impl ExecuteMsg {
@@ -132,6 +134,8 @@ pub enum QueryExtMsg {
     NonNativeRewardsBalances {},
     #[returns(Vec<drop_puppeteer_base::state::UnbondingDelegation>)]
     UnbondingDelegations {},
+    #[returns(Pause)]
+    Pause {},
 }
 
 #[cw_serde]

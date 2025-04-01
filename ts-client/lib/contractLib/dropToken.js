@@ -29,6 +29,9 @@ class Client {
     queryConfig = async () => {
         return this.client.queryContractSmart(this.contractAddress, { config: {} });
     };
+    queryPause = async () => {
+        return this.client.queryContractSmart(this.contractAddress, { pause: {} });
+    };
     queryOwnership = async () => {
         return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
     };
@@ -49,6 +52,12 @@ class Client {
             throw this.mustBeSigningClient();
         }
         return this.client.execute(sender, this.contractAddress, { set_token_metadata: args }, fee || "auto", memo, funds);
+    };
+    setPause = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, { set_pause: args }, fee || "auto", memo, funds);
     };
     updateOwnership = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {

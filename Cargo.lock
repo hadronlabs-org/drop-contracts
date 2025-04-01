@@ -1115,8 +1115,10 @@ version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cw-ownable",
  "cw2 1.1.2",
  "cw721-base 0.18.0",
+ "drop-helpers",
  "drop-staking-base",
  "semver",
 ]

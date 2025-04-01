@@ -74,6 +74,17 @@ pub const DECIMAL_PLACES: u32 = 18;
 const DECIMAL_FRACTIONAL: u128 = 10u128.pow(DECIMAL_PLACES);
 
 #[cw_serde]
+#[derive(Default)]
+pub struct Pause {
+    pub delegate: bool,
+    pub undelegate: bool,
+    pub claim_rewards_and_optionally_transfer: bool,
+    pub tokenize_share: bool,
+    pub redeem_shares: bool,
+}
+pub const PAUSE: Item<Pause> = Item::new("pause");
+
+#[cw_serde]
 pub struct BalancesAndDelegations {
     pub balances: Balances,
     pub delegations: Delegations,

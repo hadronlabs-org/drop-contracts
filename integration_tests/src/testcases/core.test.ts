@@ -1138,6 +1138,45 @@ describe('Core', () => {
     expect(res.transactionHash).toHaveLength(64);
   });
 
+  it('Pause token, try to call bond', async () => {
+    const { factoryContractClient, tokenContractClient, coreContractClient } =
+      context;
+    await factoryContractClient.adminExecute(
+      context.neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: tokenContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    set_pause: {
+                      mint: true,
+                      burn: true,
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      'auto',
+      '',
+      [],
+    );
+    await expect(
+      coreContractClient.bond(context.neutronUserAddress, {}, 'auto', '', [
+        {
+          denom: context.neutronIBCDenom,
+          amount: '20000',
+        },
+      ]),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
   it('query list of bond providers', async () => {
     const { coreContractClient } = context;
     const bondProviders = await coreContractClient.queryBondProviders();
@@ -1194,6 +1233,36 @@ describe('Core', () => {
 
     expect(bondProviders.flat()).toContain(
       context.nativeBondProviderContractClient.contractAddress,
+    );
+  });
+
+  it('Unpause token mint', async () => {
+    const { factoryContractClient, tokenContractClient } = context;
+    await factoryContractClient.adminExecute(
+      context.neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: tokenContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    set_pause: {
+                      mint: false,
+                      burn: true,
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      'auto',
+      '',
+      [],
     );
   });
 
@@ -1368,6 +1437,320 @@ describe('Core', () => {
     expect(rate.redemption_rate).toEqual('1');
     expect(Date.now() / 1000 - rate.update_time).toBeLessThan(5);
     expect(rate.redemption_rate).toEqual(exchangeRate);
+  });
+
+  it('Unbond error paused', async () => {
+    const { coreContractClient } = context;
+    await expect(
+      coreContractClient.unbond(context.neutronUserAddress, 'auto', '', [
+        {
+          denom: context.ldDenom,
+          amount: '20000',
+        },
+      ]),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
+  it('Unpause token burn', async () => {
+    const { factoryContractClient, tokenContractClient } = context;
+    await factoryContractClient.adminExecute(
+      context.neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: tokenContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    set_pause: {
+                      mint: false,
+                      burn: false,
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      'auto',
+      '',
+      [],
+    );
+  });
+
+  it('Pause withdrawal voucher mint', async () => {
+    const { factoryContractClient, withdrawalVoucherContractClient } = context;
+    await factoryContractClient.adminExecute(
+      context.neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: withdrawalVoucherContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    extension: {
+                      msg: {
+                        set_pause: {
+                          mint: true,
+                        },
+                      },
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      'auto',
+      '',
+      [],
+    );
+  });
+
+  it('Unbond error paused', async () => {
+    const { coreContractClient } = context;
+    await expect(
+      coreContractClient.unbond(context.neutronUserAddress, 'auto', '', [
+        {
+          denom: context.ldDenom,
+          amount: '20000',
+        },
+      ]),
+    ).rejects.toThrowError(/method mint is paused/);
+  });
+
+  it('Unpause withdrawal voucher mint', async () => {
+    const { factoryContractClient, withdrawalVoucherContractClient } = context;
+    await factoryContractClient.adminExecute(
+      context.neutronUserAddress,
+      {
+        msgs: [
+          {
+            wasm: {
+              execute: {
+                contract_addr: withdrawalVoucherContractClient.contractAddress,
+                msg: Buffer.from(
+                  JSON.stringify({
+                    extension: {
+                      msg: {
+                        set_pause: {
+                          mint: false,
+                        },
+                      },
+                    },
+                  }),
+                ).toString('base64'),
+                funds: [],
+              },
+            },
+          },
+        ],
+      },
+      'auto',
+      '',
+      [],
+    );
+  });
+
+  it('Pause puppeteer', async () => {
+    await context.factoryContractClient.adminExecute(context.account.address, {
+      msgs: [
+        {
+          wasm: {
+            execute: {
+              contract_addr: context.puppeteerContractClient.contractAddress,
+              msg: Buffer.from(
+                JSON.stringify({
+                  set_pause: {
+                    delegate: true,
+                    undelegate: true,
+                    claim_rewards_and_optionally_transfer: true,
+                    tokenize_share: true,
+                    redeem_shares: true,
+                  },
+                }),
+              ).toString('base64'),
+              funds: [],
+            },
+          },
+        },
+      ],
+    });
+  });
+
+  it('Call delegate', async () => {
+    const { puppeteerContractClient } = context;
+    await expect(
+      puppeteerContractClient.delegate(context.account.address, {
+        reply_to: puppeteerContractClient.contractAddress,
+        items: [],
+      }),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
+  it('Call tokenize_share', async () => {
+    const { puppeteerContractClient } = context;
+    await expect(
+      puppeteerContractClient.tokenizeShare(context.account.address, {
+        reply_to: puppeteerContractClient.contractAddress,
+        amount: '1',
+        validator: 'valoper1',
+      }),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
+  it('Call redeem_shares', async () => {
+    const { puppeteerContractClient } = context;
+    await expect(
+      puppeteerContractClient.redeemShares(context.account.address, {
+        reply_to: puppeteerContractClient.contractAddress,
+        items: [],
+      }),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
+  it('Call claim_rewards_and_optionally_transfer', async () => {
+    const { puppeteerContractClient } = context;
+    await expect(
+      puppeteerContractClient.claimRewardsAndOptionalyTransfer(
+        context.account.address,
+        {
+          reply_to: puppeteerContractClient.contractAddress,
+          validators: [],
+        },
+      ),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
+  it('Unpause puppeteer', async () => {
+    await context.factoryContractClient.adminExecute(context.account.address, {
+      msgs: [
+        {
+          wasm: {
+            execute: {
+              contract_addr: context.puppeteerContractClient.contractAddress,
+              msg: Buffer.from(
+                JSON.stringify({
+                  set_pause: {
+                    delegate: false,
+                    undelegate: false,
+                    claim_rewards_and_optionally_transfer: false,
+                    tokenize_share: false,
+                    redeem_shares: false,
+                  },
+                }),
+              ).toString('base64'),
+              funds: [],
+            },
+          },
+        },
+      ],
+    });
+  });
+
+  it('Pause Native Bond Provider', async () => {
+    await context.factoryContractClient.adminExecute(context.account.address, {
+      msgs: [
+        {
+          wasm: {
+            execute: {
+              contract_addr:
+                context.nativeBondProviderContractClient.contractAddress,
+              msg: Buffer.from(
+                JSON.stringify({
+                  set_pause: true,
+                }),
+              ).toString('base64'),
+              funds: [],
+            },
+          },
+        },
+      ],
+    });
+  });
+
+  it('Call process_on_idle', async () => {
+    const { nativeBondProviderContractClient } = context;
+    await expect(
+      nativeBondProviderContractClient.processOnIdle(context.account.address),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
+  it('Unpause Native Bond Provider', async () => {
+    await context.factoryContractClient.adminExecute(context.account.address, {
+      msgs: [
+        {
+          wasm: {
+            execute: {
+              contract_addr:
+                context.nativeBondProviderContractClient.contractAddress,
+              msg: Buffer.from(
+                JSON.stringify({
+                  set_pause: false,
+                }),
+              ).toString('base64'),
+              funds: [],
+            },
+          },
+        },
+      ],
+    });
+  });
+
+  it('Pause LSM Bond Provider', async () => {
+    await context.factoryContractClient.adminExecute(context.account.address, {
+      msgs: [
+        {
+          wasm: {
+            execute: {
+              contract_addr:
+                context.lsmShareBondProviderContractClient.contractAddress,
+              msg: Buffer.from(
+                JSON.stringify({
+                  set_pause: true,
+                }),
+              ).toString('base64'),
+              funds: [],
+            },
+          },
+        },
+      ],
+    });
+  });
+
+  it('Call process_on_idle', async () => {
+    const { lsmShareBondProviderContractClient } = context;
+    await expect(
+      lsmShareBondProviderContractClient.processOnIdle(context.account.address),
+    ).rejects.toThrowError(/Contract execution is paused/);
+  });
+
+  it('Unpause LSM Bond Provider', async () => {
+    await context.factoryContractClient.adminExecute(context.account.address, {
+      msgs: [
+        {
+          wasm: {
+            execute: {
+              contract_addr:
+                context.lsmShareBondProviderContractClient.contractAddress,
+              msg: Buffer.from(
+                JSON.stringify({
+                  set_pause: false,
+                }),
+              ).toString('base64'),
+              funds: [],
+            },
+          },
+        },
+      ],
+    });
   });
 
   it('unbond', async () => {
@@ -1763,6 +2146,7 @@ describe('Core', () => {
         expect(state).toEqual('idle');
         await checkExchangeRate(context);
       });
+
       it('decrease idle interval', async () => {
         const { factoryContractClient, neutronUserAddress } = context;
         const res = await factoryContractClient.updateConfig(
@@ -2029,6 +2413,7 @@ describe('Core', () => {
         expect(state).toEqual('claiming');
         await checkExchangeRate(context);
       });
+      //
       it('wait for response from puppeteer', async () => {
         let response;
         await waitFor(async () => {

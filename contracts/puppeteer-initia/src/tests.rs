@@ -11,14 +11,18 @@ use drop_helpers::{
     ibc_client_state::{
         ChannelClientStateResponse, ClientState, Fraction, Height, IdentifiedClientState,
     },
+    pause::PauseError,
     testing::mock_dependencies,
 };
-use drop_puppeteer_base::state::{BalancesAndDelegationsState, PuppeteerBase, ReplyMsg};
+use drop_puppeteer_base::{
+    error::ContractError,
+    state::{BalancesAndDelegationsState, PuppeteerBase, ReplyMsg},
+};
 use drop_staking_base::{
-    msg::puppeteer::InstantiateMsg,
+    msg::puppeteer::{ExecuteMsg, InstantiateMsg},
     state::{
-        puppeteer::{Config, ConfigOptional, Delegations, DropDelegation, KVQueryType},
-        puppeteer_initia::BalancesAndDelegations,
+        puppeteer::{Config, ConfigOptional, Delegations, DropDelegation, KVQueryType, Pause},
+        puppeteer_initia::{BalancesAndDelegations, PAUSE},
     },
 };
 use neutron_sdk::{
@@ -237,8 +241,97 @@ fn test_execute_setup_protocol() {
 }
 
 #[test]
+fn test_execute_undelegate_paused() {
+    let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                delegate: false,
+                undelegate: true,
+                claim_rewards_and_optionally_transfer: false,
+                tokenize_share: false,
+                redeem_shares: false,
+            },
+        )
+        .unwrap();
+    let error = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::Undelegate {
+            items: vec![],
+            batch_id: 0,
+            reply_to: "reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(error, ContractError::PauseError(PauseError::Paused {}));
+}
+
+#[test]
+fn test_execute_delegate_paused() {
+    let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                delegate: true,
+                undelegate: false,
+                claim_rewards_and_optionally_transfer: false,
+                tokenize_share: false,
+                redeem_shares: false,
+            },
+        )
+        .unwrap();
+    let error = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::Delegate {
+            items: vec![],
+            reply_to: "reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(error, ContractError::PauseError(PauseError::Paused {}));
+}
+
+#[test]
+fn test_execute_claim_rewards_and_optionally_transfer_paused() {
+    let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(
+            deps.as_mut().storage,
+            &Pause {
+                delegate: false,
+                undelegate: false,
+                claim_rewards_and_optionally_transfer: true,
+                tokenize_share: false,
+                redeem_shares: false,
+            },
+        )
+        .unwrap();
+    let error = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("owner", &[]),
+        ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
+            validators: vec![],
+            transfer: None,
+            reply_to: "reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(error, ContractError::PauseError(PauseError::Paused {}));
+}
+
+#[test]
 fn test_execute_undelegate() {
     let mut deps = mock_dependencies(&[]);
+    PAUSE
+        .save(deps.as_mut().storage, &Pause::default())
+        .unwrap();
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
             min_fee: get_standard_fees(),

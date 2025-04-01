@@ -7,6 +7,7 @@ use cosmwasm_std::{
     StdError, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
+use drop_helpers::pause::PauseError;
 use drop_helpers::{
     answer::response,
     get_contracts,
@@ -44,8 +45,8 @@ use drop_staking_base::{
         BalancesResponse, DelegationsResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryExtMsg,
     },
     state::puppeteer::{
-        BalancesAndDelegations, Config, ConfigOptional, Delegations, KVQueryType,
-        NON_NATIVE_REWARD_BALANCES,
+        BalancesAndDelegations, Config, ConfigOptional, Delegations, KVQueryType, Pause,
+        NON_NATIVE_REWARD_BALANCES, PAUSE,
     },
 };
 use neutron_sdk::{
@@ -73,6 +74,7 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    PAUSE.save(deps.storage, &Pause::default())?;
     let allowed_senders = validate_addresses(
         deps.as_ref().into_empty(),
         msg.allowed_senders.as_ref(),
@@ -108,6 +110,7 @@ pub fn query(
 ) -> ContractResult<Binary> {
     match msg {
         QueryMsg::Extension { msg } => match msg {
+            QueryExtMsg::Pause {} => Ok(to_json_binary(&PAUSE.load(deps.storage)?)?),
             QueryExtMsg::Delegations {} => query_delegations(deps),
             QueryExtMsg::Balances {} => query_balances(deps),
             QueryExtMsg::NonNativeRewardsBalances {} => query_non_native_rewards_balances(deps),
@@ -216,6 +219,7 @@ pub fn execute(
 ) -> ContractResult<Response<NeutronMsg>> {
     let puppeteer_base = Puppeteer::default();
     match msg {
+        ExecuteMsg::SetPause(pause) => execute_set_pause(deps.into_empty(), info, pause),
         ExecuteMsg::Delegate { items, reply_to } => execute_delegate(deps, info, items, reply_to),
         ExecuteMsg::Undelegate {
             items,
@@ -264,6 +268,29 @@ pub fn execute(
         } => execute_setup_protocol(deps, env, info, rewards_withdraw_address),
         _ => puppeteer_base.execute(deps, env, info, msg.to_base_enum()),
     }
+}
+
+fn execute_set_pause(
+    deps: DepsMut,
+    info: MessageInfo,
+    pause: Pause,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    PAUSE.save(deps.storage, &pause)?;
+
+    Ok(response(
+        "execute-set-pause",
+        CONTRACT_NAME,
+        [
+            ("delegate", pause.delegate.to_string()),
+            ("undelegate", pause.undelegate.to_string()),
+            (
+                "claim_rewards_and_optionally_transfer",
+                pause.claim_rewards_and_optionally_transfer.to_string(),
+            ),
+        ],
+    ))
 }
 
 fn execute_update_config(
@@ -335,6 +362,10 @@ fn execute_delegate(
     items: Vec<(String, Uint128)>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
+    if PAUSE.load(deps.as_ref().storage)?.delegate {
+        Err(ContractError::PauseError(PauseError::Paused {}))?
+    }
+
     let puppeteer_base = Puppeteer::default();
     let config = puppeteer_base.config.load(deps.storage)?;
     let addrs = get_contracts!(deps, config.factory_contract, native_bond_provider_contract);
@@ -643,6 +674,13 @@ fn execute_claim_rewards_and_optionaly_transfer(
     transfer: Option<TransferReadyBatchesMsg>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
+    if PAUSE
+        .load(deps.as_ref().storage)?
+        .claim_rewards_and_optionally_transfer
+    {
+        Err(ContractError::PauseError(PauseError::Paused {}))?
+    }
+
     let puppeteer_base = Puppeteer::default();
     deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
@@ -701,6 +739,10 @@ fn execute_undelegate(
     batch_id: u128,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
+    if PAUSE.load(deps.as_ref().storage)?.undelegate {
+        Err(ContractError::PauseError(PauseError::Paused {}))?
+    }
+
     let puppeteer_base = Puppeteer::default();
     deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
@@ -793,6 +835,10 @@ fn execute_tokenize_share(
     amount: Uint128,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
+    if PAUSE.load(deps.as_ref().storage)?.tokenize_share {
+        Err(ContractError::PauseError(PauseError::Paused {}))?
+    }
+
     let puppeteer_base = Puppeteer::default();
     deps.api.addr_validate(&reply_to)?;
     let config: Config = puppeteer_base.config.load(deps.storage)?;
@@ -834,6 +880,10 @@ fn execute_redeem_shares(
     items: Vec<RedeemShareItem>,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
+    if PAUSE.load(deps.as_ref().storage)?.redeem_shares {
+        Err(ContractError::PauseError(PauseError::Paused {}))?
+    }
+
     let attrs = vec![
         attr("action", "redeem_share"),
         attr("items", format!("{:?}", items)),
