@@ -23,7 +23,10 @@ import {
 } from '@cosmjs/stargate';
 import { join } from 'path';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
-import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
+import {
+  instantiate2Address,
+  SigningCosmWasmClient,
+} from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
@@ -37,6 +40,7 @@ import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
 import { instrumentCoreClass } from '../helpers/knot';
 import { checkExchangeRate } from '../helpers/exchangeRate';
 import { AccAddress } from '@initia/initia.js';
+import { fromHex, toAscii } from '@cosmjs/encoding';
 
 const DropTokenClass = DropToken.Client;
 const DropFactoryClass = DropFactory.Client;
@@ -53,6 +57,8 @@ const DropLsmShareBondProviderClass = DropLsmShareBondProvider.Client;
 const DropNativeBondProviderClass = DropNativeBondProvider.Client;
 
 const UNBONDING_TIME = 360;
+
+const SALT = 'salt';
 
 describe('Core', () => {
   const context: {
@@ -98,6 +104,7 @@ describe('Core', () => {
     secondValidatorAddress?: string;
     tokenizedDenomOnNeutron?: string;
     codeIds: {
+      factory?: number;
       core?: number;
       token?: number;
       withdrawalVoucher?: number;
@@ -112,6 +119,16 @@ describe('Core', () => {
       lsmShareBondProvider?: number;
       nativeBondProvider?: number;
     };
+    predefinedContractAddresses: {
+      factoryAddress?: string;
+      coreAddress?: string;
+      puppeteerAddress?: string;
+      strategyAddress?: string;
+      validatorSetAddress?: string;
+      lsmShareBondProviderAddress?: string;
+      withdrawalManagerAddress?: string;
+      splitterAddress?: string;
+    };
     exchangeRate?: number;
     moveIBCDenom?: string;
     ldDenom?: string;
@@ -124,7 +141,7 @@ describe('Core', () => {
     initiaAddress3?: string;
     liquidityProviderModuleAddress?: string;
     liquidityProviderModuleAddressHex?: string;
-  } = { codeIds: {} };
+  } = { codeIds: {}, predefinedContractAddresses: {} };
 
   beforeAll(async (t) => {
     context.park = await setupPark(
@@ -444,6 +461,27 @@ describe('Core', () => {
     context.codeIds = {};
 
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_factory.wasm'),
+      );
+
+      const res = await client.upload(
+        account.address,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.factory = res.codeId;
+
+      context.predefinedContractAddresses.factoryAddress = instantiate2Address(
+        fromHex(res.checksum),
+        account.address,
+        toAscii(SALT),
+        'neutron',
+      );
+    }
+
+    {
       const res = await client.upload(
         account.address,
         Uint8Array.from(
@@ -453,6 +491,13 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.core = res.codeId;
+
+      context.predefinedContractAddresses.coreAddress = instantiate2Address(
+        fromHex(res.checksum),
+        context.predefinedContractAddresses.factoryAddress,
+        toAscii(SALT),
+        'neutron',
+      );
     }
     {
       const res = await client.upload(
@@ -497,12 +542,91 @@ describe('Core', () => {
       const res = await client.upload(
         account.address,
         Uint8Array.from(
-          fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_splitter.wasm'),
+          ),
         ),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.splitter = res.codeId;
+
+      context.predefinedContractAddresses.splitterAddress = instantiate2Address(
+        fromHex(res.checksum),
+        context.predefinedContractAddresses.factoryAddress,
+        toAscii(SALT),
+        'neutron',
+      );
+    }
+    {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_pump.wasm'),
+      );
+
+      const res = await client.upload(
+        account.address,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.pump = res.codeId;
+
+      let instantiateRes = await DropPump.Client.instantiate(
+        context.client,
+        context.account.address,
+        context.codeIds.pump,
+        {
+          connection_id: 'connection-0',
+          local_denom: 'untrn',
+          timeout: {
+            local: 60,
+            remote: 60,
+          },
+          dest_address: context.predefinedContractAddresses.splitterAddress,
+          dest_port: 'transfer',
+          dest_channel: 'channel-0',
+          refundee: context.account.address,
+          owner: context.predefinedContractAddresses.factoryAddress,
+        },
+        'drop-staking-rewards-pump',
+        1.5,
+        [],
+        context.predefinedContractAddresses.factoryAddress,
+      );
+
+      context.rewardsPumpContractClient = new DropPump.Client(
+        context.client,
+        instantiateRes.contractAddress,
+      );
+
+      instantiateRes = await DropPump.Client.instantiate(
+        context.client,
+        context.account.address,
+        context.codeIds.pump,
+        {
+          connection_id: 'connection-0',
+          local_denom: 'untrn',
+          timeout: {
+            local: 60,
+            remote: 60,
+          },
+          dest_address:
+            context.predefinedContractAddresses.withdrawalManagerAddress,
+          dest_port: 'transfer',
+          dest_channel: 'channel-0',
+          refundee: context.account.address,
+          owner: context.predefinedContractAddresses.factoryAddress,
+        },
+        'drop-staking-unbonding-pump',
+        1.5,
+        [],
+        context.predefinedContractAddresses.factoryAddress,
+      );
+
+      context.pumpContractClient = new DropPump.Client(
+        context.client,
+        instantiateRes.contractAddress,
+      );
     }
     {
       const res = await client.upload(
@@ -548,45 +672,6 @@ describe('Core', () => {
         account.address,
         Uint8Array.from(
           fs.readFileSync(
-            join(__dirname, '../../../artifacts/drop_puppeteer_initia.wasm'),
-          ),
-        ),
-        1.5,
-      );
-      expect(res.codeId).toBeGreaterThan(0);
-      context.codeIds.puppeteer = res.codeId;
-    }
-    {
-      const res = await client.upload(
-        account.address,
-        Uint8Array.from(
-          fs.readFileSync(
-            join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
-          ),
-        ),
-        1.5,
-      );
-      expect(res.codeId).toBeGreaterThan(0);
-      context.codeIds.rewardsManager = res.codeId;
-    }
-    {
-      const res = await client.upload(
-        account.address,
-        Uint8Array.from(
-          fs.readFileSync(
-            join(__dirname, '../../../artifacts/drop_splitter.wasm'),
-          ),
-        ),
-        1.5,
-      );
-      expect(res.codeId).toBeGreaterThan(0);
-      context.codeIds.splitter = res.codeId;
-    }
-    {
-      const res = await client.upload(
-        account.address,
-        Uint8Array.from(
-          fs.readFileSync(
             join(
               __dirname,
               '../../../artifacts/drop_lsm_share_bond_provider.wasm',
@@ -597,6 +682,14 @@ describe('Core', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.lsmShareBondProvider = res.codeId;
+
+      context.predefinedContractAddresses.lsmShareBondProviderAddress =
+        instantiate2Address(
+          fromHex(res.checksum),
+          account.address,
+          toAscii(SALT),
+          'neutron',
+        );
     }
     {
       const res = await client.upload(
@@ -614,50 +707,172 @@ describe('Core', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.nativeBondProvider = res.codeId;
     }
+    {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_puppeteer_initia.wasm'),
+      );
 
-    const res = await client.upload(
-      account.address,
-      Uint8Array.from(
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_factory.wasm'),
+      const res = await client.upload(
+        account.address,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.puppeteer = res.codeId;
+
+      context.predefinedContractAddresses.puppeteerAddress =
+        instantiate2Address(
+          fromHex(res.checksum),
+          account.address,
+          toAscii(SALT),
+          'neutron',
+        );
+
+      let instantiateRes = await DropLsmShareBondProvider.Client.instantiate2(
+        context.client,
+        context.account.address,
+        context.codeIds.lsmShareBondProvider,
+        toAscii(SALT),
+        {
+          factory_contract: context.predefinedContractAddresses.factoryAddress,
+          lsm_redeem_threshold: 2,
+          lsm_min_bond_amount: '1000',
+          lsm_redeem_maximum_interval: 60_000,
+          owner: context.predefinedContractAddresses.factoryAddress,
+          port_id: 'transfer',
+          transfer_channel_id: 'channel-0',
+          timeout: 60,
+        },
+        'drop-staking-lsm-share-bond-provider',
+        1.5,
+        [],
+        context.predefinedContractAddresses.factoryAddress,
+      );
+
+      context.lsmShareBondProviderContractClient =
+        new DropLsmShareBondProvider.Client(
+          context.client,
+          instantiateRes.contractAddress,
+        );
+
+      instantiateRes = await DropNativeBondProvider.Client.instantiate(
+        context.client,
+        context.account.address,
+        context.codeIds.nativeBondProvider,
+        {
+          owner: context.predefinedContractAddresses.factoryAddress,
+          base_denom: context.moveIBCDenom,
+          factory_contract: context.predefinedContractAddresses.factoryAddress,
+          min_stake_amount: '10000',
+          min_ibc_transfer: '10000',
+          port_id: 'transfer',
+          transfer_channel_id: 'channel-0',
+          timeout: 60,
+        },
+        'drop-staking-native-bond-provider',
+        1.5,
+        [],
+        context.predefinedContractAddresses.factoryAddress,
+      );
+
+      context.nativeBondProviderContractClient =
+        new DropNativeBondProvider.Client(
+          context.client,
+          instantiateRes.contractAddress,
+        );
+
+      instantiateRes = await DropPuppeteerInitia.Client.instantiate2(
+        context.client,
+        account.address,
+        context.codeIds.puppeteer,
+        toAscii(SALT),
+        {
+          allowed_senders: [
+            context.predefinedContractAddresses.lsmShareBondProviderAddress,
+            context.nativeBondProviderContractClient.contractAddress,
+            context.predefinedContractAddresses.coreAddress,
+            context.predefinedContractAddresses.factoryAddress,
+          ],
+          owner: context.predefinedContractAddresses.factoryAddress,
+          remote_denom: context.moveDenom,
+          update_period: 5,
+          connection_id: 'connection-0',
+          port_id: 'transfer',
+          transfer_channel_id: 'channel-0',
+          sdk_version: process.env.SDK_VERSION || '0.47.16',
+          timeout: 60,
+          factory_contract: context.predefinedContractAddresses.factoryAddress,
+        },
+        'drop-staking-puppeteer',
+        1.5,
+        [],
+        context.predefinedContractAddresses.factoryAddress,
+      );
+
+      context.puppeteerContractClient = new DropPuppeteerInitia.Client(
+        context.client,
+        instantiateRes.contractAddress,
+      );
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        Uint8Array.from(
+          fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
+          ),
         ),
-      ),
-      1.5,
-    );
-    expect(res.codeId).toBeGreaterThan(0);
-    const instantiateRes = await DropFactory.Client.instantiate(
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.rewardsManager = res.codeId;
+    }
+
+    const instantiateRes = await DropFactory.Client.instantiate2(
       client,
       account.address,
-      res.codeId,
+      context.codeIds.factory,
+      toAscii(SALT),
       {
-        sdk_version: process.env.SDK_VERSION || '0.46.0',
-        local_denom: 'untrn',
+        base_denom: context.moveIBCDenom,
         code_ids: {
           core_code_id: context.codeIds.core,
-          token_code_id: context.codeIds.token,
-          withdrawal_voucher_code_id: context.codeIds.withdrawalVoucher,
-          withdrawal_manager_code_id: context.codeIds.withdrawalManager,
-          strategy_code_id: context.codeIds.strategy,
           distribution_code_id: context.codeIds.distribution,
-          validators_set_code_id: context.codeIds.validatorsSet,
-          puppeteer_code_id: context.codeIds.puppeteer,
           rewards_manager_code_id: context.codeIds.rewardsManager,
           splitter_code_id: context.codeIds.splitter,
-          rewards_pump_code_id: context.codeIds.pump,
-          lsm_share_bond_provider_code_id: context.codeIds.lsmShareBondProvider,
-          native_bond_provider_code_id: context.codeIds.nativeBondProvider,
+          strategy_code_id: context.codeIds.strategy,
+          token_code_id: context.codeIds.token,
+          validators_set_code_id: context.codeIds.validatorsSet,
+          withdrawal_manager_code_id: context.codeIds.withdrawalManager,
+          withdrawal_voucher_code_id: context.codeIds.withdrawalVoucher,
+        },
+        core_params: {
+          icq_update_delay: 5,
+          idle_min_interval: 120,
+          unbond_batch_switch_time: 60,
+          unbonding_period: 360,
+          unbonding_safe_period: 10,
+        },
+        local_denom: 'untrn',
+        pre_instantiated_contracts: {
+          native_bond_provider_address:
+            context.nativeBondProviderContractClient.contractAddress,
+          lsm_share_bond_provider_address:
+            context.predefinedContractAddresses.lsmShareBondProviderAddress,
+          puppeteer_address:
+            context.predefinedContractAddresses.puppeteerAddress,
+          unbonding_pump_address: context.pumpContractClient.contractAddress,
+          rewards_pump_address:
+            context.rewardsPumpContractClient.contractAddress,
         },
         remote_opts: {
           connection_id: 'connection-0',
-          transfer_channel_id: 'channel-0',
-          reverse_transfer_channel_id: 'channel-0',
-          port_id: 'transfer',
           denom: context.moveDenom,
-          update_period: 2,
           timeout: {
             local: 60,
             remote: 60,
           },
+          transfer_channel_id: 'channel-0',
         },
         salt: 'salt',
         subdenom: 'drop',
@@ -669,23 +884,6 @@ describe('Core', () => {
           symbol: 'DROP',
           uri: null,
           uri_hash: null,
-        },
-        base_denom: context.moveIBCDenom,
-        core_params: {
-          idle_min_interval: 120,
-          unbond_batch_switch_time: 60,
-          unbonding_safe_period: 10,
-          unbonding_period: 360,
-          icq_update_delay: 5,
-        },
-        native_bond_params: {
-          min_stake_amount: '10000',
-          min_ibc_transfer: '10000',
-        },
-        lsm_share_bond_params: {
-          lsm_redeem_threshold: 2,
-          lsm_min_bond_amount: '1000',
-          lsm_redeem_max_interval: 60_000,
         },
       },
       'drop-staking-factory',
@@ -756,32 +954,14 @@ describe('Core', () => {
       context.client,
       res.strategy_contract,
     );
-    context.rewardsPumpContractClient = new DropPump.Client(
-      context.client,
-      res.rewards_pump_contract,
-    );
     context.tokenContractClient = new DropToken.Client(
       context.client,
       res.token_contract,
-    );
-    context.puppeteerContractClient = new DropPuppeteerInitia.Client(
-      context.client,
-      res.puppeteer_contract,
     );
     context.splitterContractClient = new DropSplitter.Client(
       context.client,
       res.splitter_contract,
     );
-    context.lsmShareBondProviderContractClient =
-      new DropLsmShareBondProvider.Client(
-        context.client,
-        res.lsm_share_bond_provider_contract,
-      );
-    context.nativeBondProviderContractClient =
-      new DropNativeBondProvider.Client(
-        context.client,
-        res.native_bond_provider_contract,
-      );
   });
 
   it('setup ICA for rewards pump', async () => {
@@ -1204,46 +1384,9 @@ describe('Core', () => {
         ica.balance = parseInt(res.amount);
         expect(ica.balance).toEqual(1000);
       });
-      it('deploy pump', async () => {
-        const { client, account, neutronUserAddress } = context;
-        const resUpload = await client.upload(
-          account.address,
-          Uint8Array.from(
-            fs.readFileSync(
-              join(__dirname, '../../../artifacts/drop_pump.wasm'),
-            ),
-          ),
-          1.5,
-        );
-        expect(resUpload.codeId).toBeGreaterThan(0);
-        const { codeId } = resUpload;
-        const res = await DropPump.Client.instantiate(
-          client,
-          neutronUserAddress,
-          codeId,
-          {
-            connection_id: 'connection-0',
-            local_denom: 'untrn',
-            timeout: {
-              local: 60,
-              remote: 60,
-            },
-            dest_address:
-              context.withdrawalManagerContractClient.contractAddress,
-            dest_port: 'transfer',
-            dest_channel: 'channel-0',
-            refundee: neutronUserAddress,
-            owner: account.address,
-          },
-          'drop-staking-pump',
-          1.5,
-          [],
-        );
-        expect(res.contractAddress).toHaveLength(66);
-        context.pumpContractClient = new DropPump.Client(
-          client,
-          res.contractAddress,
-        );
+      it('setup unbonding pump', async () => {
+        const { neutronUserAddress } = context;
+
         await context.pumpContractClient.registerICA(
           neutronUserAddress,
           1.5,
@@ -1283,28 +1426,6 @@ describe('Core', () => {
       it('get machine state', async () => {
         const state = await context.coreContractClient.queryContractState();
         expect(state).toEqual('idle');
-      });
-    });
-    describe('paused tick', () => {
-      it('pause protocol', async () => {
-        const {
-          account,
-          factoryContractClient: contractClient,
-          neutronUserAddress,
-        } = context;
-
-        await contractClient.pause(account.address);
-
-        await expect(
-          context.coreContractClient.tick(neutronUserAddress, 1.5, undefined, [
-            {
-              amount: '1000000',
-              denom: 'untrn',
-            },
-          ]),
-        ).rejects.toThrowError(/Contract execution is paused/);
-
-        await contractClient.unpause(account.address);
       });
     });
     describe('first cycle', () => {
@@ -1915,53 +2036,5 @@ describe('Core', () => {
         expect(parseInt(nativeBondProviderBalance, 10)).toEqual(150000);
       });
     });
-  });
-
-  it.skip('update validators set and check kv queries id', async () => {
-    const {
-      neutronUserAddress,
-      factoryContractClient,
-      validatorAddress,
-      secondValidatorAddress,
-    } = context;
-
-    const queryIdsOriginal =
-      await context.puppeteerContractClient.queryKVQueryIds();
-
-    expect(queryIdsOriginal).toEqual([[1, 'delegations_and_balance']]);
-
-    const res = await factoryContractClient.proxy(
-      neutronUserAddress,
-      {
-        validator_set: {
-          update_validators: {
-            validators: [
-              {
-                valoper_address: validatorAddress,
-                weight: 1,
-                on_top: null,
-              },
-              {
-                valoper_address: secondValidatorAddress,
-                weight: 1,
-                on_top: null,
-              },
-            ],
-          },
-        },
-      },
-      1.5,
-      undefined,
-      [
-        {
-          amount: '1000000',
-          denom: 'untrn',
-        },
-      ],
-    );
-    expect(res.transactionHash).toHaveLength(64);
-
-    const queryIdsNew = await context.puppeteerContractClient.queryKVQueryIds();
-    expect(queryIdsNew).toEqual([[2, 'delegations_and_balance']]);
   });
 });

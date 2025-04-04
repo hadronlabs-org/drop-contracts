@@ -1160,6 +1160,7 @@ fn test_validate_contract_metadata_wrong_owner() {
     assert_eq!(
         error,
         drop_staking_base::error::factory::ContractError::InvalidContractOwner {
+            contract: String::from(contract_addr),
             expected: "cosmos2contract".to_string(),
             actual: "wrong_owner_address".to_string()
         }
@@ -1191,6 +1192,7 @@ fn test_validate_contract_metadata_wrong_admin() {
     assert_eq!(
         error,
         drop_staking_base::error::factory::ContractError::InvalidContractAdmin {
+            contract: String::from(contract_addr),
             expected: "cosmos2contract".to_string(),
             actual: "wrong_contract_admin".to_string()
         }
@@ -1222,6 +1224,7 @@ fn test_validate_contract_metadata_empty_admin() {
     assert_eq!(
         error,
         drop_staking_base::error::factory::ContractError::InvalidContractAdmin {
+            contract: String::from(contract_addr),
             expected: "cosmos2contract".to_string(),
             actual: "None".to_string()
         }

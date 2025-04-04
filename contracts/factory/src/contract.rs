@@ -529,6 +529,7 @@ pub fn validate_contract_metadata(
     let contract_config_owner = get_contract_config_owner(deps, contract_addr)?;
     if contract_config_owner != env.contract.address {
         return Err(ContractError::InvalidContractOwner {
+            contract: contract_addr.to_string(),
             expected: env.contract.address.to_string(),
             actual: contract_config_owner,
         });
@@ -539,12 +540,14 @@ pub fn validate_contract_metadata(
     if let Some(contract_admin) = contract_info.admin {
         if contract_admin != env.contract.address {
             return Err(ContractError::InvalidContractAdmin {
+                contract: contract_addr.to_string(),
                 expected: env.contract.address.to_string(),
                 actual: contract_admin.to_string(),
             });
         }
     } else {
         return Err(ContractError::InvalidContractAdmin {
+            contract: contract_addr.to_string(),
             expected: env.contract.address.to_string(),
             actual: "None".to_string(),
         });
