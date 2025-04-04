@@ -24,14 +24,8 @@ export interface DropDistributionSchema {
     [k: string]: unknown;
 }
 export interface CalcDepositArgs {
-    delegations: Delegations;
-    deposit: Uint128;
-}
-export interface Delegations {
     delegations: Delegation[];
-    total_on_top: Uint128;
-    total_stake: Uint128;
-    total_weight: number;
+    deposit: Uint128;
 }
 export interface Delegation {
     on_top: Uint128;
@@ -40,7 +34,7 @@ export interface Delegation {
     weight: number;
 }
 export interface CalcWithdrawArgs {
-    delegations: Delegations;
+    delegations: Delegation[];
     withdraw: Uint128;
 }
 export interface InstantiateMsg {
