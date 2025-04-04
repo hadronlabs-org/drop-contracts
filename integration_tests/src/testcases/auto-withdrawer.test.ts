@@ -629,7 +629,7 @@ describe('Auto withdrawer', () => {
           connection_id: 'connection-0',
           port_id: 'transfer',
           transfer_channel_id: 'channel-0',
-          sdk_version: process.env.SDK_VERSION || '0.47.10',
+          sdk_version: process.env.SDK_VERSION || '0.47.16',
           timeout: 60,
           factory_contract: context.predefinedContractAddresses.factoryAddress,
         },

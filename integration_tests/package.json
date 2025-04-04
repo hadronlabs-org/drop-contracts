@@ -1,6 +1,6 @@
 {
   "name": "drop-cosmos-integration-tests",
-  "version": "1.0.27",
+  "version": "1.0.34",
   "main": "vitest",
   "license": "MIT",
   "scripts": {
@@ -22,6 +22,7 @@
     "test:auto-withdrawer": "vitest --run auto-withdrawer.test.ts --bail 1",
     "test:gv": "vitest --run gv.test.ts --bail 1",
     "test:splitter": "vitest --run splitter.test.ts --bail 1",
+    "test:puppeteer": "vitest --run puppeteer.test.ts --bail 1",
     "debug": "vitest --inspect-brk --bail 1 --threads false --run core.test.ts",
     "watch": "vitest",
     "build-ts-client": "ts-node ./src/rebuild-client.ts",
@@ -34,7 +35,8 @@
     "build-neutron-query-relayer-image": "./dockerfiles/neutron-query-relayer/build.sh",
     "build-images": "./dockerfiles/build-all.sh && docker images",
     "lint": "eslint ./src -f compact",
-    "lint:fix": "eslint ./src -f compact --fix"
+    "lint:fix": "eslint ./src -f compact --fix",
+    "rebuild-workflow": "ts-node ./src/rebuild-workflow.ts"
   },
   "dependencies": {
     "@cosmjs/amino": "^0.32.4",

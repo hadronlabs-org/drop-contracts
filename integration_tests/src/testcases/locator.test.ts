@@ -275,7 +275,7 @@ describe('Locator', () => {
   it('Instantiate factory instances', async () => {
     const { client, account, codeIds } = context;
     const factory1_instantiate_message = {
-      sdk_version: process.env.SDK_VERSION || '0.46.0',
+      sdk_version: process.env.SDK_VERSION || '0.47.16',
       code_ids: {
         core_code_id: context.codeIds.core,
         token_code_id: context.codeIds.token,

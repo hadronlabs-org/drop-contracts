@@ -449,7 +449,7 @@ describe('Mirror', () => {
       account.address,
       res.codeId,
       {
-        sdk_version: process.env.SDK_VERSION || '0.47.10',
+        sdk_version: process.env.SDK_VERSION || '0.47.16',
         local_denom: 'untrn',
         code_ids: {
           core_code_id: context.codeIds.core,
@@ -721,7 +721,7 @@ describe('Mirror', () => {
 
       it('resume relayer', async () => {
         await context.park.resumeRelayer('hermes', 0);
-        await sleep(10_000); // sudo-timeout
+        await sleep(20_000); // sudo-timeout
       });
     });
 

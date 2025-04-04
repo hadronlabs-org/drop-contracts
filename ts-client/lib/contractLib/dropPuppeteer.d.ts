@@ -108,6 +108,10 @@ export type Transaction = {
         interchain_account_id: string;
         rewards_withdraw_address: string;
     };
+} | {
+    enable_tokenize_shares: {};
+} | {
+    disable_tokenize_shares: {};
 };
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
@@ -348,6 +352,14 @@ export declare class Client {
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateConfigMsg: (args: UpdateConfigArgs) => {
         update_config: UpdateConfigArgs;
+    };
+    enableTokenizeShares: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    enableTokenizeSharesMsg: () => {
+        enable_tokenize_shares: {};
+    };
+    disableTokenizeShares: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    disableTokenizeSharesMsg: () => {
+        disable_tokenize_shares: {};
     };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
