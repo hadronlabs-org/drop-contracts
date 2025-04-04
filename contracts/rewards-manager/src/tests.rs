@@ -6,11 +6,11 @@ use cosmwasm_std::{
 };
 use cw_multi_test::{custom_app, App, Contract, ContractWrapper, Executor};
 use drop_helpers::answer::{attr_coin, response};
-use drop_helpers::pause::PauseInfoResponse;
+use drop_helpers::pause::Interval;
 use drop_staking_base::msg::reward_handler::HandlerExecuteMsg;
 use drop_staking_base::msg::rewards_manager::QueryMsg;
 use drop_staking_base::msg::rewards_manager::{ExecuteMsg, InstantiateMsg};
-use drop_staking_base::state::rewards_manager::HandlerConfig;
+use drop_staking_base::state::rewards_manager::{HandlerConfig, Pause};
 
 const OWNER_ADDR: &str = "owner_address";
 
@@ -168,12 +168,12 @@ fn test_pause_query() {
         },
     );
 
-    let pause_info: PauseInfoResponse = app
+    let pause_info: Pause = app
         .wrap()
-        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::PauseInfo {})
+        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::Pause {})
         .unwrap();
 
-    assert_eq!(pause_info, PauseInfoResponse::Unpaused {});
+    assert_eq!(pause_info, Pause::default());
 }
 
 #[test]
@@ -194,7 +194,11 @@ fn test_pause_handler_not_owner_error() {
         .execute_contract(
             Addr::unchecked("WrongOwner"),
             rewards_manager_contract.clone(),
-            &ExecuteMsg::Pause {},
+            &ExecuteMsg::SetPause {
+                pause: Pause {
+                    exchange_rewards: Interval { from: 0, to: 0 },
+                },
+            },
             &[],
         )
         .unwrap_err();
@@ -225,7 +229,11 @@ fn test_pause_handler() {
         .execute_contract(
             Addr::unchecked(OWNER_ADDR),
             rewards_manager_contract.clone(),
-            &ExecuteMsg::Pause {},
+            &ExecuteMsg::SetPause {
+                pause: Pause {
+                    exchange_rewards: Interval { from: 0, to: 0 },
+                },
+            },
             &[],
         )
         .unwrap();
@@ -234,31 +242,45 @@ fn test_pause_handler() {
 
     assert_eq!(
         ty,
-        "wasm-crates.io:drop-staking__drop-rewards-manager-exec_pause".to_string()
+        "wasm-crates.io:drop-staking__drop-rewards-manager-execute-set-pause".to_string()
     );
 
-    let pause_info: PauseInfoResponse = app
+    let pause_info: Pause = app
         .wrap()
-        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::PauseInfo {})
+        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::Pause {})
         .unwrap();
 
-    assert_eq!(pause_info, PauseInfoResponse::Paused {});
+    assert_eq!(
+        pause_info,
+        Pause {
+            exchange_rewards: Interval { from: 0, to: 0 },
+        }
+    );
 
     let _res = app
         .execute_contract(
             Addr::unchecked(OWNER_ADDR),
             rewards_manager_contract.clone(),
-            &ExecuteMsg::Unpause {},
+            &ExecuteMsg::SetPause {
+                pause: Pause {
+                    exchange_rewards: Interval { from: 0, to: 0 },
+                },
+            },
             &[],
         )
         .unwrap();
 
-    let pause_info: PauseInfoResponse = app
+    let pause_info: Pause = app
         .wrap()
-        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::PauseInfo {})
+        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::Pause {})
         .unwrap();
 
-    assert_eq!(pause_info, PauseInfoResponse::Unpaused {});
+    assert_eq!(
+        pause_info,
+        Pause {
+            exchange_rewards: Interval { from: 0, to: 0 },
+        }
+    );
 }
 
 #[test]
@@ -279,17 +301,32 @@ fn test_paused_error() {
         .execute_contract(
             Addr::unchecked(OWNER_ADDR),
             rewards_manager_contract.clone(),
-            &ExecuteMsg::Pause {},
+            &ExecuteMsg::SetPause {
+                pause: Pause {
+                    exchange_rewards: Interval {
+                        from: 1000,
+                        to: 100000,
+                    },
+                },
+            },
             &[],
         )
         .unwrap();
 
-    let pause_info: PauseInfoResponse = app
+    let pause_info: Pause = app
         .wrap()
-        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::PauseInfo {})
+        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::Pause {})
         .unwrap();
 
-    assert_eq!(pause_info, PauseInfoResponse::Paused {});
+    assert_eq!(
+        pause_info,
+        Pause {
+            exchange_rewards: Interval {
+                from: 1000,
+                to: 100000
+            },
+        }
+    );
 
     let unwrapped_err = app
         .execute_contract(
@@ -529,7 +566,11 @@ fn test_empty_denoms_list() {
             &[],
         )
         .unwrap();
-
+    let pause_info: Pause = app
+        .wrap()
+        .query_wasm_smart(rewards_manager_contract.clone(), &QueryMsg::Pause {})
+        .unwrap();
+    println!("{:?}", pause_info);
     let res = app.execute_contract(
         Addr::unchecked(OWNER_ADDR),
         rewards_manager_contract.clone(),

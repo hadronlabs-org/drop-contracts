@@ -51,13 +51,12 @@ pub struct FailedBatchResponse {
     pub response: Option<u128>,
 }
 
+#[cw_ownable::cw_ownable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     #[returns(Config)]
     Config {},
-    #[returns(String)]
-    Owner {},
     #[returns(cosmwasm_std::Decimal)]
     ExchangeRate {},
     #[returns(Uint128)]

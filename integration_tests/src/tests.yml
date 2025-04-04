@@ -34,7 +34,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2023-12-21
+          toolchain: 1.81.0
           profile: minimal
           override: true
       - name: Install cargo-tarpaulin

@@ -1,0 +1,20 @@
+[package]
+authors = ["Murad Karammaev <muradkarammaev@gmail.com>"]
+description = "Mock neutron distribution module"
+edition = "2021"
+name = "drop-neutron-distribution-mock"
+version = "1.0.0"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+backtraces = ["cosmwasm-std/backtraces"]
+library = []
+
+[dependencies]
+cosmwasm-std = { workspace = true }
+cosmwasm-schema = { workspace = true }
+neutron-sdk = { workspace = true }
+cw2 = { workspace = true }
+drop-staking-base = { workspace = true }
