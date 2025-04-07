@@ -30,10 +30,18 @@ pub enum ContractError {
     AbsentContractVersion {},
     #[error("Invalid contract name. Expected: {expected}, actual: {actual}")]
     InvalidContractName { expected: String, actual: String },
-    #[error("Invalid contract owner. Expected: {expected}, actual: {actual}")]
-    InvalidContractOwner { expected: String, actual: String },
-    #[error("Invalid contract admin. Expected: {expected}, actual: {actual}")]
-    InvalidContractAdmin { expected: String, actual: String },
+    #[error("Invalid contract owner for {contract}. Expected: {expected}, actual: {actual}")]
+    InvalidContractOwner {
+        contract: String,
+        expected: String,
+        actual: String,
+    },
+    #[error("Invalid contract admin for {contract}. Expected: {expected}, actual: {actual}")]
+    InvalidContractAdmin {
+        contract: String,
+        expected: String,
+        actual: String,
+    },
     #[error("Contract address not found: {name}")]
     ContractAddressNotFound { name: String },
 
