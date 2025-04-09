@@ -3,7 +3,7 @@ use cosmwasm_std::{
     attr, ensure, to_json_binary, Addr, Attribute, BankMsg, Coin as StdCoin, CosmosMsg, Deps,
     QueryRequest, Reply, StakingMsg, StdError, SubMsg, Uint128, WasmMsg,
 };
-use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{Binary, Coin, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{answer::response, validation::validate_addresses};
 
 use drop_puppeteer_base::{
@@ -229,6 +229,18 @@ pub fn execute(
             batch_id,
             reply_to,
         } => execute_undelegate(deps, env, info, items, batch_id, reply_to),
+        ExecuteMsg::Redelegate {
+            amount,
+            source_validator,
+            destination_validator,
+        } => execute_redelegate(
+            deps,
+            env,
+            info,
+            amount,
+            source_validator,
+            destination_validator,
+        ),
         ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
             validators,
             transfer,
@@ -249,6 +261,67 @@ pub fn execute(
             Ok(Response::default())
         }
     }
+}
+
+fn execute_redelegate(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    info: MessageInfo,
+    amount: Option<Uint128>,
+    src_validator: String,
+    dst_validator: String,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    let amount = match amount {
+        Some(amount) => Some(amount),
+        None => {
+            let delegation = deps
+                .querier
+                .query_delegation(env.contract.address, src_validator.clone())?;
+
+            if let Some(delegation) = delegation {
+                if delegation.amount.denom != DEFAULT_DENOM {
+                    return Err(ContractError::InvalidFunds {
+                        reason: format!(
+                            "delegation denom must be {}, got {}",
+                            DEFAULT_DENOM, delegation.amount.denom
+                        ),
+                    });
+                }
+                Some(delegation.amount.amount)
+            } else {
+                None
+            }
+        }
+    }
+    .ok_or(ContractError::InvalidFunds {
+        reason: "amount should be provided".to_string(),
+    })?;
+
+    if amount.is_zero() {
+        return Err(ContractError::InvalidFunds {
+            reason: "amount must be greater than 0".to_string(),
+        });
+    }
+
+    let msg = CosmosMsg::Staking(StakingMsg::Redelegate {
+        src_validator: src_validator.to_string(),
+        dst_validator: dst_validator.to_string(),
+        amount: Coin {
+            denom: DEFAULT_DENOM.to_string(),
+            amount,
+        },
+    });
+
+    let attrs = vec![
+        attr("action", "redelegate"),
+        attr("amount", amount.to_string()),
+        attr("src_validator", src_validator),
+        attr("dst_validator", dst_validator),
+    ];
+
+    Ok(response("redelegate", CONTRACT_NAME, attrs).add_message(msg))
 }
 
 fn execute_update_config(

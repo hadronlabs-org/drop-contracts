@@ -28,6 +28,11 @@ pub enum ExecuteMsg {
         batch_id: u128,
         reply_to: String,
     },
+    Redelegate {
+        amount: Option<Uint128>,
+        source_validator: String,
+        destination_validator: String,
+    },
     ClaimRewardsAndOptionalyTransfer {
         validators: Vec<String>,
         transfer: Option<TransferReadyBatchesMsg>,
