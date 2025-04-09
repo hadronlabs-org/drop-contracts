@@ -694,19 +694,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw721-base"
-version = "0.20.0"
-source = "git+https://github.com/public-awesome/cw-nfts?branch=main#99dbf7ee89fd1e13f72380e92ff95a456183b35d"
-dependencies = [
- "cosmwasm-schema 2.2.2",
- "cosmwasm-std 2.2.2",
- "cw-ownable",
- "cw2 2.0.0",
- "cw721 0.20.0",
- "serde",
-]
-
-[[package]]
 name = "der"
 version = "0.7.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1225,7 +1212,6 @@ dependencies = [
  "cw-storage-plus 2.0.0",
  "cw-utils 2.0.0",
  "cw721 0.20.0",
- "cw721-base",
  "drop-helpers",
  "drop-macros",
  "drop-proto",
@@ -1370,7 +1356,6 @@ dependencies = [
  "cosmwasm-std 2.2.2",
  "cw2 2.0.0",
  "cw721 0.20.0",
- "cw721-base",
  "drop-staking-base",
  "semver",
 ]

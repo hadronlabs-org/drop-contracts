@@ -1,7 +1,7 @@
 use cosmwasm_std::Empty;
+pub use cw721::error::Cw721ContractError;
 pub use cw721::msg::MinterResponse;
 pub use cw721::traits::{Cw721Execute, Cw721Query};
-pub use cw721_base::error::ContractError;
 pub use drop_staking_base::msg::withdrawal_voucher::{
     ExecuteMsg, Extension, ExtensionMsg, InstantiateMsg, MigrateMsg, QueryMsg,
 };
@@ -34,7 +34,7 @@ pub mod entry {
         env: Env,
         info: MessageInfo,
         msg: InstantiateMsg,
-    ) -> Result<Response, ContractError> {
+    ) -> Result<Response, Cw721ContractError> {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
         Cw721VoucherContract::default().instantiate(deps.branch(), &env, &info, msg)
     }
@@ -45,24 +45,21 @@ pub mod entry {
         env: Env,
         info: MessageInfo,
         msg: ExecuteMsg,
-    ) -> Result<Response, ContractError> {
+    ) -> Result<Response, Cw721ContractError> {
         Cw721VoucherContract::default().execute(deps, &env, &info, msg)
     }
 
     #[cosmwasm_std::entry_point]
-    pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, ContractError> {
-        deps.api
-            .debug(format!("WASMDEBUG: Received QueryMsg: {:?}", msg).as_str());
-
-        let result = Cw721VoucherContract::default().query(deps, &env, msg);
-
-        deps.api
-            .debug(format!("WASMDEBUG: Exiting query with result: {:?}", result).as_str());
-        result
+    pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> Result<Binary, Cw721ContractError> {
+        Cw721VoucherContract::default().query(deps, &env, msg)
     }
 
     #[cosmwasm_std::entry_point]
-    pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
+    pub fn migrate(
+        deps: DepsMut,
+        _env: Env,
+        _msg: MigrateMsg,
+    ) -> Result<Response, Cw721ContractError> {
         let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
         let storage_contract_name = contract_version_metadata.contract.as_str();
         if storage_contract_name != CONTRACT_NAME {

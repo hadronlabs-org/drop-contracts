@@ -2,7 +2,6 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Empty;
 pub use cw721::msg::Cw721InstantiateMsg as CW721InstantiateMsg;
 pub use cw721::msg::MinterResponse;
-pub use cw721_base::error::ContractError;
 
 use crate::state::withdrawal_voucher::{NftExtension, NftExtensionMsg};
 

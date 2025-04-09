@@ -25,6 +25,5 @@ cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }
 cw2 = { workspace = true }
 cw721 = { workspace = true }
-cw721-base = { workspace = true }
 drop-staking-base = { workspace = true }
 semver = { workspace = true }

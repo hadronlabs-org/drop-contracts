@@ -30,7 +30,6 @@ drop-puppeteer-base = { workspace = true }
 drop-helpers = { workspace = true }
 drop-macros = { workspace = true }
 drop-proto = { workspace = true }
-cw721-base = { workspace = true }
 cw721 = { workspace = true }
 thiserror = { workspace = true }
 cw-ownable = { workspace = true }

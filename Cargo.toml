@@ -50,7 +50,6 @@ cosmwasm-schema = { version = "2.1.0", default-features = false }
 cw-storage-plus = { version = "2.0.0", default-features = false }
 cw2 = { version = "2.0.0", default-features = false }
 cw721 = { package = "cw721", git = "https://github.com/public-awesome/cw-nfts", branch = "main", default-features = false }
-cw721-base = { package = "cw721-base", git = "https://github.com/public-awesome/cw-nfts", branch = "main", default-features = false }
 cw-multi-test = { version = "2.1.0", default-features = false }
 cw-utils = { version = "2.0.0", default-features = false }
 time = "0.3.37"

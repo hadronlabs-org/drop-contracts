@@ -576,9 +576,6 @@ fn execute_setup_protocol(
         "/cosmos.distribution.v1beta1.MsgSetWithdrawAddress",
     )?);
 
-    deps.api
-        .debug(&format!("WASMDEBUG: {rewards_withdraw_address:?}",));
-
     let submsg = compose_submsg(
         deps.branch(),
         config.clone(),
@@ -590,8 +587,6 @@ fn execute_setup_protocol(
         "".to_string(),
         ReplyMsg::SudoPayload.to_reply_id(),
     )?;
-
-    deps.api.debug(&format!("WASMDEBUG: SUBMSG {submsg:?}",));
 
     Ok(Response::default().add_submessages(vec![submsg]))
 }
@@ -1074,9 +1069,6 @@ fn sudo_response(
         .latest_height
         .ok_or_else(|| StdError::generic_err("IBC client state latest_height not found"))?
         .revision_height;
-
-    deps.api
-        .debug(&format!("WASMDEBUG: remote height: {:?}", remote_height));
 
     deps.api.debug(&format!(
         "WASMDEBUG: json: {request:?}",
