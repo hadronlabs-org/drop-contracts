@@ -28,7 +28,8 @@ use drop_staking_base::{
     },
 };
 use neutron_sdk::{bindings::query::NeutronQuery, interchain_queries::v045::types::Balances};
-use std::{collections::HashMap, vec};
+use std::collections::HashMap;
+use std::vec;
 
 fn get_default_config(
     api: MockApi,
@@ -176,9 +177,15 @@ fn query_ownership() {
     cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some(owner_address.as_str()))
         .unwrap();
     assert_eq!(
-        from_json::<String>(&query(deps.as_ref(), mock_env(), QueryMsg::Owner {}).unwrap())
-            .unwrap(),
-        owner_address.as_str(),
+        from_json::<cw_ownable::Ownership<Addr>>(
+            &query(deps.as_ref(), mock_env(), QueryMsg::Ownership {}).unwrap()
+        )
+        .unwrap(),
+        cw_ownable::Ownership::<Addr> {
+            owner: Some(owner_address),
+            pending_owner: None,
+            pending_expiry: None,
+        }
     );
 }
 
@@ -2871,6 +2878,8 @@ mod bond_hooks {
 }
 
 mod pause {
+    use drop_helpers::pause::Interval;
+
     use super::*;
 
     #[test]
@@ -2879,24 +2888,48 @@ mod pause {
 
         for pause in [
             Pause {
-                bond: true,
-                unbond: false,
-                tick: false,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval { from: 0, to: 0 },
+                tick: Interval { from: 0, to: 0 },
             },
             Pause {
-                bond: true,
-                unbond: true,
-                tick: false,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval { from: 0, to: 0 },
             },
             Pause {
-                bond: true,
-                unbond: false,
-                tick: true,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval { from: 0, to: 0 },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
             Pause {
-                bond: true,
-                unbond: true,
-                tick: true,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
         ] {
             PAUSE.save(deps.as_mut().storage, &pause).unwrap();
@@ -2920,24 +2953,48 @@ mod pause {
 
         for pause in [
             Pause {
-                bond: false,
-                unbond: true,
-                tick: false,
+                bond: Interval { from: 0, to: 0 },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval { from: 0, to: 0 },
             },
             Pause {
-                bond: true,
-                unbond: true,
-                tick: false,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval { from: 0, to: 0 },
             },
             Pause {
-                bond: false,
-                unbond: true,
-                tick: true,
+                bond: Interval { from: 0, to: 0 },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
             Pause {
-                bond: true,
-                unbond: true,
-                tick: true,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
         ] {
             PAUSE.save(deps.as_mut().storage, &pause).unwrap();
@@ -2958,24 +3015,42 @@ mod pause {
 
         for pause in [
             Pause {
-                bond: false,
-                unbond: false,
-                tick: true,
+                bond: Interval { from: 0, to: 0 },
+                unbond: Interval { from: 0, to: 0 },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
             Pause {
-                bond: true,
-                unbond: false,
-                tick: true,
+                bond: Interval { from: 0, to: 0 },
+                unbond: Interval { from: 0, to: 0 },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
             Pause {
-                bond: false,
-                unbond: true,
-                tick: true,
+                bond: Interval { from: 0, to: 0 },
+                unbond: Interval { from: 0, to: 0 },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
             Pause {
-                bond: true,
-                unbond: true,
-                tick: true,
+                bond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                unbond: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
+                tick: Interval {
+                    from: 1000,
+                    to: 10000000,
+                },
             },
         ] {
             PAUSE.save(deps.as_mut().storage, &pause).unwrap();

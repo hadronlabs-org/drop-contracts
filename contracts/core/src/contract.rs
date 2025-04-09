@@ -4,7 +4,7 @@ use cosmwasm_std::{
     Response, StdError, StdResult, Uint128, Uint64, WasmMsg,
 };
 use cw_storage_plus::{Bound, Item};
-use drop_helpers::answer::response;
+use drop_helpers::{answer::response, is_paused};
 use drop_puppeteer_base::{msg::TransferReadyBatchesMsg, peripheral_hook::IBCTransferReason};
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
@@ -38,7 +38,6 @@ pub type MessageWithFeeResponse<T> = (CosmosMsg<T>, Option<CosmosMsg<T>>);
 pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const UNBOND_BATCHES_PAGINATION_DEFAULT_LIMIT: Uint64 = Uint64::new(100u64);
-
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut<NeutronQuery>,
@@ -82,12 +81,7 @@ pub fn instantiate(
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     Ok(match msg {
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?)?,
-        QueryMsg::Owner {} => to_json_binary(
-            &cw_ownable::get_ownership(deps.storage)?
-                .owner
-                .unwrap_or(Addr::unchecked(""))
-                .to_string(),
-        )?,
+        QueryMsg::Ownership {} => to_json_binary(&cw_ownable::get_ownership(deps.storage)?)?,
         QueryMsg::TotalBonded {} => {
             let config = CONFIG.load(deps.storage)?;
             to_json_binary(&query_total_bonded(deps, &config)?)?
@@ -282,8 +276,8 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::Bond { receiver, r#ref } => execute_bond(deps, info, receiver, r#ref),
-        ExecuteMsg::Unbond {} => execute_unbond(deps, info),
+        ExecuteMsg::Bond { receiver, r#ref } => execute_bond(deps, info, env, receiver, r#ref),
+        ExecuteMsg::Unbond {} => execute_unbond(deps, info, env),
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, *new_config),
         ExecuteMsg::UpdateOwnership(action) => {
@@ -396,17 +390,19 @@ fn execute_set_pause(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
+    pause.bond.validate()?;
+    pause.unbond.validate()?;
+    pause.tick.validate()?;
+
     PAUSE.save(deps.storage, &pause)?;
 
-    Ok(response(
-        "execute-set-pause",
-        CONTRACT_NAME,
-        [
-            ("bond", pause.bond.to_string()),
-            ("unbond", pause.unbond.to_string()),
-            ("tick", pause.tick.to_string()),
-        ],
-    ))
+    let attrs = vec![
+        ("bond", pause.bond.to_string()),
+        ("unbond", pause.unbond.to_string()),
+        ("tick", pause.tick.to_string()),
+    ];
+
+    Ok(response("execute-set-pause", CONTRACT_NAME, attrs))
 }
 
 fn execute_process_emergency_batch(
@@ -537,7 +533,7 @@ fn execute_tick(
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    if PAUSE.load(deps.storage)?.tick {
+    if is_paused!(PAUSE, deps, env, tick) {
         return Err(drop_helpers::pause::PauseError::Paused {}.into());
     }
 
@@ -964,10 +960,11 @@ fn execute_tick_unbonding(
 fn execute_bond(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
+    env: Env,
     receiver: Option<String>,
     r#ref: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    if PAUSE.load(deps.storage)?.bond {
+    if is_paused!(PAUSE, deps, env, bond) {
         return Err(drop_helpers::pause::PauseError::Paused {}.into());
     }
 
@@ -1124,8 +1121,9 @@ fn execute_update_config(
 fn execute_unbond(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
+    env: Env,
 ) -> ContractResult<Response<NeutronMsg>> {
-    if PAUSE.load(deps.storage)?.unbond {
+    if is_paused!(PAUSE, deps, env, unbond) {
         return Err(drop_helpers::pause::PauseError::Paused {}.into());
     }
 
@@ -1419,12 +1417,8 @@ pub fn migrate(
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-        let mut new_pause_state = Pause::default();
-        if drop_helpers::pause::is_paused(deps.storage)? {
-            drop_helpers::pause::unpause(deps.storage);
-            new_pause_state.tick = true;
-        }
-        PAUSE.save(deps.storage, &new_pause_state)?;
+        deps.storage.remove("pause".as_bytes());
+        PAUSE.save(deps.storage, &Pause::default())?;
 
         #[cosmwasm_schema::cw_serde]
         pub struct OldConfig {

@@ -34,6 +34,7 @@ cw721-base = { workspace = true }
 cw721 = { workspace = true }
 thiserror = { workspace = true }
 cw-ownable = { workspace = true }
+time = { workspace = true }
 optfield = { workspace = true }
 prost = { workspace = true }
 serde = { workspace = true }

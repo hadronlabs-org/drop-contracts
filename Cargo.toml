@@ -10,12 +10,15 @@ members = [
     "contracts/withdrawal-voucher",
     "contracts/withdrawal-manager",
     "contracts/native-bond-provider",
+    "contracts/native-sync-bond-provider",
     "contracts/lsm-share-bond-provider",
     "contracts/proposal-votes-poc",
     "contracts/provider-proposals-poc",
     "contracts/pump",
     "contracts/puppeteer",
     "contracts/puppeteer-initia",
+    "contracts/puppeteer-native",
+    # "contracts/puppeteer-authz",
     "contracts/rewards-manager",
     "contracts/strategy",
     "contracts/token",
@@ -26,6 +29,7 @@ members = [
     "contracts/validators-stats",
     "contracts/validators-set",
     "contracts/redemption-rate-adapter",
+    "contracts/neutron-distribution-mock",
     "packages/base",
     "packages/helpers",
     "packages/macros",
@@ -34,7 +38,7 @@ members = [
 ]
 
 [workspace.dependencies]
-cosmwasm-std = { version = "2.1.0", default-features = false, features = ["std", "cosmwasm_1_2", "cosmwasm_2_0"] }
+cosmwasm-std = { version = "2.1.0", default-features = false, features = ["std", "cosmwasm_1_2", "cosmwasm_2_0", "staking"] }
 neutron-sdk = { version = "0.11.0" }
 neutron-std = { git = "https://github.com/neutron-org/neutron-std", branch = "main" }
 cosmos-sdk-proto = { version = "0.20.0", default-features = false }
@@ -49,6 +53,7 @@ cw721 = { package = "cw721", git = "https://github.com/public-awesome/cw-nfts", 
 cw721-base = { package = "cw721-base", git = "https://github.com/public-awesome/cw-nfts", branch = "main", default-features = false }
 cw-multi-test = { version = "2.1.0", default-features = false }
 cw-utils = { version = "2.0.0", default-features = false }
+time = "0.3.37"
 serde = { version = "1.0.195", default-features = false }
 serde-json-wasm = { version = "1.0.0", default-features = false }
 sha2 = { version = "0.10.8", default-features = false }

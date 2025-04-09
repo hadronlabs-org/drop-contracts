@@ -26,6 +26,22 @@ pub enum ContractError {
     Unknown {},
     #[error("Semver parsing error: {0}")]
     SemVer(String),
+    #[error("Contract version is absent")]
+    AbsentContractVersion {},
+    #[error("Invalid contract name. Expected: {expected}, actual: {actual}")]
+    InvalidContractName { expected: String, actual: String },
+    #[error("Invalid contract owner for {contract}. Expected: {expected}, actual: {actual}")]
+    InvalidContractOwner {
+        contract: String,
+        expected: String,
+        actual: String,
+    },
+    #[error("Invalid contract admin for {contract}. Expected: {expected}, actual: {actual}")]
+    InvalidContractAdmin {
+        contract: String,
+        expected: String,
+        actual: String,
+    },
     #[error("Contract address not found: {name}")]
     ContractAddressNotFound { name: String },
 

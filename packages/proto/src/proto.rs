@@ -9,6 +9,11 @@ pub mod cosmos {
             include!("./cosmos.base.v1beta1.rs");
         }
     }
+    pub mod staking {
+        pub mod v1beta1 {
+            include!("./cosmos.staking.v1beta1.rs");
+        }
+    }
 }
 
 pub mod liquidstaking {

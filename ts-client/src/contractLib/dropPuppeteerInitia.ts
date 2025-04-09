@@ -16,6 +16,43 @@ export type IcaState =
       };
     };
 export type ArrayOfTupleOfUint64AndString = [number, string][];
+/**
+ * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
+ */
+export type Expiration =
+  | {
+      at_height: number;
+    }
+  | {
+      at_time: Timestamp;
+    }
+  | {
+      never: {};
+    };
+/**
+ * A point in time in nanosecond precision.
+ *
+ * This type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.
+ *
+ * ## Examples
+ *
+ * ``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);
+ *
+ * let ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```
+ */
+export type Timestamp = Uint64;
+/**
+ * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u64` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);
+ *
+ * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
+ */
+export type Uint64 = string;
 export type Transaction =
   | {
       undelegate: {
@@ -86,6 +123,12 @@ export type Transaction =
         interchain_account_id: string;
         rewards_withdraw_address: string;
       };
+    }
+  | {
+      enable_tokenize_shares: {};
+    }
+  | {
+      disable_tokenize_shares: {};
     };
 /**
  * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
@@ -116,9 +159,6 @@ export type QueryExtMsg =
     }
   | {
       unbonding_delegations: {};
-    }
-  | {
-      ownership: {};
     };
 /**
  * A human readable address.
@@ -142,46 +182,16 @@ export type UpdateOwnershipArgs =
     }
   | "accept_ownership"
   | "renounce_ownership";
-/**
- * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
- */
-export type Expiration =
-  | {
-      at_height: number;
-    }
-  | {
-      at_time: Timestamp;
-    }
-  | {
-      never: {};
-    };
-/**
- * A point in time in nanosecond precision.
- *
- * This type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.
- *
- * ## Examples
- *
- * ``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);
- *
- * let ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```
- */
-export type Timestamp = Uint64;
-/**
- * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u64` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);
- *
- * let b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```
- */
-export type Uint64 = string;
 
 export interface DropPuppeteerInitiaSchema {
-  responses: ConfigResponse | Binary | IcaState | ArrayOfTupleOfUint64AndString | ArrayOfTransaction | TxState;
+  responses:
+    | ConfigResponse
+    | Binary
+    | IcaState
+    | ArrayOfTupleOfUint64AndString
+    | OwnershipForString
+    | ArrayOfTransaction
+    | TxState;
   query: ExtensionArgs;
   execute:
     | RegisterBalanceAndDelegatorDelegationsQueryArgs
@@ -203,6 +213,23 @@ export interface DropPuppeteerInitiaSchema {
 export interface ConfigResponse {
   connection_id: string;
   update_period: number;
+}
+/**
+ * The contract's ownership info
+ */
+export interface OwnershipForString {
+  /**
+   * The contract's current owner. `None` if the ownership has been renounced.
+   */
+  owner?: string | null;
+  /**
+   * The deadline for the pending owner to accept the ownership. `None` if there isn't a pending ownership transfer, or if a transfer exists and it doesn't have a deadline.
+   */
+  pending_expiry?: Expiration | null;
+  /**
+   * The account who has been proposed to take over the ownership. `None` if there isn't a pending ownership transfer.
+   */
+  pending_owner?: string | null;
 }
 export interface RedeemShareItem {
   amount: Uint128;
@@ -315,7 +342,7 @@ export class Client {
     this.client = client;
     this.contractAddress = contractAddress;
   }
-  mustBeSigningClient() {
+  mustBeSigningClient(): Error {
     return new Error("This client is not a SigningCosmWasmClient");
   }
   static async instantiate(
@@ -326,9 +353,10 @@ export class Client {
     label: string,
     fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
+    admin?: string,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
+      ...(initCoins && initCoins.length && { funds: initCoins }), ...(admin && { admin: admin }),
     });
     return res;
   }
@@ -336,14 +364,15 @@ export class Client {
     client: SigningCosmWasmClient,
     sender: string,
     codeId: number,
-    salt: number,
+    salt: Uint8Array,
     initMsg: InstantiateMsg,
     label: string,
     fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
+    admin?: string,
   ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
+    const res = await client.instantiate2(sender, codeId, salt, initMsg, label, fees, {
+      ...(initCoins && initCoins.length && { funds: initCoins }), ...(admin && { admin: admin }),
     });
     return res;
   }
@@ -365,64 +394,92 @@ export class Client {
   queryTxState = async(): Promise<TxState> => {
     return this.client.queryContractSmart(this.contractAddress, { tx_state: {} });
   }
+  queryOwnership = async(): Promise<OwnershipForString> => {
+    return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
+  }
   registerICA = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { register_i_c_a: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.registerICAMsg(), fee || "auto", memo, funds);
   }
+  registerICAMsg = (): { register_i_c_a: {} } => { return { register_i_c_a: {} } }
   registerQuery = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { register_query: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.registerQueryMsg(), fee || "auto", memo, funds);
   }
+  registerQueryMsg = (): { register_query: {} } => { return { register_query: {} } }
   registerBalanceAndDelegatorDelegationsQuery = async(sender:string, args: RegisterBalanceAndDelegatorDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { register_balance_and_delegator_delegations_query: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.registerBalanceAndDelegatorDelegationsQueryMsg(args), fee || "auto", memo, funds);
   }
+  registerBalanceAndDelegatorDelegationsQueryMsg = (args: RegisterBalanceAndDelegatorDelegationsQueryArgs): { register_balance_and_delegator_delegations_query: RegisterBalanceAndDelegatorDelegationsQueryArgs } => { return { register_balance_and_delegator_delegations_query: args }; }
   registerDelegatorUnbondingDelegationsQuery = async(sender:string, args: RegisterDelegatorUnbondingDelegationsQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { register_delegator_unbonding_delegations_query: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.registerDelegatorUnbondingDelegationsQueryMsg(args), fee || "auto", memo, funds);
   }
+  registerDelegatorUnbondingDelegationsQueryMsg = (args: RegisterDelegatorUnbondingDelegationsQueryArgs): { register_delegator_unbonding_delegations_query: RegisterDelegatorUnbondingDelegationsQueryArgs } => { return { register_delegator_unbonding_delegations_query: args }; }
   registerNonNativeRewardsBalancesQuery = async(sender:string, args: RegisterNonNativeRewardsBalancesQueryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { register_non_native_rewards_balances_query: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.registerNonNativeRewardsBalancesQueryMsg(args), fee || "auto", memo, funds);
   }
+  registerNonNativeRewardsBalancesQueryMsg = (args: RegisterNonNativeRewardsBalancesQueryArgs): { register_non_native_rewards_balances_query: RegisterNonNativeRewardsBalancesQueryArgs } => { return { register_non_native_rewards_balances_query: args }; }
   setupProtocol = async(sender:string, args: SetupProtocolArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { setup_protocol: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.setupProtocolMsg(args), fee || "auto", memo, funds);
   }
+  setupProtocolMsg = (args: SetupProtocolArgs): { setup_protocol: SetupProtocolArgs } => { return { setup_protocol: args }; }
   delegate = async(sender:string, args: DelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { delegate: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.delegateMsg(args), fee || "auto", memo, funds);
   }
+  delegateMsg = (args: DelegateArgs): { delegate: DelegateArgs } => { return { delegate: args }; }
   undelegate = async(sender:string, args: UndelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { undelegate: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.undelegateMsg(args), fee || "auto", memo, funds);
   }
+  undelegateMsg = (args: UndelegateArgs): { undelegate: UndelegateArgs } => { return { undelegate: args }; }
   redelegate = async(sender:string, args: RedelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { redelegate: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.redelegateMsg(args), fee || "auto", memo, funds);
   }
+  redelegateMsg = (args: RedelegateArgs): { redelegate: RedelegateArgs } => { return { redelegate: args }; }
   tokenizeShare = async(sender:string, args: TokenizeShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { tokenize_share: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.tokenizeShareMsg(args), fee || "auto", memo, funds);
   }
+  tokenizeShareMsg = (args: TokenizeShareArgs): { tokenize_share: TokenizeShareArgs } => { return { tokenize_share: args }; }
   redeemShares = async(sender:string, args: RedeemSharesArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { redeem_shares: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.redeemSharesMsg(args), fee || "auto", memo, funds);
   }
+  redeemSharesMsg = (args: RedeemSharesArgs): { redeem_shares: RedeemSharesArgs } => { return { redeem_shares: args }; }
   transfer = async(sender:string, args: TransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { transfer: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.transferMsg(args), fee || "auto", memo, funds);
   }
+  transferMsg = (args: TransferArgs): { transfer: TransferArgs } => { return { transfer: args }; }
   claimRewardsAndOptionalyTransfer = async(sender:string, args: ClaimRewardsAndOptionalyTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { claim_rewards_and_optionaly_transfer: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.claimRewardsAndOptionalyTransferMsg(args), fee || "auto", memo, funds);
   }
+  claimRewardsAndOptionalyTransferMsg = (args: ClaimRewardsAndOptionalyTransferArgs): { claim_rewards_and_optionaly_transfer: ClaimRewardsAndOptionalyTransferArgs } => { return { claim_rewards_and_optionaly_transfer: args }; }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.updateConfigMsg(args), fee || "auto", memo, funds);
   }
+  updateConfigMsg = (args: UpdateConfigArgs): { update_config: UpdateConfigArgs } => { return { update_config: args }; }
+  enableTokenizeShares = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, this.enableTokenizeSharesMsg(), fee || "auto", memo, funds);
+  }
+  enableTokenizeSharesMsg = (): { enable_tokenize_shares: {} } => { return { enable_tokenize_shares: {} } }
+  disableTokenizeShares = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, this.disableTokenizeSharesMsg(), fee || "auto", memo, funds);
+  }
+  disableTokenizeSharesMsg = (): { disable_tokenize_shares: {} } => { return { disable_tokenize_shares: {} } }
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.updateOwnershipMsg(args), fee || "auto", memo, funds);
   }
+  updateOwnershipMsg = (args: UpdateOwnershipArgs): { update_ownership: UpdateOwnershipArgs } => { return { update_ownership: args }; }
 }

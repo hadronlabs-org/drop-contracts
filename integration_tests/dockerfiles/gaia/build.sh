@@ -8,7 +8,7 @@ if [[ "$CI" == "true" ]]; then
 else
     VERSION=":$VERSION"
 fi
-git clone https://github.com/cosmos/gaia.git -b v15.1.0
+git clone https://github.com/cosmos/gaia.git -b v18.1.0
 cp ./Dockerfile ./gaia
 
 docker build gaia -t ${ORG}gaia-test${VERSION}

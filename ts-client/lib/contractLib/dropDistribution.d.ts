@@ -24,14 +24,8 @@ export interface DropDistributionSchema {
     [k: string]: unknown;
 }
 export interface CalcDepositArgs {
-    delegations: Delegations;
-    deposit: Uint128;
-}
-export interface Delegations {
     delegations: Delegation[];
-    total_on_top: Uint128;
-    total_stake: Uint128;
-    total_weight: number;
+    deposit: Uint128;
 }
 export interface Delegation {
     on_top: Uint128;
@@ -40,7 +34,7 @@ export interface Delegation {
     weight: number;
 }
 export interface CalcWithdrawArgs {
-    delegations: Delegations;
+    delegations: Delegation[];
     withdraw: Uint128;
 }
 export interface InstantiateMsg {
@@ -50,8 +44,8 @@ export declare class Client {
     contractAddress: string;
     constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string);
     mustBeSigningClient(): Error;
-    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
-    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
+    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
+    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: Uint8Array, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
     queryCalcDeposit: (args: CalcDepositArgs) => Promise<ArrayOfTupleOfStringAndUint128>;
     queryCalcWithdraw: (args: CalcWithdrawArgs) => Promise<ArrayOfTupleOfStringAndUint128>;
 }

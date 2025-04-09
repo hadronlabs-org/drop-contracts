@@ -4,7 +4,10 @@ import {
   DropFactory,
   DropMirror,
   DropNativeBondProvider,
+  DropLsmShareBondProvider,
   DropPuppeteer,
+  DropPump,
+  DropToken,
 } from 'drop-ts-client';
 import {
   QueryClient,
@@ -17,7 +20,10 @@ import {
 import { MsgTransfer } from 'cosmjs-types/ibc/applications/transfer/v1/tx';
 import { join } from 'path';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
-import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
+import {
+  instantiate2Address,
+  SigningCosmWasmClient,
+} from '@cosmjs/cosmwasm-stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { AccountData, DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { GasPrice } from '@cosmjs/stargate';
@@ -28,15 +34,19 @@ import { waitFor } from '../helpers/waitFor';
 import { stringToPath } from '@cosmjs/crypto';
 import { instrumentCoreClass } from '../helpers/knot';
 import { sleep } from '../helpers/sleep';
-import { sha256 } from '@cosmjs/crypto';
-import { toHex } from '@cosmjs/encoding';
+import { fromHex, toAscii } from '@cosmjs/encoding';
 
 const DropMirrorClass = DropMirror.Client;
 const DropFactoryClass = DropFactory.Client;
 const DropCoreClass = DropCore.Client;
+const DropPumpClass = DropPump.Client;
 const DropNativeBondProviderClass = DropNativeBondProvider.Client;
+const DropLsmShareBondProviderClass = DropLsmShareBondProvider.Client;
 const DropPuppeteerClass = DropPuppeteer.Client;
+const DropTokenClass = DropToken.Client;
 const UNBONDING_TIME = 360;
+
+const SALT = 'salt';
 
 describe('Mirror', () => {
   const context: {
@@ -48,6 +58,9 @@ describe('Mirror', () => {
     factoryContractClient?: InstanceType<typeof DropFactoryClass>;
     coreContractClient?: InstanceType<typeof DropCoreClass>;
     mirrorContractClient?: InstanceType<typeof DropMirrorClass>;
+    pumpContractClient?: InstanceType<typeof DropPumpClass>;
+    rewardsPumpContractClient?: InstanceType<typeof DropPumpClass>;
+    tokenContractClient?: InstanceType<typeof DropTokenClass>;
     account?: AccountData;
     icaAddress?: string;
     rewardsPumpIcaAddress?: string;
@@ -67,8 +80,12 @@ describe('Mirror', () => {
     nativeBondProviderContractClient?: InstanceType<
       typeof DropNativeBondProviderClass
     >;
+    lsmShareBondProviderContractClient?: InstanceType<
+      typeof DropLsmShareBondProviderClass
+    >;
     puppeteerContractClient?: InstanceType<typeof DropPuppeteerClass>;
     codeIds: {
+      factory?: number;
       core?: number;
       token?: number;
       withdrawalVoucher?: number;
@@ -84,11 +101,20 @@ describe('Mirror', () => {
       lsmShareBondProvider?: number;
       nativeBondProvider?: number;
     };
+    predefinedContractAddresses: {
+      factoryAddress?: string;
+      coreAddress?: string;
+      puppeteerAddress?: string;
+      strategyAddress?: string;
+      validatorSetAddress?: string;
+      lsmShareBondProviderAddress?: string;
+      withdrawalManagerAddress?: string;
+      splitterAddress?: string;
+    };
     exchangeRate?: number;
     neutronIBCDenom?: string;
-    ldDenom?: string;
-    remoteLdDenom?: string;
-  } = { codeIds: {} };
+    gaiaIBCDenom?: string;
+  } = { codeIds: {}, predefinedContractAddresses: {} };
 
   beforeAll(async (t) => {
     context.park = await setupPark(
@@ -253,6 +279,26 @@ describe('Mirror', () => {
     const { client, account } = context;
     context.codeIds = {};
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_factory.wasm'),
+      );
+
+      const res = await client.upload(
+        account.address,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.factory = res.codeId;
+
+      context.predefinedContractAddresses.factoryAddress = instantiate2Address(
+        fromHex(res.checksum),
+        account.address,
+        toAscii(SALT),
+        'neutron',
+      );
+    }
+    {
       const res = await client.upload(
         account.address,
         Uint8Array.from(
@@ -262,6 +308,13 @@ describe('Mirror', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.core = res.codeId;
+
+      context.predefinedContractAddresses.coreAddress = instantiate2Address(
+        fromHex(res.checksum),
+        context.predefinedContractAddresses.factoryAddress,
+        toAscii(SALT),
+        'neutron',
+      );
     }
     {
       const res = await client.upload(
@@ -307,6 +360,96 @@ describe('Mirror', () => {
         account.address,
         Uint8Array.from(
           fs.readFileSync(
+            join(__dirname, '../../../artifacts/drop_splitter.wasm'),
+          ),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.splitter = res.codeId;
+
+      context.predefinedContractAddresses.splitterAddress = instantiate2Address(
+        fromHex(res.checksum),
+        context.predefinedContractAddresses.factoryAddress,
+        toAscii(SALT),
+        'neutron',
+      );
+    }
+    {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_pump.wasm'),
+      );
+
+      const res = await client.upload(
+        account.address,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.pump = res.codeId;
+
+      let instantiateRes = await DropPump.Client.instantiate(
+        context.client,
+        context.account.address,
+        context.codeIds.pump,
+        {
+          connection_id: 'connection-0',
+          local_denom: 'untrn',
+          timeout: {
+            local: 60,
+            remote: 60,
+          },
+          dest_address: context.predefinedContractAddresses.splitterAddress,
+          dest_port: 'transfer',
+          dest_channel: 'channel-0',
+          refundee: context.account.address,
+          owner: context.predefinedContractAddresses.factoryAddress,
+        },
+        'drop-staking-rewards-pump',
+        1.5,
+        [],
+        context.predefinedContractAddresses.factoryAddress,
+      );
+
+      context.rewardsPumpContractClient = new DropPump.Client(
+        context.client,
+        instantiateRes.contractAddress,
+      );
+
+      instantiateRes = await DropPump.Client.instantiate(
+        context.client,
+        context.account.address,
+        context.codeIds.pump,
+        {
+          connection_id: 'connection-0',
+          local_denom: 'untrn',
+          timeout: {
+            local: 60,
+            remote: 60,
+          },
+          dest_address:
+            context.predefinedContractAddresses.withdrawalManagerAddress,
+          dest_port: 'transfer',
+          dest_channel: 'channel-0',
+          refundee: context.account.address,
+          owner: context.predefinedContractAddresses.factoryAddress,
+        },
+        'drop-staking-unbonding-pump',
+        1.5,
+        [],
+        context.predefinedContractAddresses.factoryAddress,
+      );
+
+      context.pumpContractClient = new DropPump.Client(
+        context.client,
+        instantiateRes.contractAddress,
+      );
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        Uint8Array.from(
+          fs.readFileSync(
             join(__dirname, '../../../artifacts/drop_strategy.wasm'),
           ),
         ),
@@ -314,6 +457,22 @@ describe('Mirror', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.strategy = res.codeId;
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        Uint8Array.from(
+          fs.readFileSync(
+            join(
+              __dirname,
+              '../../../artifacts/drop_native_bond_provider.wasm',
+            ),
+          ),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.nativeBondProvider = res.codeId;
     }
     {
       const res = await client.upload(
@@ -346,6 +505,30 @@ describe('Mirror', () => {
         account.address,
         Uint8Array.from(
           fs.readFileSync(
+            join(
+              __dirname,
+              '../../../artifacts/drop_lsm_share_bond_provider.wasm',
+            ),
+          ),
+        ),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.lsmShareBondProvider = res.codeId;
+
+      context.predefinedContractAddresses.lsmShareBondProviderAddress =
+        instantiate2Address(
+          fromHex(res.checksum),
+          account.address,
+          toAscii(SALT),
+          'neutron',
+        );
+    }
+    {
+      const res = await client.upload(
+        account.address,
+        Uint8Array.from(
+          fs.readFileSync(
             join(__dirname, '../../../artifacts/drop_puppeteer.wasm'),
           ),
         ),
@@ -353,6 +536,101 @@ describe('Mirror', () => {
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.puppeteer = res.codeId;
+
+      context.predefinedContractAddresses.puppeteerAddress =
+        instantiate2Address(
+          fromHex(res.checksum),
+          account.address,
+          toAscii(SALT),
+          'neutron',
+        );
+
+      let instantiateRes = await DropLsmShareBondProvider.Client.instantiate2(
+        context.client,
+        context.account.address,
+        context.codeIds.lsmShareBondProvider,
+        toAscii(SALT),
+        {
+          factory_contract: context.predefinedContractAddresses.factoryAddress,
+          lsm_redeem_threshold: 2,
+          lsm_min_bond_amount: '1000',
+          lsm_redeem_maximum_interval: 60_000,
+          owner: context.predefinedContractAddresses.factoryAddress,
+          port_id: 'transfer',
+          transfer_channel_id: 'channel-0',
+          timeout: 60,
+        },
+        'drop-staking-lsm-share-bond-provider',
+        1.5,
+        [],
+        context.predefinedContractAddresses.factoryAddress,
+      );
+
+      context.lsmShareBondProviderContractClient =
+        new DropLsmShareBondProvider.Client(
+          context.client,
+          instantiateRes.contractAddress,
+        );
+
+      instantiateRes = await DropNativeBondProvider.Client.instantiate2(
+        context.client,
+        context.account.address,
+        context.codeIds.nativeBondProvider,
+        toAscii(SALT),
+        {
+          owner: context.predefinedContractAddresses.factoryAddress,
+          base_denom: context.neutronIBCDenom,
+          factory_contract: context.predefinedContractAddresses.factoryAddress,
+          min_stake_amount: '10000',
+          min_ibc_transfer: '10000',
+          port_id: 'transfer',
+          transfer_channel_id: 'channel-0',
+          timeout: 60,
+        },
+        'drop-staking-native-bond-provider',
+        1.5,
+        [],
+        context.predefinedContractAddresses.factoryAddress,
+      );
+
+      context.nativeBondProviderContractClient =
+        new DropNativeBondProvider.Client(
+          context.client,
+          instantiateRes.contractAddress,
+        );
+
+      instantiateRes = await DropPuppeteer.Client.instantiate2(
+        context.client,
+        account.address,
+        context.codeIds.puppeteer,
+        toAscii(SALT),
+        {
+          allowed_senders: [
+            context.predefinedContractAddresses.lsmShareBondProviderAddress,
+            context.nativeBondProviderContractClient.contractAddress,
+            context.predefinedContractAddresses.coreAddress,
+            context.predefinedContractAddresses.factoryAddress,
+          ],
+          owner: context.predefinedContractAddresses.factoryAddress,
+          remote_denom: 'stake',
+          update_period: 5,
+          connection_id: 'connection-0',
+          port_id: 'transfer',
+          transfer_channel_id: 'channel-0',
+          sdk_version: process.env.SDK_VERSION || '0.47.16',
+          timeout: 60,
+          factory_contract: context.predefinedContractAddresses.factoryAddress,
+        },
+        'drop-staking-puppeteer',
+        1.5,
+        [],
+        context.predefinedContractAddresses.factoryAddress,
+      );
+
+      context.puppeteerContractClient = new DropPuppeteer.Client(
+        context.client,
+        instantiateRes.contractAddress,
+      );
     }
     {
       const res = await client.upload(
@@ -372,30 +650,6 @@ describe('Mirror', () => {
         account.address,
         Uint8Array.from(
           fs.readFileSync(
-            join(__dirname, '../../../artifacts/drop_splitter.wasm'),
-          ),
-        ),
-        1.5,
-      );
-      expect(res.codeId).toBeGreaterThan(0);
-      context.codeIds.splitter = res.codeId;
-    }
-    {
-      const res = await client.upload(
-        account.address,
-        Uint8Array.from(
-          fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
-        ),
-        1.5,
-      );
-      expect(res.codeId).toBeGreaterThan(0);
-      context.codeIds.pump = res.codeId;
-    }
-    {
-      const res = await client.upload(
-        account.address,
-        Uint8Array.from(
-          fs.readFileSync(
             join(__dirname, '../../../artifacts/drop_mirror.wasm'),
           ),
         ),
@@ -404,55 +658,12 @@ describe('Mirror', () => {
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.mirror = res.codeId;
     }
-    {
-      const res = await client.upload(
-        account.address,
-        Uint8Array.from(
-          fs.readFileSync(
-            join(
-              __dirname,
-              '../../../artifacts/drop_lsm_share_bond_provider.wasm',
-            ),
-          ),
-        ),
-        1.5,
-      );
-      expect(res.codeId).toBeGreaterThan(0);
-      context.codeIds.lsmShareBondProvider = res.codeId;
-    }
-    {
-      const res = await client.upload(
-        account.address,
-        Uint8Array.from(
-          fs.readFileSync(
-            join(
-              __dirname,
-              '../../../artifacts/drop_native_bond_provider.wasm',
-            ),
-          ),
-        ),
-
-        1.5,
-      );
-      expect(res.codeId).toBeGreaterThan(0);
-      context.codeIds.nativeBondProvider = res.codeId;
-    }
-    const res = await client.upload(
-      account.address,
-      Uint8Array.from(
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_factory.wasm'),
-        ),
-      ),
-      1.5,
-    );
-    expect(res.codeId).toBeGreaterThan(0);
-    const instantiateRes = await DropFactory.Client.instantiate(
+    const instantiateRes = await DropFactory.Client.instantiate2(
       client,
       account.address,
-      res.codeId,
+      context.codeIds.factory,
+      toAscii(SALT),
       {
-        sdk_version: process.env.SDK_VERSION || '0.47.10',
         local_denom: 'untrn',
         code_ids: {
           core_code_id: context.codeIds.core,
@@ -462,26 +673,30 @@ describe('Mirror', () => {
           strategy_code_id: context.codeIds.strategy,
           distribution_code_id: context.codeIds.distribution,
           validators_set_code_id: context.codeIds.validatorsSet,
-          puppeteer_code_id: context.codeIds.puppeteer,
           rewards_manager_code_id: context.codeIds.rewardsManager,
           splitter_code_id: context.codeIds.splitter,
-          rewards_pump_code_id: context.codeIds.pump,
-          lsm_share_bond_provider_code_id: context.codeIds.lsmShareBondProvider,
-          native_bond_provider_code_id: context.codeIds.nativeBondProvider,
+        },
+        pre_instantiated_contracts: {
+          native_bond_provider_address:
+            context.nativeBondProviderContractClient.contractAddress,
+          lsm_share_bond_provider_address:
+            context.predefinedContractAddresses.lsmShareBondProviderAddress,
+          puppeteer_address:
+            context.predefinedContractAddresses.puppeteerAddress,
+          unbonding_pump_address: context.pumpContractClient.contractAddress,
+          rewards_pump_address:
+            context.rewardsPumpContractClient.contractAddress,
         },
         remote_opts: {
           connection_id: 'connection-0',
           transfer_channel_id: 'channel-0',
-          reverse_transfer_channel_id: 'channel-0',
-          port_id: 'transfer',
           denom: 'stake',
-          update_period: 2,
           timeout: {
             local: 60,
             remote: 60,
           },
         },
-        salt: 'salt',
+        salt: SALT,
         subdenom: 'drop',
         token_metadata: {
           description: 'Drop token',
@@ -499,15 +714,6 @@ describe('Mirror', () => {
           unbonding_safe_period: 10,
           unbonding_period: 360,
           icq_update_delay: 5,
-        },
-        native_bond_params: {
-          min_stake_amount: '100',
-          min_ibc_transfer: '100',
-        },
-        lsm_share_bond_params: {
-          lsm_redeem_threshold: 2,
-          lsm_min_bond_amount: '1000',
-          lsm_redeem_max_interval: 60_000,
         },
       },
       'drop-staking-factory',
@@ -562,21 +768,10 @@ describe('Mirror', () => {
     context.coreContractClient = instrumentCoreClass(
       new DropCore.Client(context.client, res.core_contract),
     );
-    context.nativeBondProviderContractClient =
-      new DropNativeBondProvider.Client(
-        context.client,
-        res.native_bond_provider_contract,
-      );
-    context.puppeteerContractClient = new DropPuppeteer.Client(
+    context.tokenContractClient = new DropToken.Client(
       context.client,
-      res.puppeteer_contract,
+      res.token_contract,
     );
-    context.ldDenom = `factory/${res.token_contract}/drop`;
-
-    const te = new TextEncoder();
-    context.remoteLdDenom = `ibc/${toHex(
-      sha256(te.encode(`transfer/channel-0/${context.ldDenom}`)),
-    ).toUpperCase()}`;
   });
 
   it('register native bond provider in the core', async () => {
@@ -657,13 +852,7 @@ describe('Mirror', () => {
   });
 
   it('proper bond', async () => {
-    const {
-      remoteLdDenom,
-      neutronIBCDenom,
-      mirrorContractClient,
-      gaiaClient,
-      gaiaUserAddress,
-    } = context;
+    const { neutronIBCDenom, mirrorContractClient, gaiaUserAddress } = context;
     await mirrorContractClient.bond(
       context.neutronUserAddress,
       {
@@ -680,13 +869,21 @@ describe('Mirror', () => {
     );
     await waitFor(
       async () =>
-        (await gaiaClient.getBalance(gaiaUserAddress, remoteLdDenom)).amount !==
-        '0',
+        (await context.gaiaClient.getAllBalances(context.gaiaUserAddress))
+          .length > 1,
       20000,
       1000,
     );
+    context.gaiaIBCDenom = (
+      await context.gaiaClient.getAllBalances(context.gaiaUserAddress)
+    ).find((one) => one.denom.startsWith('ibc/')).denom;
     expect(
-      (await gaiaClient.getBalance(gaiaUserAddress, remoteLdDenom)).amount,
+      (
+        await context.gaiaClient.getBalance(
+          context.gaiaUserAddress,
+          context.gaiaIBCDenom,
+        )
+      ).amount,
     ).toBe('1000');
   });
 
@@ -727,23 +924,24 @@ describe('Mirror', () => {
 
       it('resume relayer', async () => {
         await context.park.resumeRelayer('hermes', 0);
-        await sleep(10_000); // sudo-timeout
+        await sleep(40_000); // sudo-timeout
       });
     });
 
     it("expect new assets to appear in contract's state", async () => {
-      const { mirrorContractClient, gaiaUserAddress, ldDenom } = context;
-      expect(await mirrorContractClient.queryAllFailed()).toStrictEqual([
-        {
-          receiver: gaiaUserAddress,
-          failed_transfers: [
-            {
-              denom: ldDenom,
-              amount: '1000',
-            },
-          ],
-        },
-      ]);
+      expect(await context.mirrorContractClient.queryAllFailed()).toStrictEqual(
+        [
+          {
+            receiver: context.gaiaUserAddress,
+            failed_transfers: [
+              {
+                denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
+                amount: '1000',
+              },
+            ],
+          },
+        ],
+      );
     });
 
     describe('bond, timeout packet', () => {
@@ -782,19 +980,15 @@ describe('Mirror', () => {
     });
 
     it("expect new assets to appear in contract's state", async () => {
-      const {
-        mirrorContractClient,
-        gaiaUserAddress,
-        gaiaUserAddress2,
-        ldDenom,
-      } = context;
+      const { mirrorContractClient, gaiaUserAddress, gaiaUserAddress2 } =
+        context;
       expect(await mirrorContractClient.queryAllFailed()).toEqual(
         expect.arrayContaining([
           {
             receiver: gaiaUserAddress2,
             failed_transfers: [
               {
-                denom: ldDenom,
+                denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
                 amount: '1000',
               },
             ],
@@ -803,7 +997,7 @@ describe('Mirror', () => {
             receiver: gaiaUserAddress,
             failed_transfers: [
               {
-                denom: ldDenom,
+                denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
                 amount: '1000',
               },
             ],
@@ -842,23 +1036,19 @@ describe('Mirror', () => {
     });
 
     it("expect new assets to appear in contract's state", async () => {
-      const {
-        mirrorContractClient,
-        gaiaUserAddress,
-        gaiaUserAddress2,
-        ldDenom,
-      } = context;
+      const { mirrorContractClient, gaiaUserAddress, gaiaUserAddress2 } =
+        context;
       expect(await mirrorContractClient.queryAllFailed()).toEqual(
         expect.arrayContaining([
           {
             receiver: gaiaUserAddress,
             failed_transfers: [
               {
-                denom: ldDenom,
+                denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
                 amount: '1000',
               },
               {
-                denom: ldDenom,
+                denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
                 amount: '1000',
               },
             ],
@@ -867,7 +1057,7 @@ describe('Mirror', () => {
             receiver: gaiaUserAddress2,
             failed_transfers: [
               {
-                denom: ldDenom,
+                denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
                 amount: '1000',
               },
             ],
@@ -887,7 +1077,6 @@ describe('Mirror', () => {
           gaiaUserAddress,
           gaiaUserAddress2,
           neutronUserAddress,
-          ldDenom,
         } = context;
 
         await mirrorContractClient.retry(
@@ -903,7 +1092,7 @@ describe('Mirror', () => {
               receiver: gaiaUserAddress,
               failed_transfers: [
                 {
-                  denom: ldDenom,
+                  denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
                   amount: '1000',
                 },
               ],
@@ -912,7 +1101,7 @@ describe('Mirror', () => {
               receiver: gaiaUserAddress2,
               failed_transfers: [
                 {
-                  denom: ldDenom,
+                  denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
                   amount: '1000',
                 },
               ],
@@ -928,12 +1117,8 @@ describe('Mirror', () => {
       });
 
       it('restored values after sudo-timeout', async () => {
-        const {
-          mirrorContractClient,
-          gaiaUserAddress,
-          gaiaUserAddress2,
-          ldDenom,
-        } = context;
+        const { mirrorContractClient, gaiaUserAddress, gaiaUserAddress2 } =
+          context;
 
         await waitFor(
           async () =>
@@ -947,11 +1132,11 @@ describe('Mirror', () => {
               receiver: gaiaUserAddress,
               failed_transfers: [
                 {
-                  denom: ldDenom,
+                  denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
                   amount: '1000',
                 },
                 {
-                  denom: ldDenom,
+                  denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
                   amount: '1000',
                 },
               ],
@@ -960,7 +1145,7 @@ describe('Mirror', () => {
               receiver: gaiaUserAddress2,
               failed_transfers: [
                 {
-                  denom: ldDenom,
+                  denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
                   amount: '1000',
                 },
               ],
@@ -976,9 +1161,6 @@ describe('Mirror', () => {
         gaiaUserAddress,
         gaiaUserAddress2,
         neutronUserAddress,
-        gaiaClient,
-        ldDenom,
-        remoteLdDenom,
       } = context;
 
       await mirrorContractClient.retry(
@@ -990,8 +1172,12 @@ describe('Mirror', () => {
       );
       await waitFor(
         async () =>
-          (await gaiaClient.getBalance(gaiaUserAddress, remoteLdDenom))
-            .amount !== '2000',
+          (
+            await context.gaiaClient.getBalance(
+              context.gaiaUserAddress,
+              context.gaiaIBCDenom,
+            )
+          ).amount !== '2000',
         20000,
         1000,
       );
@@ -1001,7 +1187,7 @@ describe('Mirror', () => {
             receiver: gaiaUserAddress,
             failed_transfers: [
               {
-                denom: ldDenom,
+                denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
                 amount: '1000',
               },
             ],
@@ -1010,7 +1196,7 @@ describe('Mirror', () => {
             receiver: gaiaUserAddress2,
             failed_transfers: [
               {
-                denom: ldDenom,
+                denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
                 amount: '1000',
               },
             ],
@@ -1025,9 +1211,6 @@ describe('Mirror', () => {
         gaiaUserAddress,
         gaiaUserAddress2,
         neutronUserAddress,
-        gaiaClient,
-        ldDenom,
-        remoteLdDenom,
       } = context;
 
       await mirrorContractClient.retry(
@@ -1039,8 +1222,12 @@ describe('Mirror', () => {
       );
       await waitFor(
         async () =>
-          (await gaiaClient.getBalance(gaiaUserAddress2, remoteLdDenom))
-            .amount !== '1000',
+          (
+            await context.gaiaClient.getBalance(
+              context.gaiaUserAddress2,
+              context.gaiaIBCDenom,
+            )
+          ).amount !== '1000',
         20000,
         1000,
       );
@@ -1050,7 +1237,7 @@ describe('Mirror', () => {
             receiver: gaiaUserAddress,
             failed_transfers: [
               {
-                denom: ldDenom,
+                denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
                 amount: '1000',
               },
             ],
@@ -1060,13 +1247,8 @@ describe('Mirror', () => {
     });
 
     it('retry with the working relayer (3)', async () => {
-      const {
-        mirrorContractClient,
-        gaiaUserAddress,
-        neutronUserAddress,
-        gaiaClient,
-        remoteLdDenom,
-      } = context;
+      const { mirrorContractClient, gaiaUserAddress, neutronUserAddress } =
+        context;
 
       await mirrorContractClient.retry(
         neutronUserAddress,
@@ -1077,8 +1259,12 @@ describe('Mirror', () => {
       );
       await waitFor(
         async () =>
-          (await gaiaClient.getBalance(gaiaUserAddress, remoteLdDenom))
-            .amount !== '3000',
+          (
+            await context.gaiaClient.getBalance(
+              context.gaiaUserAddress,
+              context.gaiaIBCDenom,
+            )
+          ).amount !== '3000',
         20000,
         1000,
       );

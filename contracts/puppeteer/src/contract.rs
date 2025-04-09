@@ -20,7 +20,10 @@ use drop_helpers::{
     validation::validate_addresses,
 };
 use drop_proto::proto::{
-    cosmos::base::v1beta1::Coin as ProtoCoin,
+    cosmos::{
+        base::v1beta1::Coin as ProtoCoin,
+        staking::v1beta1::{MsgDisableTokenizeShares, MsgEnableTokenizeShares},
+    },
     liquidstaking::{
         distribution::v1beta1::MsgWithdrawDelegatorReward,
         staking::v1beta1::{MsgBeginRedelegate, MsgRedeemTokensforShares, MsgTokenizeShares},
@@ -61,8 +64,7 @@ use std::vec;
 
 pub type Puppeteer<'a> = PuppeteerBase<'a, Config, KVQueryType, BalancesAndDelegations>;
 
-pub const CONTRACT_NAME: &str =
-    concat!("crates.io:drop-neutron-contracts__", env!("CARGO_PKG_NAME"));
+pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_DELEGATIONS_QUERIES_CHUNK_SIZE: u32 = 15;
 
@@ -120,10 +122,6 @@ pub fn query(
                     .collect::<StdResult<Vec<_>>>()?,
             )
             .map_err(ContractError::Std),
-            QueryExtMsg::Ownership {} => {
-                let owner = cw_ownable::get_ownership(deps.storage)?;
-                to_json_binary(&owner).map_err(ContractError::Std)
-            }
         },
         QueryMsg::KVQueryIds {} => query_kv_query_ids(deps),
         _ => Puppeteer::default().query(deps, env, msg),
@@ -263,6 +261,8 @@ pub fn execute(
         ExecuteMsg::SetupProtocol {
             rewards_withdraw_address,
         } => execute_setup_protocol(deps, env, info, rewards_withdraw_address),
+        ExecuteMsg::EnableTokenizeShares {} => execute_enable_tokenize_shares(deps, info),
+        ExecuteMsg::DisableTokenizeShares {} => execute_disable_tokenize_shares(deps, info),
         _ => puppeteer_base.execute(deps, env, info, msg.to_base_enum()),
     }
 }
@@ -592,6 +592,68 @@ fn execute_setup_protocol(
     )?;
 
     deps.api.debug(&format!("WASMDEBUG: SUBMSG {submsg:?}",));
+
+    Ok(Response::default().add_submessages(vec![submsg]))
+}
+
+fn execute_enable_tokenize_shares(
+    mut deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+) -> ContractResult<Response<NeutronMsg>> {
+    let puppeteer_base = Puppeteer::default();
+    let config: Config = puppeteer_base.config.load(deps.storage)?;
+    validate_sender(&config, &info.sender)?;
+    puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
+    let ica = puppeteer_base.ica.get_address(deps.storage)?;
+    let mut any_msgs = vec![];
+
+    let enable_tokenize_shares_msg = MsgEnableTokenizeShares {
+        delegator_address: ica,
+    };
+
+    any_msgs.push(prepare_any_msg(
+        enable_tokenize_shares_msg,
+        "/cosmos.staking.v1beta1.MsgEnableTokenizeShares",
+    )?);
+    let submsg = compose_submsg(
+        deps.branch(),
+        config,
+        any_msgs,
+        Transaction::EnableTokenizeShares {},
+        "".to_string(),
+        ReplyMsg::SudoPayload.to_reply_id(),
+    )?;
+
+    Ok(Response::default().add_submessages(vec![submsg]))
+}
+
+fn execute_disable_tokenize_shares(
+    mut deps: DepsMut<NeutronQuery>,
+    info: MessageInfo,
+) -> ContractResult<Response<NeutronMsg>> {
+    let puppeteer_base = Puppeteer::default();
+    let config: Config = puppeteer_base.config.load(deps.storage)?;
+    validate_sender(&config, &info.sender)?;
+    puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
+    let ica = puppeteer_base.ica.get_address(deps.storage)?;
+    let mut any_msgs = vec![];
+
+    let disable_tokenize_shares_msg = MsgDisableTokenizeShares {
+        delegator_address: ica,
+    };
+
+    any_msgs.push(prepare_any_msg(
+        disable_tokenize_shares_msg,
+        "/cosmos.staking.v1beta1.MsgDisableTokenizeShares",
+    )?);
+    let submsg = compose_submsg(
+        deps.branch(),
+        config,
+        any_msgs,
+        Transaction::DisableTokenizeShares {},
+        "".to_string(),
+        ReplyMsg::SudoPayload.to_reply_id(),
+    )?;
 
     Ok(Response::default().add_submessages(vec![submsg]))
 }

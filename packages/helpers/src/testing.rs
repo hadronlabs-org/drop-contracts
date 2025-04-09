@@ -298,6 +298,46 @@ impl WasmMockQuerier {
                     }
                     SystemResult::Ok(responses[0](&to_json_binary(&code_id).unwrap()))
                 }
+                cosmwasm_std::WasmQuery::ContractInfo { contract_addr } => {
+                    let mut wasm_responses = self.wasm_query_responses.borrow_mut();
+                    let responses = match wasm_responses.get_mut(contract_addr) {
+                        None => Err(SystemError::UnsupportedRequest {
+                            kind: format!(
+                                "Wasm contract {} contract info query is not mocked. Query",
+                                contract_addr
+                            ),
+                        }),
+                        Some(responses) => Ok(responses),
+                    }
+                    .unwrap();
+                    if responses.is_empty() {
+                        return SystemResult::Err(SystemError::UnsupportedRequest {
+                            kind: "No such mocked contract info queries found".to_string(),
+                        });
+                    }
+                    SystemResult::Ok(responses[0](&to_json_binary(&contract_addr).unwrap()))
+                }
+                cosmwasm_std::WasmQuery::Raw { contract_addr, key } => {
+                    let mut wasm_responses = self.wasm_query_responses.borrow_mut();
+                    let responses = match wasm_responses.get_mut(contract_addr) {
+                        None => Err(SystemError::UnsupportedRequest {
+                            kind: format!(
+                                "Wasm contract {} raw query is not mocked. Raw query {}",
+                                contract_addr,
+                                hex::encode(key)
+                            ),
+                        }),
+                        Some(responses) => Ok(responses),
+                    }
+                    .unwrap();
+                    if responses.is_empty() {
+                        return SystemResult::Err(SystemError::UnsupportedRequest {
+                            kind: "No such mocked raw queries found".to_string(),
+                        });
+                    }
+                    let response = responses.remove(0);
+                    SystemResult::Ok(response(key))
+                }
                 _ => SystemResult::Err(SystemError::UnsupportedRequest {
                     kind: "Unsupported wasm request given".to_string(),
                 }),
