@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     attr, from_json,
-    testing::{mock_env, mock_info},
+    testing::{message_info, mock_env},
     to_json_binary, Addr, Decimal, Event, Response, Uint128,
 };
 use drop_helpers::testing::mock_dependencies;
@@ -9,13 +9,15 @@ use drop_staking_base::state::{provider_proposals::ProposalInfo, validatorset::C
 #[test]
 fn instantiate() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
+
     let response = crate::contract::instantiate(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[]),
+        message_info(&api.addr_make("admin"), &[]),
         drop_staking_base::msg::validatorset::InstantiateMsg {
-            owner: "owner".to_string(),
-            stats_contract: "stats_contract".to_string(),
+            owner: api.addr_make("owner").to_string(),
+            stats_contract: api.addr_make("stats_contract").to_string(),
         },
     )
     .unwrap();
@@ -26,7 +28,7 @@ fn instantiate() {
     assert_eq!(
         config,
         drop_staking_base::state::validatorset::Config {
-            stats_contract: Addr::unchecked("stats_contract"),
+            stats_contract: api.addr_make("stats_contract"),
             provider_proposals_contract: None,
             val_ref_contract: None,
         }
@@ -36,8 +38,9 @@ fn instantiate() {
     assert_eq!(
         response.events,
         vec![
-            Event::new("crates.io:drop-staking__drop-validators-set-instantiate")
-                .add_attributes([attr("stats_contract", "stats_contract")])
+            Event::new("crates.io:drop-staking__drop-validators-set-instantiate").add_attributes([
+                attr("stats_contract", api.addr_make("stats_contract").as_str())
+            ])
         ]
     );
     assert!(response.attributes.is_empty());
@@ -46,13 +49,15 @@ fn instantiate() {
 #[test]
 fn query_config() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
+
     drop_staking_base::state::validatorset::CONFIG
         .save(
             deps.as_mut().storage,
             &drop_staking_base::state::validatorset::Config {
-                stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
-                val_ref_contract: Some(Addr::unchecked("val_ref_contract")),
+                stats_contract: api.addr_make("stats_contract"),
+                provider_proposals_contract: Some(api.addr_make("provider_proposals_contract")),
+                val_ref_contract: Some(api.addr_make("val_ref_contract")),
             },
         )
         .unwrap();
@@ -66,9 +71,9 @@ fn query_config() {
     assert_eq!(
         response,
         to_json_binary(&drop_staking_base::state::validatorset::Config {
-            stats_contract: Addr::unchecked("stats_contract"),
-            provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
-            val_ref_contract: Some(Addr::unchecked("val_ref_contract")),
+            stats_contract: api.addr_make("stats_contract"),
+            provider_proposals_contract: Some(api.addr_make("provider_proposals_contract")),
+            val_ref_contract: Some(api.addr_make("val_ref_contract")),
         })
         .unwrap()
     );
@@ -77,14 +82,15 @@ fn query_config() {
 #[test]
 fn update_config_wrong_owner() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     drop_staking_base::state::validatorset::CONFIG
         .save(
             deps.as_mut().storage,
             &drop_staking_base::state::validatorset::Config {
-                stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
-                val_ref_contract: Some(Addr::unchecked("val_ref_contract")),
+                stats_contract: api.addr_make("stats_contract"),
+                provider_proposals_contract: Some(api.addr_make("provider_proposals_contract")),
+                val_ref_contract: Some(api.addr_make("val_ref_contract")),
             },
         )
         .unwrap();
@@ -92,7 +98,7 @@ fn update_config_wrong_owner() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core1", &[]),
+        message_info(&api.addr_make("core1"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
                 stats_contract: Some("stats_contract1".to_string()),
@@ -113,22 +119,23 @@ fn update_config_wrong_owner() {
 #[test]
 fn update_config_ok() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     let deps_mut = deps.as_mut();
 
     let _result = cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("core").as_ref()),
+        Some(api.addr_make("core").as_ref()),
     );
 
     drop_staking_base::state::validatorset::CONFIG
         .save(
             deps.as_mut().storage,
             &drop_staking_base::state::validatorset::Config {
-                stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
-                val_ref_contract: Some(Addr::unchecked("val_ref_contract")),
+                stats_contract: api.addr_make("stats_contract"),
+                provider_proposals_contract: Some(api.addr_make("provider_proposals_contract")),
+                val_ref_contract: Some(api.addr_make("val_ref_contract")),
             },
         )
         .unwrap();
@@ -136,12 +143,14 @@ fn update_config_ok() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        message_info(&api.addr_make("core"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
-                stats_contract: Some("stats_contract1".to_string()),
-                provider_proposals_contract: Some("provider_proposals_contract1".to_string()),
-                val_ref_contract: Some("val_ref_contract1".to_string()),
+                stats_contract: Some(api.addr_make("stats_contract1").to_string()),
+                provider_proposals_contract: Some(
+                    api.addr_make("provider_proposals_contract1").to_string(),
+                ),
+                val_ref_contract: Some(api.addr_make("val_ref_contract1").to_string()),
             },
         },
     )
@@ -157,9 +166,9 @@ fn update_config_ok() {
     assert_eq!(
         config,
         to_json_binary(&drop_staking_base::state::validatorset::Config {
-            stats_contract: Addr::unchecked("stats_contract1"),
-            provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract1")),
-            val_ref_contract: Some(Addr::unchecked("val_ref_contract1")),
+            stats_contract: api.addr_make("stats_contract1"),
+            provider_proposals_contract: Some(api.addr_make("provider_proposals_contract1")),
+            val_ref_contract: Some(api.addr_make("val_ref_contract1")),
         })
         .unwrap()
     );
@@ -168,11 +177,12 @@ fn update_config_ok() {
 #[test]
 fn update_validators_wrong_owner() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core1", &[]),
+        message_info(&api.addr_make("core1"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
             validators: vec![drop_staking_base::msg::validatorset::ValidatorData {
                 valoper_address: "valoper_address".to_string(),
@@ -193,19 +203,20 @@ fn update_validators_wrong_owner() {
 #[test]
 fn update_validators_ok() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     let deps_mut = deps.as_mut();
 
     let _result = cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("core").as_ref()),
+        Some(api.addr_make("core").as_ref()),
     );
 
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        message_info(&api.addr_make("core"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
             validators: vec![
                 drop_staking_base::msg::validatorset::ValidatorData {
@@ -271,19 +282,20 @@ fn update_validators_ok() {
 #[test]
 fn update_validators_without_ontop_ok() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     let deps_mut = deps.as_mut();
 
     let _result = cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("core").as_ref()),
+        Some(api.addr_make("core").as_ref()),
     );
 
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        message_info(&api.addr_make("core"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
             validators: vec![
                 drop_staking_base::msg::validatorset::ValidatorData {
@@ -349,13 +361,14 @@ fn update_validators_without_ontop_ok() {
 #[test]
 fn update_validators_use_last_ontop() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     let deps_mut = deps.as_mut();
 
     let _result = cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("core").as_ref()),
+        Some(api.addr_make("core").as_ref()),
     );
 
     drop_staking_base::state::validatorset::VALIDATORS_SET
@@ -383,7 +396,7 @@ fn update_validators_use_last_ontop() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        message_info(&api.addr_make("core"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
             validators: vec![drop_staking_base::msg::validatorset::ValidatorData {
                 valoper_address: "valoper_address1".to_string(),
@@ -427,22 +440,23 @@ fn update_validators_use_last_ontop() {
 #[test]
 fn update_validators_info_wrong_sender() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     let deps_mut = deps.as_mut();
 
     let _result = cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("core").as_ref()),
+        Some(api.addr_make("core").as_ref()),
     );
 
     drop_staking_base::state::validatorset::CONFIG
         .save(
             deps_mut.storage,
             &drop_staking_base::state::validatorset::Config {
-                stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
-                val_ref_contract: Some(Addr::unchecked("val_ref_contract")),
+                stats_contract: api.addr_make("stats_contract"),
+                provider_proposals_contract: Some(api.addr_make("provider_proposals_contract")),
+                val_ref_contract: Some(api.addr_make("val_ref_contract")),
             },
         )
         .unwrap();
@@ -450,7 +464,7 @@ fn update_validators_info_wrong_sender() {
     let _response = crate::contract::execute(
         deps_mut,
         mock_env(),
-        mock_info("core", &[]),
+        message_info(&api.addr_make("core"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
             validators: vec![drop_staking_base::msg::validatorset::ValidatorData {
                 valoper_address: "valoper_address".to_string(),
@@ -464,7 +478,7 @@ fn update_validators_info_wrong_sender() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("stats_contract1", &[]),
+        message_info(&api.addr_make("stats_contract1"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorsInfo {
             validators: vec![drop_staking_base::msg::validatorset::ValidatorInfoUpdate {
                 valoper_address: "valoper_address".to_string(),
@@ -488,22 +502,23 @@ fn update_validators_info_wrong_sender() {
 #[test]
 fn update_validators_info_ok() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     let deps_mut = deps.as_mut();
 
     let _result = cw_ownable::initialize_owner(
         deps_mut.storage,
         deps_mut.api,
-        Some(Addr::unchecked("core").as_ref()),
+        Some(api.addr_make("core").as_ref()),
     );
 
     drop_staking_base::state::validatorset::CONFIG
         .save(
             deps_mut.storage,
             &drop_staking_base::state::validatorset::Config {
-                stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
-                val_ref_contract: Some(Addr::unchecked("val_ref_contract")),
+                stats_contract: api.addr_make("stats_contract"),
+                provider_proposals_contract: Some(api.addr_make("provider_proposals_contract")),
+                val_ref_contract: Some(api.addr_make("val_ref_contract")),
             },
         )
         .unwrap();
@@ -511,7 +526,7 @@ fn update_validators_info_ok() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("core", &[]),
+        message_info(&api.addr_make("core"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidators {
             validators: vec![drop_staking_base::msg::validatorset::ValidatorData {
                 valoper_address: "valoper_address".to_string(),
@@ -526,7 +541,7 @@ fn update_validators_info_ok() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("stats_contract", &[]),
+        message_info(&api.addr_make("stats_contract"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorsInfo {
             validators: vec![drop_staking_base::msg::validatorset::ValidatorInfoUpdate {
                 valoper_address: "valoper_address".to_string(),
@@ -578,20 +593,21 @@ fn update_validators_info_ok() {
 #[test]
 fn test_execute_update_validators_voting_unauthorized() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     drop_staking_base::state::validatorset::CONFIG
         .save(
             deps.as_mut().storage,
             &drop_staking_base::state::validatorset::Config {
-                stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
-                val_ref_contract: Some(Addr::unchecked("val_ref_contract")),
+                stats_contract: api.addr_make("stats_contract"),
+                provider_proposals_contract: Some(api.addr_make("provider_proposals_contract")),
+                val_ref_contract: Some(api.addr_make("val_ref_contract")),
             },
         )
         .unwrap();
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("not_provider_proposals_contract", &[]),
+        message_info(&api.addr_make("not_provider_proposals_contract"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorsVoting {
             proposal: ProposalInfo {
                 proposal: neutron_sdk::interchain_queries::v047::types::Proposal {
@@ -620,20 +636,21 @@ fn test_execute_update_validators_voting_unauthorized() {
 #[test]
 fn test_execute_update_validators_voting_spam_proposal() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     drop_staking_base::state::validatorset::CONFIG
         .save(
             deps.as_mut().storage,
             &drop_staking_base::state::validatorset::Config {
-                stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
-                val_ref_contract: Some(Addr::unchecked("val_ref_contract")),
+                stats_contract: api.addr_make("stats_contract"),
+                provider_proposals_contract: Some(api.addr_make("provider_proposals_contract")),
+                val_ref_contract: Some(api.addr_make("val_ref_contract")),
             },
         )
         .unwrap();
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("provider_proposals_contract", &[]),
+        message_info(&api.addr_make("provider_proposals_contract"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorsVoting {
             proposal: ProposalInfo {
                 proposal: neutron_sdk::interchain_queries::v047::types::Proposal {
@@ -667,13 +684,14 @@ fn test_execute_update_validators_voting_spam_proposal() {
 #[test]
 fn test_execute_update_validators_voting() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     drop_staking_base::state::validatorset::CONFIG
         .save(
             deps.as_mut().storage,
             &drop_staking_base::state::validatorset::Config {
-                stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
-                val_ref_contract: Some(Addr::unchecked("val_ref_contract")),
+                stats_contract: api.addr_make("stats_contract"),
+                provider_proposals_contract: Some(api.addr_make("provider_proposals_contract")),
+                val_ref_contract: Some(api.addr_make("val_ref_contract")),
             },
         )
         .unwrap();
@@ -701,7 +719,7 @@ fn test_execute_update_validators_voting() {
     let res = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("provider_proposals_contract", &[]),
+        message_info(&api.addr_make("provider_proposals_contract"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateValidatorsVoting {
             proposal: ProposalInfo {
                 proposal: neutron_sdk::interchain_queries::v047::types::Proposal {
@@ -747,10 +765,16 @@ fn test_execute_update_validators_voting() {
 #[test]
 fn query_ownership() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(api.addr_make("owner").as_str()),
+        )
+        .unwrap();
     }
 
     let response = from_json::<cw_ownable::Ownership<Addr>>(
@@ -766,7 +790,7 @@ fn query_ownership() {
     assert_eq!(
         response,
         cw_ownable::Ownership::<Addr> {
-            owner: Some(Addr::unchecked("owner")),
+            owner: Some(api.addr_make("owner")),
             pending_owner: None,
             pending_expiry: None,
         }
@@ -776,19 +800,25 @@ fn query_ownership() {
 #[test]
 fn execute_update_ownership() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner1")).unwrap();
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(api.addr_make("owner1").as_str()),
+        )
+        .unwrap();
     }
 
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner1", &[]),
+        message_info(&api.addr_make("owner1"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateOwnership(
             cw_ownable::Action::TransferOwnership {
-                new_owner: String::from("owner2"),
+                new_owner: api.addr_make("owner2").to_string(),
                 expiry: None,
             },
         ),
@@ -799,7 +829,7 @@ fn execute_update_ownership() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner2", &[]),
+        message_info(&api.addr_make("owner2"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::UpdateOwnership(
             cw_ownable::Action::AcceptOwnership,
         ),
@@ -807,19 +837,20 @@ fn execute_update_ownership() {
     .unwrap();
     assert_eq!(response, Response::new());
 
-    cw_ownable::assert_owner(deps.as_mut().storage, &Addr::unchecked("owner2")).unwrap();
+    cw_ownable::assert_owner(deps.as_mut().storage, &api.addr_make("owner2")).unwrap();
 }
 
 #[test]
 fn execute_edit_on_top_unauthorized_no_authorizations() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     drop_staking_base::state::validatorset::CONFIG
         .save(
             deps.as_mut().storage,
             &drop_staking_base::state::validatorset::Config {
-                stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
+                stats_contract: api.addr_make("stats_contract"),
+                provider_proposals_contract: Some(api.addr_make("provider_proposals_contract")),
                 val_ref_contract: None,
             },
         )
@@ -828,7 +859,7 @@ fn execute_edit_on_top_unauthorized_no_authorizations() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("someone", &[]),
+        message_info(&api.addr_make("someone"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::EditOnTop { operations: vec![] },
     )
     .unwrap_err();
@@ -842,19 +873,25 @@ fn execute_edit_on_top_unauthorized_no_authorizations() {
 #[test]
 fn execute_edit_on_top_unauthorized_stranger() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(api.addr_make("owner").as_str()),
+        )
+        .unwrap();
     }
 
     drop_staking_base::state::validatorset::CONFIG
         .save(
             deps.as_mut().storage,
             &drop_staking_base::state::validatorset::Config {
-                stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
-                val_ref_contract: Some(Addr::unchecked("val_ref_contract")),
+                stats_contract: api.addr_make("stats_contract"),
+                provider_proposals_contract: Some(api.addr_make("provider_proposals_contract")),
+                val_ref_contract: Some(api.addr_make("val_ref_contract")),
             },
         )
         .unwrap();
@@ -862,7 +899,7 @@ fn execute_edit_on_top_unauthorized_stranger() {
     let error = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("someone", &[]),
+        message_info(&api.addr_make("someone"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::EditOnTop { operations: vec![] },
     )
     .unwrap_err();
@@ -876,19 +913,25 @@ fn execute_edit_on_top_unauthorized_stranger() {
 #[test]
 fn execute_edit_on_top_authorized_owner() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(api.addr_make("owner").as_str()),
+        )
+        .unwrap();
     }
 
     drop_staking_base::state::validatorset::CONFIG
         .save(
             deps.as_mut().storage,
             &drop_staking_base::state::validatorset::Config {
-                stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
-                val_ref_contract: Some(Addr::unchecked("val_ref_contract")),
+                stats_contract: api.addr_make("stats_contract"),
+                provider_proposals_contract: Some(api.addr_make("provider_proposals_contract")),
+                val_ref_contract: Some(api.addr_make("val_ref_contract")),
             },
         )
         .unwrap();
@@ -896,7 +939,7 @@ fn execute_edit_on_top_authorized_owner() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&api.addr_make("owner"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::EditOnTop { operations: vec![] },
     )
     .unwrap();
@@ -912,19 +955,25 @@ fn execute_edit_on_top_authorized_owner() {
 #[test]
 fn execute_edit_on_top_authorized_val_ref_contract() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     {
         let deps_mut = deps.as_mut();
-        cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+        cw_ownable::initialize_owner(
+            deps_mut.storage,
+            deps_mut.api,
+            Some(api.addr_make("owner").as_str()),
+        )
+        .unwrap();
     }
 
     drop_staking_base::state::validatorset::CONFIG
         .save(
             deps.as_mut().storage,
             &drop_staking_base::state::validatorset::Config {
-                stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
-                val_ref_contract: Some(Addr::unchecked("val_ref_contract")),
+                stats_contract: api.addr_make("stats_contract"),
+                provider_proposals_contract: Some(api.addr_make("provider_proposals_contract")),
+                val_ref_contract: Some(api.addr_make("val_ref_contract")),
             },
         )
         .unwrap();
@@ -932,7 +981,7 @@ fn execute_edit_on_top_authorized_val_ref_contract() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("val_ref_contract", &[]),
+        message_info(&api.addr_make("val_ref_contract"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::EditOnTop { operations: vec![] },
     )
     .unwrap();
@@ -948,14 +997,15 @@ fn execute_edit_on_top_authorized_val_ref_contract() {
 #[test]
 fn execute_edit_on_top_add() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     drop_staking_base::state::validatorset::CONFIG
         .save(
             deps.as_mut().storage,
             &drop_staking_base::state::validatorset::Config {
-                stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
-                val_ref_contract: Some(Addr::unchecked("val_ref_contract")),
+                stats_contract: api.addr_make("stats_contract"),
+                provider_proposals_contract: Some(api.addr_make("provider_proposals_contract")),
+                val_ref_contract: Some(api.addr_make("val_ref_contract")),
             },
         )
         .unwrap();
@@ -985,7 +1035,7 @@ fn execute_edit_on_top_add() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("val_ref_contract", &[]),
+        message_info(&api.addr_make("val_ref_contract"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::EditOnTop {
             operations: vec![
                 drop_staking_base::msg::validatorset::OnTopEditOperation::Add {
@@ -1030,14 +1080,15 @@ fn execute_edit_on_top_add() {
 #[test]
 fn execute_edit_on_top_subtract() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     drop_staking_base::state::validatorset::CONFIG
         .save(
             deps.as_mut().storage,
             &drop_staking_base::state::validatorset::Config {
-                stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
-                val_ref_contract: Some(Addr::unchecked("val_ref_contract")),
+                stats_contract: api.addr_make("stats_contract"),
+                provider_proposals_contract: Some(api.addr_make("provider_proposals_contract")),
+                val_ref_contract: Some(api.addr_make("val_ref_contract")),
             },
         )
         .unwrap();
@@ -1067,7 +1118,7 @@ fn execute_edit_on_top_subtract() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("val_ref_contract", &[]),
+        message_info(&api.addr_make("val_ref_contract"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::EditOnTop {
             operations: vec![
                 drop_staking_base::msg::validatorset::OnTopEditOperation::Set {
@@ -1112,14 +1163,15 @@ fn execute_edit_on_top_subtract() {
 #[test]
 fn execute_edit_on_top_mixed() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
     drop_staking_base::state::validatorset::CONFIG
         .save(
             deps.as_mut().storage,
             &drop_staking_base::state::validatorset::Config {
-                stats_contract: Addr::unchecked("stats_contract"),
-                provider_proposals_contract: Some(Addr::unchecked("provider_proposals_contract")),
-                val_ref_contract: Some(Addr::unchecked("val_ref_contract")),
+                stats_contract: api.addr_make("stats_contract"),
+                provider_proposals_contract: Some(api.addr_make("provider_proposals_contract")),
+                val_ref_contract: Some(api.addr_make("val_ref_contract")),
             },
         )
         .unwrap();
@@ -1170,7 +1222,7 @@ fn execute_edit_on_top_mixed() {
     let response = crate::contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("val_ref_contract", &[]),
+        message_info(&api.addr_make("val_ref_contract"), &[]),
         drop_staking_base::msg::validatorset::ExecuteMsg::EditOnTop {
             operations: vec![
                 drop_staking_base::msg::validatorset::OnTopEditOperation::Set {

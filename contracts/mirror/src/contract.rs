@@ -14,11 +14,10 @@ use cosmwasm_std::{
 use cw_ownable::update_ownership;
 use drop_helpers::answer::response;
 use drop_helpers::ibc_fee::query_ibc_fee;
-use neutron_sdk::bindings::{
-    msg::{MsgIbcTransferResponse, NeutronMsg},
-    query::NeutronQuery,
-};
+use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
+use neutron_sdk::interchain_txs::helpers::decode_message_response;
 use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, TransferSudoMsg};
+use neutron_std::types::neutron::interchaintxs::v1::MsgSubmitTxResponse;
 use std::str::FromStr;
 use std::{env, vec};
 
@@ -269,13 +268,15 @@ pub fn store_seq_id(
     deps: DepsMut<NeutronQuery>,
     msg: Reply,
 ) -> ContractResult<Response<NeutronMsg>> {
-    let msg_ibc_transfer_response: MsgIbcTransferResponse = serde_json_wasm::from_slice(
-        msg.result
+    let msg_ibc_transfer_response: MsgSubmitTxResponse = decode_message_response(
+        &msg.result
             .into_result()
             .map_err(StdError::generic_err)?
-            .data
-            .ok_or_else(|| StdError::generic_err("no result"))?
-            .as_slice(),
+            .msg_responses
+            .first()
+            .ok_or_else(|| StdError::generic_err("no msg_responses found"))?
+            .value
+            .to_vec(),
     )
     .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?;
     let seq_id = msg_ibc_transfer_response.sequence_id;

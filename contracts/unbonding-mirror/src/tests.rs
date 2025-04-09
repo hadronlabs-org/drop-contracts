@@ -11,50 +11,51 @@ use crate::state::{
 use cosmwasm_std::{
     attr, from_json,
     testing::MOCK_CONTRACT_ADDR,
-    testing::{mock_env, mock_info},
-    to_json_binary, ChannelResponse, Coin, CosmosMsg, Event, IbcChannel, IbcEndpoint, IbcOrder,
-    Reply, ReplyOn, Response, SubMsg, SubMsgResponse, SubMsgResult, Uint128, WasmMsg,
+    testing::{message_info, mock_env},
+    to_json_binary, Binary, ChannelResponse, Coin, CosmosMsg, Event, IbcChannel, IbcEndpoint,
+    IbcOrder, MsgResponse, Reply, ReplyOn, Response, SubMsg, SubMsgResponse, SubMsgResult, Uint128,
+    WasmMsg,
 };
 use drop_helpers::testing::mock_dependencies;
-use neutron_sdk::bindings::msg::MsgIbcTransferResponse;
 use neutron_sdk::sudo::msg::{RequestPacket, TransferSudoMsg};
 use neutron_sdk::{
     bindings::msg::{IbcFee, NeutronMsg},
     query::min_ibc_fee::MinIbcFeeResponse,
     sudo::msg::RequestPacketTimeoutHeight,
 };
+use neutron_std::types::neutron::interchaintxs::v1::MsgSubmitTxResponse;
+use prost::Message;
 
 #[test]
 fn test_instantiate() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     deps.querier.add_ibc_channel_response(
         Some("source_channel".to_string()),
         Some("source_port".to_string()),
-        ChannelResponse {
-            channel: Some(IbcChannel::new(
-                IbcEndpoint {
-                    port_id: "source_port".to_string(),
-                    channel_id: "source_channel".to_string(),
-                },
-                IbcEndpoint {
-                    port_id: "source_port".to_string(),
-                    channel_id: "source_channel".to_string(),
-                },
-                IbcOrder::Ordered,
-                "version".to_string(),
-                "connection_id".to_string(),
-            )),
-        },
+        ChannelResponse::new(Some(IbcChannel::new(
+            IbcEndpoint {
+                port_id: "source_port".to_string(),
+                channel_id: "source_channel".to_string(),
+            },
+            IbcEndpoint {
+                port_id: "source_port".to_string(),
+                channel_id: "source_channel".to_string(),
+            },
+            IbcOrder::Ordered,
+            "version".to_string(),
+            "connection_id".to_string(),
+        ))),
     );
     let res = instantiate(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&api.addr_make("owner"), &[]),
         InstantiateMsg {
             owner: None,
-            core_contract: "core_contract".to_string(),
-            withdrawal_manager: "withdrawal_manager".to_string(),
-            withdrawal_voucher: "withdrawal_voucher".to_string(),
+            core_contract: api.addr_make("core_contract").to_string(),
+            withdrawal_manager: api.addr_make("withdrawal_manager").to_string(),
+            withdrawal_voucher: api.addr_make("withdrawal_voucher").to_string(),
             source_port: "source_port".to_string(),
             source_channel: "source_channel".to_string(),
             ibc_timeout: 12345,
@@ -68,10 +69,10 @@ fn test_instantiate() {
             Event::new("crates.io:drop-staking__drop-unbonding-mirror-instantiate").add_attributes(
                 vec![
                     attr("action", "instantiate"),
-                    attr("owner", "owner"),
-                    attr("core_contract", "core_contract"),
-                    attr("withdrawal_manager", "withdrawal_manager"),
-                    attr("withdrawal_voucher", "withdrawal_voucher"),
+                    attr("owner", api.addr_make("owner")),
+                    attr("core_contract", api.addr_make("core_contract")),
+                    attr("withdrawal_manager", api.addr_make("withdrawal_manager")),
+                    attr("withdrawal_voucher", api.addr_make("withdrawal_voucher")),
                     attr("source_port", "source_port"),
                     attr("source_channel", "source_channel"),
                     attr("ibc_timeout", "12345"),
@@ -83,9 +84,9 @@ fn test_instantiate() {
     assert_eq!(
         CONFIG.load(deps.as_ref().storage).unwrap(),
         Config {
-            core_contract: "core_contract".to_string(),
-            withdrawal_manager: "withdrawal_manager".to_string(),
-            withdrawal_voucher: "withdrawal_voucher".to_string(),
+            core_contract: api.addr_make("core_contract").to_string(),
+            withdrawal_manager: api.addr_make("withdrawal_manager").to_string(),
+            withdrawal_voucher: api.addr_make("withdrawal_voucher").to_string(),
             source_port: "source_port".to_string(),
             source_channel: "source_channel".to_string(),
             ibc_timeout: 12345,
@@ -97,15 +98,21 @@ fn test_instantiate() {
 #[test]
 fn test_execute_update_config_source_channel_not_found() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     CONFIG
         .save(
             deps.as_mut().storage,
             &Config {
-                core_contract: "core_contract".to_string(),
-                withdrawal_manager: "withdrawal_manager1".to_string(),
-                withdrawal_voucher: "withdrawal_voucher1".to_string(),
+                core_contract: api.addr_make("core_contract").to_string(),
+                withdrawal_manager: api.addr_make("withdrawal_manager1").to_string(),
+                withdrawal_voucher: api.addr_make("withdrawal_voucher1").to_string(),
                 source_port: "source_port1".to_string(),
                 source_channel: "source_channel1".to_string(),
                 ibc_timeout: 12345,
@@ -116,12 +123,12 @@ fn test_execute_update_config_source_channel_not_found() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&api.addr_make("owner"), &[]),
         ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
-                core_contract: Some("core_contract2".to_string()),
-                withdrawal_manager: Some("withdrawal_manager2".to_string()),
-                withdrawal_voucher: Some("withdrawal_voucher2".to_string()),
+                core_contract: Some(api.addr_make("core_contract2").to_string()),
+                withdrawal_manager: Some(api.addr_make("withdrawal_manager2").to_string()),
+                withdrawal_voucher: Some(api.addr_make("withdrawal_voucher2").to_string()),
                 source_port: Some("source_port2".to_string()),
                 source_channel: Some("source_channel2".to_string()),
                 ibc_timeout: Some(54321),
@@ -136,17 +143,23 @@ fn test_execute_update_config_source_channel_not_found() {
 #[test]
 fn test_execute_update_config_unauthrozied() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("random_sender", &[]),
+        message_info(&api.addr_make("random_sender"), &[]),
         ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
-                core_contract: Some("core_contract2".to_string()),
-                withdrawal_manager: Some("withdrawal_manager2".to_string()),
-                withdrawal_voucher: Some("withdrawal_voucher2".to_string()),
+                core_contract: Some(api.addr_make("core_contract2").to_string()),
+                withdrawal_manager: Some(api.addr_make("withdrawal_manager2").to_string()),
+                withdrawal_voucher: Some(api.addr_make("withdrawal_voucher2").to_string()),
                 source_port: Some("source_port2".to_string()),
                 source_channel: Some("source_channel2".to_string()),
                 ibc_timeout: Some(54321),
@@ -164,15 +177,21 @@ fn test_execute_update_config_unauthrozied() {
 #[test]
 fn test_execute_update_config() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     CONFIG
         .save(
             deps.as_mut().storage,
             &Config {
-                core_contract: "core_contract".to_string(),
-                withdrawal_manager: "withdrawal_manager1".to_string(),
-                withdrawal_voucher: "withdrawal_voucher1".to_string(),
+                core_contract: api.addr_make("core_contract").to_string(),
+                withdrawal_manager: api.addr_make("withdrawal_manager1").to_string(),
+                withdrawal_voucher: api.addr_make("withdrawal_voucher1").to_string(),
                 source_port: "source_port1".to_string(),
                 source_channel: "source_channel1".to_string(),
                 ibc_timeout: 12345,
@@ -183,31 +202,29 @@ fn test_execute_update_config() {
     deps.querier.add_ibc_channel_response(
         Some("source_channel2".to_string()),
         Some("source_port2".to_string()),
-        ChannelResponse {
-            channel: Some(IbcChannel::new(
-                IbcEndpoint {
-                    port_id: "source_port2".to_string(),
-                    channel_id: "source_channel2".to_string(),
-                },
-                IbcEndpoint {
-                    port_id: "source_port2".to_string(),
-                    channel_id: "source_channel2".to_string(),
-                },
-                IbcOrder::Ordered,
-                "version".to_string(),
-                "connection_id".to_string(),
-            )),
-        },
+        ChannelResponse::new(Some(IbcChannel::new(
+            IbcEndpoint {
+                port_id: "source_port2".to_string(),
+                channel_id: "source_channel2".to_string(),
+            },
+            IbcEndpoint {
+                port_id: "source_port2".to_string(),
+                channel_id: "source_channel2".to_string(),
+            },
+            IbcOrder::Ordered,
+            "version".to_string(),
+            "connection_id".to_string(),
+        ))),
     );
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&api.addr_make("owner"), &[]),
         ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
-                core_contract: Some("core_contract2".to_string()),
-                withdrawal_manager: Some("withdrawal_manager2".to_string()),
-                withdrawal_voucher: Some("withdrawal_voucher2".to_string()),
+                core_contract: Some(api.addr_make("core_contract2").to_string()),
+                withdrawal_manager: Some(api.addr_make("withdrawal_manager2").to_string()),
+                withdrawal_voucher: Some(api.addr_make("withdrawal_voucher2").to_string()),
                 source_port: Some("source_port2".to_string()),
                 source_channel: Some("source_channel2".to_string()),
                 ibc_timeout: Some(54321),
@@ -222,9 +239,9 @@ fn test_execute_update_config() {
             Event::new("crates.io:drop-staking__drop-unbonding-mirror-execute_update_config")
                 .add_attributes(vec![
                     attr("action", "execute_update_config"),
-                    attr("core_contract", "core_contract2"),
-                    attr("withdrawal_manager", "withdrawal_manager2"),
-                    attr("withdrawal_voucher", "withdrawal_voucher2"),
+                    attr("core_contract", api.addr_make("core_contract2")),
+                    attr("withdrawal_manager", api.addr_make("withdrawal_manager2")),
+                    attr("withdrawal_voucher", api.addr_make("withdrawal_voucher2")),
                     attr("ibc_timeout", "54321"),
                     attr("prefix", "prefix2"),
                     attr("source_port", "source_port2"),
@@ -235,9 +252,9 @@ fn test_execute_update_config() {
     assert_eq!(
         CONFIG.load(&deps.storage).unwrap(),
         Config {
-            core_contract: "core_contract2".to_string(),
-            withdrawal_manager: "withdrawal_manager2".to_string(),
-            withdrawal_voucher: "withdrawal_voucher2".to_string(),
+            core_contract: api.addr_make("core_contract2").to_string(),
+            withdrawal_manager: api.addr_make("withdrawal_manager2").to_string(),
+            withdrawal_voucher: api.addr_make("withdrawal_voucher2").to_string(),
             source_port: "source_port2".to_string(),
             source_channel: "source_channel2".to_string(),
             ibc_timeout: 54321,
@@ -249,10 +266,11 @@ fn test_execute_update_config() {
 #[test]
 fn test_execute_unbond_not_no_funds() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("random_sender", &[]),
+        message_info(&api.addr_make("random_sender"), &[]),
         ExecuteMsg::Unbond {
             receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         },
@@ -267,11 +285,12 @@ fn test_execute_unbond_not_no_funds() {
 #[test]
 fn test_execute_unbond_not_one_coin() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info(
-            "random_sender",
+        message_info(
+            &api.addr_make("random_sender"),
             &[
                 Coin {
                     denom: "denom1".to_string(),
@@ -297,6 +316,7 @@ fn test_execute_unbond_not_one_coin() {
 #[test]
 fn test_execute_unbond_invalid_prefix() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -314,8 +334,8 @@ fn test_execute_unbond_invalid_prefix() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info(
-            "random_sender",
+        message_info(
+            &api.addr_make("random_sender"),
             &[Coin {
                 denom: "denom1".to_string(),
                 amount: Uint128::from(100u128),
@@ -332,6 +352,7 @@ fn test_execute_unbond_invalid_prefix() {
 #[test]
 fn test_execute_unbond_wrong_receiver_address() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -349,8 +370,8 @@ fn test_execute_unbond_wrong_receiver_address() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info(
-            "random_sender",
+        message_info(
+            &api.addr_make("random_sender"),
             &[Coin {
                 denom: "denom1".to_string(),
                 amount: Uint128::from(100u128),
@@ -367,6 +388,7 @@ fn test_execute_unbond_wrong_receiver_address() {
 #[test]
 fn test_execute_unbond() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -384,8 +406,8 @@ fn test_execute_unbond() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info(
-            "random_sender",
+        message_info(
+            &api.addr_make("random_sender"),
             &[Coin {
                 denom: "dAsset".to_string(),
                 amount: Uint128::from(100u128),
@@ -405,6 +427,7 @@ fn test_execute_unbond() {
             )
             .add_submessage(SubMsg {
                 id: UNBOND_REPLY_ID,
+                payload: Binary::default(),
                 msg: CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "core_contract".to_string(),
                     msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::Unbond {})
@@ -427,6 +450,7 @@ fn test_execute_unbond() {
 #[test]
 fn test_execute_retry_invalid_prefix() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -444,7 +468,7 @@ fn test_execute_retry_invalid_prefix() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[]),
+        message_info(&api.addr_make("sender"), &[]),
         ExecuteMsg::Retry {
             receiver: "invalid_prefix".to_string(),
         },
@@ -456,6 +480,7 @@ fn test_execute_retry_invalid_prefix() {
 #[test]
 fn test_execute_retry_wrong_receiver_address() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -473,7 +498,7 @@ fn test_execute_retry_wrong_receiver_address() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[]),
+        message_info(&api.addr_make("sender"), &[]),
         ExecuteMsg::Retry {
             receiver: "prefix1invalid_address".to_string(),
         },
@@ -485,6 +510,7 @@ fn test_execute_retry_wrong_receiver_address() {
 #[test]
 fn test_execute_retry_take_1_from_3() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -532,7 +558,7 @@ fn test_execute_retry_take_1_from_3() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[]),
+        message_info(&api.addr_make("sender"), &[]),
         ExecuteMsg::Retry {
             receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         },
@@ -551,6 +577,7 @@ fn test_execute_retry_take_1_from_3() {
             )
             .add_submessages(vec![SubMsg {
                 id: IBC_TRANSFER_REPLY_ID,
+                payload: Binary::default(),
                 msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: "source_port".to_string(),
                     source_channel: "source_channel".to_string(),
@@ -612,6 +639,7 @@ fn test_execute_retry_take_1_from_3() {
 #[test]
 fn test_execute_retry_take_one() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -649,7 +677,7 @@ fn test_execute_retry_take_one() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[]),
+        message_info(&api.addr_make("sender"), &[]),
         ExecuteMsg::Retry {
             receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         },
@@ -668,6 +696,7 @@ fn test_execute_retry_take_one() {
             )
             .add_submessages(vec![SubMsg {
                 id: IBC_TRANSFER_REPLY_ID,
+                payload: Binary::default(),
                 msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: "source_port".to_string(),
                     source_channel: "source_channel".to_string(),
@@ -717,6 +746,7 @@ fn test_execute_retry_take_one() {
 #[test]
 fn test_execute_retry_take_0() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -734,7 +764,7 @@ fn test_execute_retry_take_0() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[]),
+        message_info(&api.addr_make("sender"), &[]),
         ExecuteMsg::Retry {
             receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         },
@@ -752,6 +782,7 @@ fn test_execute_retry_take_0() {
 #[test]
 fn test_execute_retry_take_empty() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -776,7 +807,7 @@ fn test_execute_retry_take_empty() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[]),
+        message_info(&api.addr_make("sender"), &[]),
         ExecuteMsg::Retry {
             receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         },
@@ -794,6 +825,7 @@ fn test_execute_retry_take_empty() {
 #[test]
 fn test_execute_retry_none() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -811,7 +843,7 @@ fn test_execute_retry_none() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[]),
+        message_info(&api.addr_make("sender"), &[]),
         ExecuteMsg::Retry {
             receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         },
@@ -829,10 +861,11 @@ fn test_execute_retry_none() {
 #[test]
 fn test_execute_withdraw_no_funds() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[]),
+        message_info(&api.addr_make("sender"), &[]),
         ExecuteMsg::Withdraw {
             receiver: "receiver".to_string(),
         },
@@ -847,11 +880,12 @@ fn test_execute_withdraw_no_funds() {
 #[test]
 fn test_execute_withdraw_extra_funds() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info(
-            "sender",
+        message_info(
+            &api.addr_make("sender"),
             &[
                 Coin {
                     denom: "denom1".to_string(),
@@ -877,6 +911,7 @@ fn test_execute_withdraw_extra_funds() {
 #[test]
 fn test_execute_withdraw_invalid_prefix() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -894,8 +929,8 @@ fn test_execute_withdraw_invalid_prefix() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info(
-            "sender",
+        message_info(
+            &api.addr_make("sender"),
             &[Coin {
                 denom: "denom1".to_string(),
                 amount: Uint128::from(1u128),
@@ -912,6 +947,7 @@ fn test_execute_withdraw_invalid_prefix() {
 #[test]
 fn test_execute_withdraw_wrong_receiver_address() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -929,8 +965,8 @@ fn test_execute_withdraw_wrong_receiver_address() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info(
-            "sender",
+        message_info(
+            &api.addr_make("sender"),
             &[Coin {
                 denom: "denom1".to_string(),
                 amount: Uint128::from(1u128),
@@ -947,6 +983,7 @@ fn test_execute_withdraw_wrong_receiver_address() {
 #[test]
 fn test_execute_withdraw() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -971,22 +1008,24 @@ fn test_execute_withdraw() {
     deps.querier
         .add_wasm_query_response("withdrawal_voucher", |_| {
             cosmwasm_std::ContractResult::Ok(
-                to_json_binary(&cw721::AllNftInfoResponse {
-                    access: cw721::OwnerOfResponse {
+                to_json_binary(&cw721::msg::AllNftInfoResponse {
+                    access: cw721::msg::OwnerOfResponse {
                         owner: "owner".to_string(),
                         approvals: vec![],
                     },
-                    info: cw721::NftInfoResponse::<
+                    info: cw721::msg::NftInfoResponse::<
                         drop_staking_base::msg::withdrawal_voucher::Extension,
                     > {
                         token_uri: Some("token_uri".to_string()),
-                        extension: Some(drop_staking_base::state::withdrawal_voucher::Metadata {
-                            name: "name".to_string(),
-                            description: None,
-                            attributes: None,
-                            batch_id: "batch_id".to_string(),
-                            amount: Uint128::from(100u128),
-                        }),
+                        extension: Some(
+                            drop_staking_base::state::withdrawal_voucher::NftExtension {
+                                name: "name".to_string(),
+                                description: None,
+                                attributes: None,
+                                batch_id: "batch_id".to_string(),
+                                amount: Uint128::from(100u128),
+                            },
+                        ),
                     },
                 })
                 .unwrap(),
@@ -995,8 +1034,8 @@ fn test_execute_withdraw() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info(
-            "sender",
+        message_info(
+            &api.addr_make("sender"),
             &[Coin {
                 denom: "denom".to_string(),
                 amount: Uint128::from(1u128),
@@ -1024,6 +1063,7 @@ fn test_execute_withdraw() {
             .add_submessages(vec![
                 SubMsg {
                     id: 0,
+                    payload: Binary::default(),
                     msg: CosmosMsg::Custom(NeutronMsg::BurnTokens {
                         denom: "denom".to_string(),
                         amount: Uint128::from(1u128),
@@ -1034,6 +1074,7 @@ fn test_execute_withdraw() {
                 },
                 SubMsg {
                     id: WITHDRAW_REPLY_ID,
+                    payload: Binary::default(),
                     msg: CosmosMsg::Wasm(WasmMsg::Execute {
                         contract_addr: "withdrawal_voucher".to_string(),
                         msg: to_json_binary(
@@ -1065,14 +1106,20 @@ fn test_execute_withdraw() {
 #[test]
 fn test_execute_transfer_ownership() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&api.addr_make("owner"), &[]),
         ExecuteMsg::UpdateOwnership(cw_ownable::Action::TransferOwnership {
-            new_owner: "new_owner".to_string(),
+            new_owner: api.addr_make("new_owner").to_string(),
             expiry: Some(cw_ownable::Expiration::Never {}),
         }),
     )
@@ -1080,23 +1127,16 @@ fn test_execute_transfer_ownership() {
     execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("new_owner", &[]),
+        message_info(&api.addr_make("new_owner"), &[]),
         ExecuteMsg::UpdateOwnership(cw_ownable::Action::AcceptOwnership {}),
     )
     .unwrap();
-    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> = from_json(
-        query(
-            deps.as_ref(),
-            mock_env(),
-            crate::msg::QueryMsg::Ownership {},
-        )
-        .unwrap(),
-    )
-    .unwrap();
+    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> =
+        from_json(query(deps.as_ref(), mock_env(), QueryMsg::Ownership {}).unwrap()).unwrap();
     assert_eq!(
         query_res,
         cw_ownable::Ownership {
-            owner: Some(cosmwasm_std::Addr::unchecked("new_owner".to_string())),
+            owner: Some(api.addr_make("new_owner")),
             pending_expiry: None,
             pending_owner: None
         }
@@ -1106,21 +1146,20 @@ fn test_execute_transfer_ownership() {
 #[test]
 fn test_query_ownership() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> = from_json(
-        query(
-            deps.as_ref(),
-            mock_env(),
-            crate::msg::QueryMsg::Ownership {},
-        )
-        .unwrap(),
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
     )
     .unwrap();
+    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> =
+        from_json(query(deps.as_ref(), mock_env(), QueryMsg::Ownership {}).unwrap()).unwrap();
     assert_eq!(
         query_res,
         cw_ownable::Ownership {
-            owner: Some(cosmwasm_std::Addr::unchecked("owner".to_string())),
+            owner: Some(api.addr_make("owner")),
             pending_expiry: None,
             pending_owner: None
         }
@@ -1321,22 +1360,24 @@ fn test_query_unbond_ready_true() {
     deps.querier
         .add_wasm_query_response("withdrawal_voucher", |_| {
             cosmwasm_std::ContractResult::Ok(
-                to_json_binary(&cw721::AllNftInfoResponse {
-                    access: cw721::OwnerOfResponse {
+                to_json_binary(&cw721::msg::AllNftInfoResponse {
+                    access: cw721::msg::OwnerOfResponse {
                         owner: "owner".to_string(),
                         approvals: vec![],
                     },
-                    info: cw721::NftInfoResponse::<
+                    info: cw721::msg::NftInfoResponse::<
                         drop_staking_base::msg::withdrawal_voucher::Extension,
                     > {
                         token_uri: Some("token_uri".to_string()),
-                        extension: Some(drop_staking_base::state::withdrawal_voucher::Metadata {
-                            name: "name".to_string(),
-                            description: None,
-                            attributes: None,
-                            batch_id: "0".to_string(),
-                            amount: Uint128::from(100u128),
-                        }),
+                        extension: Some(
+                            drop_staking_base::state::withdrawal_voucher::NftExtension {
+                                name: "name".to_string(),
+                                description: None,
+                                attributes: None,
+                                batch_id: "0".to_string(),
+                                amount: Uint128::from(100u128),
+                            },
+                        ),
                     },
                 })
                 .unwrap(),
@@ -1408,22 +1449,24 @@ fn test_query_unbond_ready_false() {
     deps.querier
         .add_wasm_query_response("withdrawal_voucher", |_| {
             cosmwasm_std::ContractResult::Ok(
-                to_json_binary(&cw721::AllNftInfoResponse {
-                    access: cw721::OwnerOfResponse {
+                to_json_binary(&cw721::msg::AllNftInfoResponse {
+                    access: cw721::msg::OwnerOfResponse {
                         owner: "owner".to_string(),
                         approvals: vec![],
                     },
-                    info: cw721::NftInfoResponse::<
+                    info: cw721::msg::NftInfoResponse::<
                         drop_staking_base::msg::withdrawal_voucher::Extension,
                     > {
                         token_uri: Some("token_uri".to_string()),
-                        extension: Some(drop_staking_base::state::withdrawal_voucher::Metadata {
-                            name: "name".to_string(),
-                            description: None,
-                            attributes: None,
-                            batch_id: "0".to_string(),
-                            amount: Uint128::from(100u128),
-                        }),
+                        extension: Some(
+                            drop_staking_base::state::withdrawal_voucher::NftExtension {
+                                name: "name".to_string(),
+                                description: None,
+                                attributes: None,
+                                batch_id: "0".to_string(),
+                                amount: Uint128::from(100u128),
+                            },
+                        ),
                     },
                 })
                 .unwrap(),
@@ -1496,9 +1539,13 @@ fn test_reply_finalize_withdraw_no_transfer_amount() {
         mock_env(),
         Reply {
             id: WITHDRAW_REPLY_ID,
+            payload: Binary::default(),
+            gas_used: 1000,
+            #[allow(deprecated)]
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![],
                 data: None,
+                msg_responses: vec![],
             }),
         },
     )
@@ -1534,9 +1581,13 @@ fn test_reply_finalize_withdraw_no_transfer_amount_found() {
         mock_env(),
         Reply {
             id: WITHDRAW_REPLY_ID,
+            payload: Binary::default(),
+            gas_used: 1000,
+            #[allow(deprecated)]
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![Event::new("transfer")],
                 data: None,
+                msg_responses: vec![],
             }),
         },
     )
@@ -1547,13 +1598,14 @@ fn test_reply_finalize_withdraw_no_transfer_amount_found() {
 #[test]
 fn test_reply_finalize_withdraw() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
             &Config {
-                core_contract: "core_contract".to_string(),
-                withdrawal_manager: "withdrawal_manager".to_string(),
-                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                core_contract: api.addr_make("core_contract").to_string(),
+                withdrawal_manager: api.addr_make("withdrawal_manager").to_string(),
+                withdrawal_voucher: api.addr_make("withdrawal_voucher").to_string(),
                 source_port: "source_port".to_string(),
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
@@ -1564,7 +1616,7 @@ fn test_reply_finalize_withdraw() {
     WITHDRAW_REPLY_RECEIVER
         .save(
             deps.as_mut().storage,
-            &"withdraw_reply_receiver".to_string(),
+            &api.addr_make("withdraw_reply_receiver").to_string(),
         )
         .unwrap();
     deps.querier.add_custom_query_response(|_| {
@@ -1582,9 +1634,13 @@ fn test_reply_finalize_withdraw() {
         mock_env(),
         Reply {
             id: WITHDRAW_REPLY_ID,
+            payload: Binary::default(),
+            gas_used: 1000,
+            #[allow(deprecated)]
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![Event::new("transfer").add_attribute("amount", "100ibc_denom")],
                 data: None,
+                msg_responses: vec![],
             }),
         },
     )
@@ -1597,13 +1653,14 @@ fn test_reply_finalize_withdraw() {
                     .add_attributes(vec![
                         attr("source_port", "source_port"),
                         attr("source_channel", "source_channel"),
-                        attr("receiver", "withdraw_reply_receiver"),
+                        attr("receiver", api.addr_make("withdraw_reply_receiver")),
                         attr("timeout", "1571809764879305533"),
                         attr("amount", "100ibc_denom"),
                     ])
             )
             .add_submessages(vec![SubMsg {
                 id: IBC_TRANSFER_REPLY_ID,
+                payload: Binary::default(),
                 msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: "source_port".to_string(),
                     source_channel: "source_channel".to_string(),
@@ -1611,8 +1668,8 @@ fn test_reply_finalize_withdraw() {
                         denom: "ibc_denom".to_string(),
                         amount: Uint128::from(100u128)
                     },
-                    sender: "cosmos2contract".to_string(),
-                    receiver: "withdraw_reply_receiver".to_string(),
+                    sender: api.addr_make("cosmos2contract").to_string(),
+                    receiver: api.addr_make("withdraw_reply_receiver").to_string(),
                     timeout_height: RequestPacketTimeoutHeight {
                         revision_number: None,
                         revision_height: None
@@ -1672,9 +1729,13 @@ fn test_reply_finalize_unbond_no_nft_minted() {
         mock_env(),
         Reply {
             id: UNBOND_REPLY_ID,
+            payload: Binary::default(),
+            gas_used: 1000,
+            #[allow(deprecated)]
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![],
                 data: None,
+                msg_responses: vec![],
             }),
         },
     )
@@ -1710,9 +1771,13 @@ fn test_reply_finalize_unbond_no_nft_minted_found() {
         mock_env(),
         Reply {
             id: UNBOND_REPLY_ID,
+            payload: Binary::default(),
+            gas_used: 1000,
+            #[allow(deprecated)]
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![Event::new("wasm")],
                 data: None,
+                msg_responses: vec![],
             }),
         },
     )
@@ -1723,13 +1788,14 @@ fn test_reply_finalize_unbond_no_nft_minted_found() {
 #[test]
 fn test_reply_finalize_unbond() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
             &Config {
-                core_contract: "core_contract".to_string(),
-                withdrawal_manager: "withdrawal_manager".to_string(),
-                withdrawal_voucher: "withdrawal_voucher".to_string(),
+                core_contract: api.addr_make("core_contract").to_string(),
+                withdrawal_manager: api.addr_make("withdrawal_manager").to_string(),
+                withdrawal_voucher: api.addr_make("withdrawal_voucher").to_string(),
                 source_port: "source_port".to_string(),
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
@@ -1740,7 +1806,7 @@ fn test_reply_finalize_unbond() {
     UNBOND_REPLY_RECEIVER
         .save(
             deps.as_mut().storage,
-            &"withdraw_reply_receiver".to_string(),
+            &api.addr_make("withdraw_reply_receiver").to_string(),
         )
         .unwrap();
     deps.querier.add_custom_query_response(|_| {
@@ -1758,9 +1824,13 @@ fn test_reply_finalize_unbond() {
         mock_env(),
         Reply {
             id: UNBOND_REPLY_ID,
+            payload: Binary::default(),
+            gas_used: 1000,
+            #[allow(deprecated)]
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![Event::new("wasm").add_attribute("token_id", "1_neutron..._123")],
                 data: None,
+                msg_responses: vec![],
             }),
         },
     )
@@ -1773,16 +1843,20 @@ fn test_reply_finalize_unbond() {
                     .add_attributes(vec![
                         attr("action", "reply_finalize_bond"),
                         attr("nft", "1_neutron..._123"),
-                        attr("to_address", "withdraw_reply_receiver"),
+                        attr("to_address", api.addr_make("withdraw_reply_receiver")),
                         attr("source_port", "source_port"),
                         attr("source_channel", "source_channel"),
                         attr("ibc_timeout", "12345"),
-                        attr("tf_denom", "factory/cosmos2contract/nft_1_123"),
+                        attr(
+                            "tf_denom",
+                            format!("factory/{}/nft_1_123", api.addr_make("cosmos2contract"))
+                        ),
                     ])
             )
             .add_submessages(vec![
                 SubMsg {
                     id: 0,
+                    payload: Binary::default(),
                     msg: CosmosMsg::Custom(NeutronMsg::CreateDenom {
                         subdenom: "nft_1_123".to_string()
                     }),
@@ -1791,25 +1865,30 @@ fn test_reply_finalize_unbond() {
                 },
                 SubMsg {
                     id: 0,
+                    payload: Binary::default(),
                     msg: CosmosMsg::Custom(NeutronMsg::MintTokens {
-                        denom: "factory/cosmos2contract/nft_1_123".to_string(),
+                        denom: format!("factory/{}/nft_1_123", api.addr_make("cosmos2contract")),
                         amount: Uint128::from(1u128),
-                        mint_to_address: "cosmos2contract".to_string()
+                        mint_to_address: api.addr_make("cosmos2contract").to_string()
                     }),
                     gas_limit: None,
                     reply_on: ReplyOn::Never
                 },
                 SubMsg {
                     id: IBC_TRANSFER_REPLY_ID,
+                    payload: Binary::default(),
                     msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                         source_port: "source_port".to_string(),
                         source_channel: "source_channel".to_string(),
                         token: Coin {
-                            denom: "factory/cosmos2contract/nft_1_123".to_string(),
+                            denom: format!(
+                                "factory/{}/nft_1_123",
+                                api.addr_make("cosmos2contract")
+                            ),
                             amount: Uint128::from(1u128)
                         },
-                        sender: "cosmos2contract".to_string(),
-                        receiver: "withdraw_reply_receiver".to_string(),
+                        sender: api.addr_make("cosmos2contract").to_string(),
+                        receiver: api.addr_make("withdraw_reply_receiver").to_string(),
                         timeout_height: RequestPacketTimeoutHeight {
                             revision_height: None,
                             revision_number: None,
@@ -1837,7 +1916,7 @@ fn test_reply_finalize_unbond() {
         TF_DENOM_TO_NFT_ID
             .load(
                 &deps.storage,
-                "factory/cosmos2contract/nft_1_123".to_string(),
+                format!("factory/{}/nft_1_123", api.addr_make("cosmos2contract")),
             )
             .unwrap(),
         "1_neutron..._123".to_string()
@@ -1845,7 +1924,7 @@ fn test_reply_finalize_unbond() {
     assert_eq!(
         REPLY_TRANSFER_COIN.load(&deps.storage).unwrap(),
         Coin {
-            denom: "factory/cosmos2contract/nft_1_123".to_string(),
+            denom: format!("factory/{}/nft_1_123", api.addr_make("cosmos2contract")),
             amount: Uint128::from(1u128)
         }
     );
@@ -1868,19 +1947,22 @@ fn test_reply_store_seq_id_invalid_type() {
         mock_env(),
         Reply {
             id: IBC_TRANSFER_REPLY_ID,
+            payload: Binary::default(),
+            gas_used: 1000,
+            #[allow(deprecated)]
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![Event::new("wasm").add_attribute("token_id", "1_neutron..._123")],
-                data: Some(to_json_binary(&"wrong_data".to_string()).unwrap()),
+                data: None,
+                msg_responses: vec![MsgResponse {
+                    type_url: "/neutron.interchainquery.v1.MsgIbcTransferResponse".to_string(),
+                    value: Binary::from("wrong_data".as_bytes()),
+                }],
             }),
         },
     )
     .unwrap_err();
-    assert_eq!(
-        res,
-        ContractError::Std(cosmwasm_std::StdError::GenericErr {
-            msg: "failed to parse response: InvalidType".to_string()
-        })
-    );
+    assert!(format!("{}", res).contains("failed to parse response"));
+    assert!(format!("{}", res).contains("failed to decode Protobuf message"));
 }
 
 #[test]
@@ -1900,15 +1982,22 @@ fn test_reply_store_seq_id() {
         mock_env(),
         Reply {
             id: IBC_TRANSFER_REPLY_ID,
+            payload: Binary::default(),
+            gas_used: 1000,
+            #[allow(deprecated)]
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![],
-                data: Some(
-                    to_json_binary(&MsgIbcTransferResponse {
-                        sequence_id: 0u64,
-                        channel: "channel".to_string(),
-                    })
-                    .unwrap(),
-                ),
+                data: None,
+                msg_responses: vec![MsgResponse {
+                    type_url: "/neutron.interchainquery.v1.MsgIbcTransferResponse".to_string(),
+                    value: Binary::from(
+                        MsgSubmitTxResponse {
+                            sequence_id: 0u64,
+                            channel: "channel".to_string(),
+                        }
+                        .encode_to_vec(),
+                    ),
+                }],
             }),
         },
     )

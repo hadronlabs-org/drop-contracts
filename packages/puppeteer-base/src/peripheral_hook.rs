@@ -62,7 +62,7 @@ pub enum Transaction {
         validator_from: String,
         validator_to: String,
         denom: String,
-        amount: u128,
+        amount: Uint128,
     },
     WithdrawReward {
         interchain_account_id: String,
@@ -72,7 +72,7 @@ pub enum Transaction {
         interchain_account_id: String,
         validator: String,
         denom: String,
-        amount: u128,
+        amount: Uint128,
     },
     RedeemShares {
         items: Vec<RedeemShareItem>,
@@ -85,8 +85,8 @@ pub enum Transaction {
     },
     IBCTransfer {
         denom: String,
-        amount: u128,
-        real_amount: u128,
+        amount: Uint128,
+        real_amount: Uint128,
         recipient: String,
         reason: IBCTransferReason,
     },

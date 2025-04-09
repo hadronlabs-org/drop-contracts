@@ -2,7 +2,6 @@
 resolver = "2"
 members = [
     "contracts/unbonding-mirror",
-    "contracts/astroport-exchange-handler",
     "contracts/auto-withdrawer",
     "contracts/core",
     "contracts/distribution",
@@ -39,26 +38,21 @@ members = [
 ]
 
 [workspace.dependencies]
-cosmwasm-std = { version = "1.5.9", default-features = false, features = [
-    "stargate",
-    "cosmwasm_1_2",
-    "staking",
-] }
-neutron-sdk = { package = "neutron-sdk", git = "https://github.com/neutron-org/neutron-sdk", branch = "feat/proposal-votes" }
-
+cosmwasm-std = { version = "2.1.0", default-features = false, features = ["std", "cosmwasm_1_2", "cosmwasm_2_0", "staking"] }
+neutron-sdk = { version = "0.11.0" }
+neutron-std = { git = "https://github.com/neutron-org/neutron-std", branch = "main" }
 cosmos-sdk-proto = { version = "0.20.0", default-features = false }
-cw-ownable = { version = "0.5.1", default-features = false }
+cw-ownable = { version = "2.0.0", default-features = false }
 prost = { version = "0.12.3", default-features = false }
 prost-types = { version = "0.12.3", default-features = false }
-tendermint-proto = { version = "0.34.0", default-features = false }
+tendermint-proto = { version = "0.34.1", default-features = false }
+cosmwasm-schema = { version = "2.1.0", default-features = false }
+cw-storage-plus = { version = "2.0.0", default-features = false }
+cw2 = { version = "2.0.0", default-features = false }
+cw721 = { package = "cw721", git = "https://github.com/public-awesome/cw-nfts", branch = "main", default-features = false }
+cw-multi-test = { version = "2.1.0", default-features = false }
+cw-utils = { version = "2.0.0", default-features = false }
 time = "0.3.37"
-cosmwasm-schema = { version = "1.5.4", default-features = false }
-cw-storage-plus = { version = "1.2.0", default-features = false }
-cw2 = { version = "1.1.2", default-features = false }
-cw721 = { version = "0.18.0", default-features = false }
-cw721-base = { version = "0.18.0", features = ["library"] }
-cw-multi-test = { version = "0.20.0", default-features = false }
-cw-utils = { version = "1.0.3", default-features = false }
 serde = { version = "1.0.195", default-features = false }
 serde-json-wasm = { version = "1.0.0", default-features = false }
 sha2 = { version = "0.10.8", default-features = false }
@@ -67,7 +61,6 @@ bech32 = { version = "0.11.0", default-features = false, features = ["alloc"] }
 thiserror = { version = "1.0.56", default-features = false }
 optfield = { version = "0.3.0", default-features = false }
 schemars = { version = "0.8.16", default-features = false }
-astroport = { version = "3.6.1", default-features = false }
 semver = { version = "1.0.22", default-features = false }
 hex = { version = "0.4.3", default-features = false }
 once_cell = { version = "1.20.2" }

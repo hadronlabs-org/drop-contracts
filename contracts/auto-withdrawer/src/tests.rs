@@ -6,27 +6,31 @@ use crate::{
 };
 use cosmwasm_std::{
     attr, coin,
-    testing::{mock_env, mock_info},
-    Event,
+    testing::{message_info, mock_env},
+    Addr, Event,
 };
 use drop_helpers::testing::{mock_dependencies, mock_state_query};
 
 #[test]
 fn instantiate() {
     let mut deps = mock_dependencies(&[]);
+    let factory_contract_address_msg = deps.api.addr_make("factory_contract").to_string();
     let response = contract::instantiate(
         deps.as_mut(),
         mock_env(),
-        mock_info("admin", &[]),
+        message_info(&Addr::unchecked("admin"), &[]),
         InstantiateMsg {
-            factory_contract: "factory_contract".to_string(),
+            factory_contract: factory_contract_address_msg.clone(),
             ld_token: "ld_token".to_string(),
         },
     )
     .unwrap();
 
-    let factory_contract = FACTORY_CONTRACT.load(deps.as_ref().storage).unwrap();
-    assert_eq!(factory_contract, "factory_contract");
+    let factory_contract_address_storage = FACTORY_CONTRACT.load(deps.as_ref().storage).unwrap();
+    assert_eq!(
+        factory_contract_address_storage.as_str(),
+        factory_contract_address_msg.as_str()
+    );
     let ld_token = LD_TOKEN.load(deps.as_ref().storage).unwrap();
     assert_eq!(ld_token, "ld_token");
     assert_eq!(response.messages.len(), 0);
@@ -34,7 +38,7 @@ fn instantiate() {
         response.events,
         vec![
             Event::new("drop-auto-withdrawer-instantiate").add_attributes([
-                attr("factory_contract", "factory_contract"),
+                attr("factory_contract", factory_contract_address_msg),
                 attr("ld_token", "ld_token")
             ])
         ]
@@ -45,12 +49,11 @@ fn instantiate() {
 #[test]
 fn bond_missing_ld_assets() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
+
     mock_state_query(&mut deps);
     FACTORY_CONTRACT
-        .save(
-            deps.as_mut().storage,
-            &cosmwasm_std::Addr::unchecked("factory_contract".to_string()),
-        )
+        .save(deps.as_mut().storage, &api.addr_make("factory_contract"))
         .unwrap();
     LD_TOKEN
         .save(deps.as_mut().storage, &"ld_token".into())
@@ -58,7 +61,10 @@ fn bond_missing_ld_assets() {
     let err = contract::execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[coin(10, "uatom"), coin(20, "untrn")]),
+        message_info(
+            &api.addr_make("sender"),
+            &[coin(10, "uatom"), coin(20, "untrn")],
+        ),
         ExecuteMsg::Bond(BondMsg::WithLdAssets {}),
     )
     .unwrap_err();
@@ -86,19 +92,16 @@ fn test_migrate_wrong_contract() {
 }
 
 mod bond_missing_deposit {
-    use drop_helpers::testing::{mock_dependencies, mock_state_query};
-
     use super::*;
 
     #[test]
     fn with_ld_assets() {
         let mut deps = mock_dependencies(&[]);
+        let api = deps.api;
+
         mock_state_query(&mut deps);
         FACTORY_CONTRACT
-            .save(
-                deps.as_mut().storage,
-                &cosmwasm_std::Addr::unchecked("factory_contract".to_string()),
-            )
+            .save(deps.as_mut().storage, &api.addr_make("factory_contract"))
             .unwrap();
         LD_TOKEN
             .save(deps.as_mut().storage, &"ld_token".into())
@@ -106,7 +109,7 @@ mod bond_missing_deposit {
         let err = contract::execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("sender", &[coin(10, "ld_token")]),
+            message_info(&api.addr_make("sender"), &[coin(10, "ld_token")]),
             ExecuteMsg::Bond(BondMsg::WithLdAssets {}),
         )
         .unwrap_err();
@@ -120,7 +123,7 @@ mod bond_missing_deposit {
         let err = contract::execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("sender", &[]),
+            message_info(&Addr::unchecked("sender"), &[]),
             ExecuteMsg::Bond(BondMsg::WithNFT {
                 token_id: "token_id".into(),
             }),

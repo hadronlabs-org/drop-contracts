@@ -2,7 +2,7 @@ use cosmwasm_std::{
     attr, ensure_eq, from_json, to_json_binary, Attribute, BankMsg, Binary, Coin, CosmosMsg,
     Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
-use cw721::NftInfoResponse;
+use cw721::msg::NftInfoResponse;
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::response;
 use drop_helpers::get_contracts;
@@ -149,8 +149,8 @@ fn execute_receive_nft_withdraw(
         core_contract
     );
     ensure_eq!(
+        info.sender.as_str(),
         addrs.withdrawal_voucher_contract,
-        info.sender,
         ContractError::Unauthorized {}
     );
     let voucher: NftInfoResponse<Extension> = deps.querier.query_wasm_smart(
@@ -186,7 +186,10 @@ fn execute_receive_nft_withdraw(
         unbond_batch.total_dasset_amount_to_withdraw,
     );
 
-    let payout_amount = user_share * unbond_batch.unbonded_amount.unwrap_or(Uint128::zero());
+    let payout_amount = unbond_batch
+        .unbonded_amount
+        .unwrap_or(Uint128::zero())
+        .mul_floor(user_share);
     let to_address = receiver.unwrap_or(sender);
     attrs.push(attr("batch_id", batch_id.to_string()));
     attrs.push(attr("payout_amount", payout_amount.to_string()));

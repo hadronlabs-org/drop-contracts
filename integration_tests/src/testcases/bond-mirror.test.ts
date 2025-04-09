@@ -114,7 +114,6 @@ describe('Mirror', () => {
     exchangeRate?: number;
     neutronIBCDenom?: string;
     gaiaIBCDenom?: string;
-    ldDenom?: string;
   } = { codeIds: {}, predefinedContractAddresses: {} };
 
   beforeAll(async (t) => {
@@ -773,7 +772,6 @@ describe('Mirror', () => {
       context.client,
       res.token_contract,
     );
-    context.ldDenom = `factory/${res.token_contract}/drop`;
   });
 
   it('register native bond provider in the core', async () => {
@@ -854,16 +852,17 @@ describe('Mirror', () => {
   });
 
   it('proper bond', async () => {
-    await context.mirrorContractClient.bond(
+    const { neutronIBCDenom, mirrorContractClient, gaiaUserAddress } = context;
+    await mirrorContractClient.bond(
       context.neutronUserAddress,
       {
-        receiver: context.gaiaUserAddress,
+        receiver: gaiaUserAddress,
       },
       1.6,
       undefined,
       [
         {
-          denom: context.neutronIBCDenom,
+          denom: neutronIBCDenom,
           amount: '1000',
         },
       ],
@@ -951,16 +950,22 @@ describe('Mirror', () => {
       });
 
       it('bond', async () => {
-        await context.mirrorContractClient.bond(
-          context.neutronUserAddress,
+        const {
+          mirrorContractClient,
+          gaiaUserAddress2,
+          neutronUserAddress,
+          neutronIBCDenom,
+        } = context;
+        await mirrorContractClient.bond(
+          neutronUserAddress,
           {
-            receiver: context.gaiaUserAddress2,
+            receiver: gaiaUserAddress2,
           },
           1.6,
           undefined,
           [
             {
-              denom: context.neutronIBCDenom,
+              denom: neutronIBCDenom,
               amount: '1000',
             },
           ],
@@ -975,10 +980,12 @@ describe('Mirror', () => {
     });
 
     it("expect new assets to appear in contract's state", async () => {
-      expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+      const { mirrorContractClient, gaiaUserAddress, gaiaUserAddress2 } =
+        context;
+      expect(await mirrorContractClient.queryAllFailed()).toEqual(
         expect.arrayContaining([
           {
-            receiver: context.gaiaUserAddress2,
+            receiver: gaiaUserAddress2,
             failed_transfers: [
               {
                 denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
@@ -987,7 +994,7 @@ describe('Mirror', () => {
             ],
           },
           {
-            receiver: context.gaiaUserAddress,
+            receiver: gaiaUserAddress,
             failed_transfers: [
               {
                 denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
@@ -1029,10 +1036,12 @@ describe('Mirror', () => {
     });
 
     it("expect new assets to appear in contract's state", async () => {
-      expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+      const { mirrorContractClient, gaiaUserAddress, gaiaUserAddress2 } =
+        context;
+      expect(await mirrorContractClient.queryAllFailed()).toEqual(
         expect.arrayContaining([
           {
-            receiver: context.gaiaUserAddress,
+            receiver: gaiaUserAddress,
             failed_transfers: [
               {
                 denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
@@ -1045,7 +1054,7 @@ describe('Mirror', () => {
             ],
           },
           {
-            receiver: context.gaiaUserAddress2,
+            receiver: gaiaUserAddress2,
             failed_transfers: [
               {
                 denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
@@ -1063,18 +1072,24 @@ describe('Mirror', () => {
       });
 
       it('failed retry', async () => {
-        await context.mirrorContractClient.retry(
-          context.neutronUserAddress,
+        const {
+          mirrorContractClient,
+          gaiaUserAddress,
+          gaiaUserAddress2,
+          neutronUserAddress,
+        } = context;
+
+        await mirrorContractClient.retry(
+          neutronUserAddress,
           {
-            receiver: context.gaiaUserAddress,
+            receiver: gaiaUserAddress,
           },
           1.6,
         );
-
-        expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+        expect(await mirrorContractClient.queryAllFailed()).toEqual(
           expect.arrayContaining([
             {
-              receiver: context.gaiaUserAddress,
+              receiver: gaiaUserAddress,
               failed_transfers: [
                 {
                   denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
@@ -1083,7 +1098,7 @@ describe('Mirror', () => {
               ],
             },
             {
-              receiver: context.gaiaUserAddress2,
+              receiver: gaiaUserAddress2,
               failed_transfers: [
                 {
                   denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
@@ -1102,16 +1117,19 @@ describe('Mirror', () => {
       });
 
       it('restored values after sudo-timeout', async () => {
+        const { mirrorContractClient, gaiaUserAddress, gaiaUserAddress2 } =
+          context;
+
         await waitFor(
           async () =>
-            (await context.mirrorContractClient.queryAllFailed()).length === 2,
+            (await mirrorContractClient.queryAllFailed()).length === 2,
           60_000,
           5_000,
         );
-        expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+        expect(await mirrorContractClient.queryAllFailed()).toEqual(
           expect.arrayContaining([
             {
-              receiver: context.gaiaUserAddress,
+              receiver: gaiaUserAddress,
               failed_transfers: [
                 {
                   denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
@@ -1124,7 +1142,7 @@ describe('Mirror', () => {
               ],
             },
             {
-              receiver: context.gaiaUserAddress2,
+              receiver: gaiaUserAddress2,
               failed_transfers: [
                 {
                   denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
@@ -1138,10 +1156,17 @@ describe('Mirror', () => {
     });
 
     it('retry with the working relayer (1)', async () => {
-      await context.mirrorContractClient.retry(
-        context.neutronUserAddress,
+      const {
+        mirrorContractClient,
+        gaiaUserAddress,
+        gaiaUserAddress2,
+        neutronUserAddress,
+      } = context;
+
+      await mirrorContractClient.retry(
+        neutronUserAddress,
         {
-          receiver: context.gaiaUserAddress,
+          receiver: gaiaUserAddress,
         },
         1.6,
       );
@@ -1156,10 +1181,10 @@ describe('Mirror', () => {
         20000,
         1000,
       );
-      expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+      expect(await mirrorContractClient.queryAllFailed()).toEqual(
         expect.arrayContaining([
           {
-            receiver: context.gaiaUserAddress,
+            receiver: gaiaUserAddress,
             failed_transfers: [
               {
                 denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
@@ -1168,7 +1193,7 @@ describe('Mirror', () => {
             ],
           },
           {
-            receiver: context.gaiaUserAddress2,
+            receiver: gaiaUserAddress2,
             failed_transfers: [
               {
                 denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
@@ -1181,10 +1206,17 @@ describe('Mirror', () => {
     });
 
     it('retry with the working relayer (2)', async () => {
-      await context.mirrorContractClient.retry(
-        context.neutronUserAddress,
+      const {
+        mirrorContractClient,
+        gaiaUserAddress,
+        gaiaUserAddress2,
+        neutronUserAddress,
+      } = context;
+
+      await mirrorContractClient.retry(
+        neutronUserAddress,
         {
-          receiver: context.gaiaUserAddress2,
+          receiver: gaiaUserAddress2,
         },
         1.6,
       );
@@ -1199,10 +1231,10 @@ describe('Mirror', () => {
         20000,
         1000,
       );
-      expect(await context.mirrorContractClient.queryAllFailed()).toEqual(
+      expect(await mirrorContractClient.queryAllFailed()).toEqual(
         expect.arrayContaining([
           {
-            receiver: context.gaiaUserAddress,
+            receiver: gaiaUserAddress,
             failed_transfers: [
               {
                 denom: `factory/${context.tokenContractClient.contractAddress}/drop`,
@@ -1215,10 +1247,13 @@ describe('Mirror', () => {
     });
 
     it('retry with the working relayer (3)', async () => {
-      await context.mirrorContractClient.retry(
-        context.neutronUserAddress,
+      const { mirrorContractClient, gaiaUserAddress, neutronUserAddress } =
+        context;
+
+      await mirrorContractClient.retry(
+        neutronUserAddress,
         {
-          receiver: context.gaiaUserAddress,
+          receiver: gaiaUserAddress,
         },
         1.6,
       );
@@ -1233,9 +1268,7 @@ describe('Mirror', () => {
         20000,
         1000,
       );
-      expect(await context.mirrorContractClient.queryAllFailed()).toStrictEqual(
-        [],
-      );
+      expect(await mirrorContractClient.queryAllFailed()).toStrictEqual([]);
     });
   });
 });

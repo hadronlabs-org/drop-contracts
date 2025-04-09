@@ -9,28 +9,32 @@ use crate::state::{
 };
 use cosmwasm_std::{
     attr, from_json,
-    testing::{mock_env, mock_info},
+    testing::{message_info, mock_env},
     to_json_binary, Binary, ChannelResponse, Coin, CosmosMsg, Event, IbcChannel, IbcEndpoint,
-    IbcOrder, Reply, ReplyOn, Response, SubMsg, SubMsgResponse, SubMsgResult, Uint128, WasmMsg,
+    IbcOrder, MsgResponse, Reply, ReplyOn, Response, SubMsg, SubMsgResponse, SubMsgResult, Uint128,
+    WasmMsg,
 };
 use cw_ownable::OwnershipError;
 use cw_utils::PaymentError;
 use drop_helpers::testing::mock_dependencies;
 use drop_helpers::testing::MOCK_CONTRACT_ADDR;
-use neutron_sdk::bindings::msg::{IbcFee, MsgIbcTransferResponse, NeutronMsg};
+use neutron_sdk::bindings::msg::{IbcFee, NeutronMsg};
 use neutron_sdk::query::min_ibc_fee::MinIbcFeeResponse;
 use neutron_sdk::sudo::msg::{RequestPacket, RequestPacketTimeoutHeight, TransferSudoMsg};
+use neutron_std::types::neutron::interchaintxs::v1::MsgSubmitTxResponse;
+use prost::Message;
 
 #[test]
 fn test_instantiate() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let res = instantiate(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&api.addr_make("owner"), &[]),
         InstantiateMsg {
             owner: None,
-            core_contract: "core_contract".to_string(),
+            core_contract: api.addr_make("core_contract").to_string(),
             source_channel: "source_channel".to_string(),
             source_port: "source_port".to_string(),
             ibc_timeout: 0u64,
@@ -44,8 +48,8 @@ fn test_instantiate() {
         Response::new().add_event(
             Event::new("crates.io:drop-staking__drop-mirror-instantiate").add_attributes(vec![
                 attr("action", "instantiate"),
-                attr("owner", "owner"),
-                attr("core_contract", "core_contract"),
+                attr("owner", api.addr_make("owner")),
+                attr("core_contract", api.addr_make("core_contract")),
                 attr("source_port", "source_port"),
                 attr("source_channel", "source_channel"),
                 attr("ibc_timeout", "0"),
@@ -58,6 +62,7 @@ fn test_instantiate() {
 #[test]
 fn test_execute_bond_invalid_prefix() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -73,7 +78,7 @@ fn test_execute_bond_invalid_prefix() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&api.addr_make("owner"), &[]),
         ExecuteMsg::Bond {
             receiver: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
             r#ref: None,
@@ -86,6 +91,7 @@ fn test_execute_bond_invalid_prefix() {
 #[test]
 fn test_execute_bond_payment_error() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -101,7 +107,7 @@ fn test_execute_bond_payment_error() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&api.addr_make("owner"), &[]),
         ExecuteMsg::Bond {
             receiver: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhufaa6".to_string(),
             r#ref: None,
@@ -114,6 +120,7 @@ fn test_execute_bond_payment_error() {
 #[test]
 fn test_execute_bond_wrong_receiver_address() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -129,7 +136,7 @@ fn test_execute_bond_wrong_receiver_address() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&api.addr_make("owner"), &[]),
         ExecuteMsg::Bond {
             receiver: "neutron1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqwrong_receiver_address".to_string(),
             r#ref: None,
@@ -142,6 +149,7 @@ fn test_execute_bond_wrong_receiver_address() {
 #[test]
 fn test_execute_bond() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -157,8 +165,8 @@ fn test_execute_bond() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info(
-            "owner",
+        message_info(
+            &api.addr_make("owner"),
             &[Coin {
                 denom: "denom".to_string(),
                 amount: Uint128::from(123u128),
@@ -179,6 +187,7 @@ fn test_execute_bond() {
         Response::new()
             .add_submessage(SubMsg {
                 id: BOND_REPLY_ID,
+                payload: Binary::default(),
                 msg: CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "core_contract".to_string(),
                     msg: to_json_binary(&drop_staking_base::msg::core::ExecuteMsg::Bond {
@@ -210,13 +219,19 @@ fn test_execute_bond() {
 #[test]
 fn test_execute_update_config_unauthrozied() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     CONFIG
         .save(
             deps.as_mut().storage,
             &Config {
-                core_contract: "core_contract_0".to_string(),
+                core_contract: api.addr_make("core_contract_0").to_string(),
                 source_channel: "source_channel_0".to_string(),
                 source_port: "source_port_0".to_string(),
                 ibc_timeout: 0u64,
@@ -227,10 +242,10 @@ fn test_execute_update_config_unauthrozied() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("random_sender", &[]),
+        message_info(&api.addr_make("random_sender"), &[]),
         ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
-                core_contract: Some("core_contract_1".to_string()),
+                core_contract: Some(api.addr_make("core_contract_1").to_string()),
                 source_channel: Some("source_channel_1".to_string()),
                 source_port: Some("source_port_1".to_string()),
                 ibc_timeout: Some(1),
@@ -248,13 +263,19 @@ fn test_execute_update_config_unauthrozied() {
 #[test]
 fn test_execute_update_config_souce_channel_error() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     CONFIG
         .save(
             deps.as_mut().storage,
             &Config {
-                core_contract: "core_contract_0".to_string(),
+                core_contract: api.addr_make("core_contract_0").to_string(),
                 source_channel: "source_channel_0".to_string(),
                 source_port: "source_port_0".to_string(),
                 ibc_timeout: 0u64,
@@ -265,10 +286,10 @@ fn test_execute_update_config_souce_channel_error() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&api.addr_make("owner"), &[]),
         ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
-                core_contract: Some("core_contract_1".to_string()),
+                core_contract: Some(api.addr_make("core_contract_1").to_string()),
                 source_channel: Some("source_channel_1".to_string()),
                 source_port: Some("source_port_1".to_string()),
                 ibc_timeout: Some(1),
@@ -283,13 +304,19 @@ fn test_execute_update_config_souce_channel_error() {
 #[test]
 fn test_execute_update_config() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     CONFIG
         .save(
             deps.as_mut().storage,
             &Config {
-                core_contract: "core_contract_0".to_string(),
+                core_contract: api.addr_make("core_contract_0").to_string(),
                 source_channel: "source_channel_0".to_string(),
                 source_port: "source_port_0".to_string(),
                 ibc_timeout: 0u64,
@@ -300,29 +327,27 @@ fn test_execute_update_config() {
     deps.querier.add_ibc_channel_response(
         Some("source_channel_1".to_string()),
         Some("source_port_1".to_string()),
-        ChannelResponse {
-            channel: Some(IbcChannel::new(
-                IbcEndpoint {
-                    port_id: "port_id".to_string(),
-                    channel_id: "channel_id".to_string(),
-                },
-                IbcEndpoint {
-                    port_id: "port_id".to_string(),
-                    channel_id: "channel_id".to_string(),
-                },
-                IbcOrder::Unordered,
-                "version".to_string(),
-                "connection_id".to_string(),
-            )),
-        },
+        ChannelResponse::new(Some(IbcChannel::new(
+            IbcEndpoint {
+                port_id: "port_id".to_string(),
+                channel_id: "channel_id".to_string(),
+            },
+            IbcEndpoint {
+                port_id: "port_id".to_string(),
+                channel_id: "channel_id".to_string(),
+            },
+            IbcOrder::Unordered,
+            "version".to_string(),
+            "connection_id".to_string(),
+        ))),
     );
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&api.addr_make("owner"), &[]),
         ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
-                core_contract: Some("core_contract_1".to_string()),
+                core_contract: Some(api.addr_make("core_contract_1").to_string()),
                 source_channel: Some("source_channel_1".to_string()),
                 source_port: Some("source_port_1".to_string()),
                 ibc_timeout: Some(1),
@@ -337,7 +362,7 @@ fn test_execute_update_config() {
             Event::new("crates.io:drop-staking__drop-mirror-execute_update_config").add_attributes(
                 vec![
                     attr("action", "execute_update_config"),
-                    attr("core_contract", "core_contract_1"),
+                    attr("core_contract", api.addr_make("core_contract_1")),
                     attr("ibc_timeout", "1"),
                     attr("prefix", "neutron_1"),
                     attr("source_port", "source_port_1"),
@@ -351,13 +376,19 @@ fn test_execute_update_config() {
 #[test]
 fn test_execute_update_config_unauthorized() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     CONFIG
         .save(
             deps.as_mut().storage,
             &Config {
-                core_contract: "core_contract_0".to_string(),
+                core_contract: api.addr_make("core_contract_0").to_string(),
                 source_channel: "source_channel_0".to_string(),
                 source_port: "source_port_0".to_string(),
                 ibc_timeout: 0u64,
@@ -368,29 +399,27 @@ fn test_execute_update_config_unauthorized() {
     deps.querier.add_ibc_channel_response(
         Some("source_channel_1".to_string()),
         Some("source_port_1".to_string()),
-        ChannelResponse {
-            channel: Some(IbcChannel::new(
-                IbcEndpoint {
-                    port_id: "port_id".to_string(),
-                    channel_id: "channel_id".to_string(),
-                },
-                IbcEndpoint {
-                    port_id: "port_id".to_string(),
-                    channel_id: "channel_id".to_string(),
-                },
-                IbcOrder::Unordered,
-                "version".to_string(),
-                "connection_id".to_string(),
-            )),
-        },
+        ChannelResponse::new(Some(IbcChannel::new(
+            IbcEndpoint {
+                port_id: "port_id".to_string(),
+                channel_id: "channel_id".to_string(),
+            },
+            IbcEndpoint {
+                port_id: "port_id".to_string(),
+                channel_id: "channel_id".to_string(),
+            },
+            IbcOrder::Unordered,
+            "version".to_string(),
+            "connection_id".to_string(),
+        ))),
     );
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("random_sender", &[]),
+        message_info(&api.addr_make("random_sender"), &[]),
         ExecuteMsg::UpdateConfig {
             new_config: ConfigOptional {
-                core_contract: Some("core_contract_1".to_string()),
+                core_contract: Some(api.addr_make("core_contract_1").to_string()),
                 source_channel: Some("source_channel_1".to_string()),
                 source_port: Some("source_port_1".to_string()),
                 ibc_timeout: Some(1),
@@ -408,14 +437,20 @@ fn test_execute_update_config_unauthorized() {
 #[test]
 fn test_execute_transfer_ownership() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&api.addr_make("owner"), &[]),
         ExecuteMsg::UpdateOwnership(cw_ownable::Action::TransferOwnership {
-            new_owner: "new_owner".to_string(),
+            new_owner: api.addr_make("new_owner").to_string(),
             expiry: Some(cw_ownable::Expiration::Never {}),
         }),
     )
@@ -423,7 +458,7 @@ fn test_execute_transfer_ownership() {
     execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("new_owner", &[]),
+        message_info(&api.addr_make("new_owner"), &[]),
         ExecuteMsg::UpdateOwnership(cw_ownable::Action::AcceptOwnership {}),
     )
     .unwrap();
@@ -432,7 +467,7 @@ fn test_execute_transfer_ownership() {
     assert_eq!(
         query_res,
         cw_ownable::Ownership {
-            owner: Some(cosmwasm_std::Addr::unchecked("new_owner".to_string())),
+            owner: Some(api.addr_make("new_owner")),
             pending_expiry: None,
             pending_owner: None
         }
@@ -442,11 +477,12 @@ fn test_execute_transfer_ownership() {
 #[test]
 fn test_execute_retry_take_1_from_3() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
             &Config {
-                core_contract: "core_contract".to_string(),
+                core_contract: api.addr_make("core_contract").to_string(),
                 source_port: "source_port".to_string(),
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
@@ -487,7 +523,7 @@ fn test_execute_retry_take_1_from_3() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[]),
+        message_info(&api.addr_make("sender"), &[]),
         ExecuteMsg::Retry {
             receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         },
@@ -507,6 +543,7 @@ fn test_execute_retry_take_1_from_3() {
             )
             .add_submessages(vec![SubMsg {
                 id: IBC_TRANSFER_REPLY_ID,
+                payload: Binary::default(),
                 msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: "source_port".to_string(),
                     source_channel: "source_channel".to_string(),
@@ -514,7 +551,7 @@ fn test_execute_retry_take_1_from_3() {
                         denom: "denom2".to_string(),
                         amount: Uint128::from(1u128)
                     },
-                    sender: MOCK_CONTRACT_ADDR.to_string(),
+                    sender: api.addr_make(MOCK_CONTRACT_ADDR).to_string(),
                     receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
                     timeout_height: RequestPacketTimeoutHeight {
                         revision_number: None,
@@ -568,11 +605,12 @@ fn test_execute_retry_take_1_from_3() {
 #[test]
 fn test_execute_retry_take_one() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
             &Config {
-                core_contract: "core_contract".to_string(),
+                core_contract: api.addr_make("core_contract").to_string(),
                 source_port: "source_port".to_string(),
                 source_channel: "source_channel".to_string(),
                 ibc_timeout: 12345,
@@ -603,7 +641,7 @@ fn test_execute_retry_take_one() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[]),
+        message_info(&api.addr_make("sender"), &[]),
         ExecuteMsg::Retry {
             receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         },
@@ -623,6 +661,7 @@ fn test_execute_retry_take_one() {
             )
             .add_submessages(vec![SubMsg {
                 id: IBC_TRANSFER_REPLY_ID,
+                payload: Binary::default(),
                 msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: "source_port".to_string(),
                     source_channel: "source_channel".to_string(),
@@ -630,7 +669,7 @@ fn test_execute_retry_take_one() {
                         denom: "denom1".to_string(),
                         amount: Uint128::from(1u128)
                     },
-                    sender: MOCK_CONTRACT_ADDR.to_string(),
+                    sender: api.addr_make(MOCK_CONTRACT_ADDR).to_string(),
                     receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
                     timeout_height: RequestPacketTimeoutHeight {
                         revision_number: None,
@@ -672,6 +711,7 @@ fn test_execute_retry_take_one() {
 #[test]
 fn test_execute_retry_take_0() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -687,7 +727,7 @@ fn test_execute_retry_take_0() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[]),
+        message_info(&api.addr_make("sender"), &[]),
         ExecuteMsg::Retry {
             receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         },
@@ -705,6 +745,7 @@ fn test_execute_retry_take_0() {
 #[test]
 fn test_execute_retry_take_empty() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -727,7 +768,7 @@ fn test_execute_retry_take_empty() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[]),
+        message_info(&api.addr_make("sender"), &[]),
         ExecuteMsg::Retry {
             receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         },
@@ -745,6 +786,7 @@ fn test_execute_retry_take_empty() {
 #[test]
 fn test_execute_retry_none() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
@@ -760,7 +802,7 @@ fn test_execute_retry_none() {
     let res = execute(
         deps.as_mut(),
         mock_env(),
-        mock_info("sender", &[]),
+        message_info(&api.addr_make("sender"), &[]),
         ExecuteMsg::Retry {
             receiver: "prefix1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqckwusc".to_string(),
         },
@@ -778,14 +820,20 @@ fn test_execute_retry_none() {
 #[test]
 fn test_query_ownership() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> =
         from_json(query(deps.as_ref(), mock_env(), QueryMsg::Ownership {}).unwrap()).unwrap();
     assert_eq!(
         query_res,
         cw_ownable::Ownership {
-            owner: Some(cosmwasm_std::Addr::unchecked("owner".to_string())),
+            owner: Some(api.addr_make("owner")),
             pending_expiry: None,
             pending_owner: None
         }
@@ -907,11 +955,12 @@ fn test_query_failed_receiver_empty() {
 #[test]
 fn test_execute_reply_finalize_bond() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     CONFIG
         .save(
             deps.as_mut().storage,
             &Config {
-                core_contract: "core_contract_0".to_string(),
+                core_contract: api.addr_make("core_contract_0").to_string(),
                 source_channel: "source_channel_0".to_string(),
                 source_port: "source_port_0".to_string(),
                 ibc_timeout: 0u64,
@@ -920,7 +969,10 @@ fn test_execute_reply_finalize_bond() {
         )
         .unwrap();
     BOND_REPLY_RECEIVER
-        .save(deps.as_mut().storage, &"reply_receiver".to_string())
+        .save(
+            deps.as_mut().storage,
+            &api.addr_make("reply_receiver").to_string(),
+        )
         .unwrap();
     deps.querier.add_custom_query_response(|_| {
         to_json_binary(&MinIbcFeeResponse {
@@ -937,9 +989,13 @@ fn test_execute_reply_finalize_bond() {
         mock_env(),
         Reply {
             id: BOND_REPLY_ID,
+            payload: Binary::default(),
+            gas_used: 1000,
+            #[allow(deprecated)]
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![Event::new("tf_mint").add_attribute("amount", "100dasset")],
                 data: None,
+                msg_responses: vec![],
             }),
         },
     )
@@ -949,6 +1005,7 @@ fn test_execute_reply_finalize_bond() {
         Response::new()
             .add_submessage(SubMsg {
                 id: 0,
+                payload: Binary::default(),
                 msg: CosmosMsg::Custom(NeutronMsg::IbcTransfer {
                     source_port: "source_port_0".to_string(),
                     source_channel: "source_channel_0".to_string(),
@@ -956,8 +1013,8 @@ fn test_execute_reply_finalize_bond() {
                         denom: "dasset".to_string(),
                         amount: Uint128::from(100u128)
                     },
-                    sender: "cosmos2contract".to_string(),
-                    receiver: "reply_receiver".to_string(),
+                    sender: api.addr_make("cosmos2contract").to_string(),
+                    receiver: api.addr_make("reply_receiver").to_string(),
                     timeout_height: RequestPacketTimeoutHeight {
                         revision_number: None,
                         revision_height: None
@@ -978,7 +1035,7 @@ fn test_execute_reply_finalize_bond() {
                     .add_attributes(vec![
                         attr("action", "reply_finalize_bond"),
                         attr("amount", "100dasset"),
-                        attr("to_address", "reply_receiver"),
+                        attr("to_address", api.addr_make("reply_receiver")),
                         attr("source_port", "source_port_0"),
                         attr("source_channel", "source_channel_0"),
                         attr("ibc-timeout", "0")
@@ -1017,9 +1074,13 @@ fn test_execute_reply_finalize_bond_no_tokens_minted() {
         mock_env(),
         Reply {
             id: BOND_REPLY_ID,
+            payload: Binary::default(),
+            gas_used: 1000,
+            #[allow(deprecated)]
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![],
                 data: None,
+                msg_responses: vec![],
             }),
         },
     )
@@ -1050,9 +1111,13 @@ fn test_execute_reply_finalize_bond_no_tokens_minted_amount_found() {
         mock_env(),
         Reply {
             id: BOND_REPLY_ID,
+            payload: Binary::default(),
+            gas_used: 1000,
+            #[allow(deprecated)]
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![Event::new("tf_mint")],
                 data: None,
+                msg_responses: vec![],
             }),
         },
     )
@@ -1077,19 +1142,22 @@ fn test_reply_store_seq_id_invalid_type() {
         mock_env(),
         Reply {
             id: IBC_TRANSFER_REPLY_ID,
+            payload: Binary::default(),
+            gas_used: 1000,
+            #[allow(deprecated)]
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![Event::new("wasm").add_attribute("token_id", "1_neutron..._123")],
-                data: Some(to_json_binary(&"wrong_data".to_string()).unwrap()),
+                data: None,
+                msg_responses: vec![MsgResponse {
+                    type_url: "/neutron.interchainquery.v1.MsgIbcTransferResponse".to_string(),
+                    value: Binary::from("wrong_data".as_bytes()),
+                }],
             }),
         },
     )
     .unwrap_err();
-    assert_eq!(
-        res,
-        ContractError::Std(cosmwasm_std::StdError::GenericErr {
-            msg: "failed to parse response: InvalidType".to_string()
-        })
-    );
+    assert!(format!("{}", res).contains("failed to parse response"));
+    assert!(format!("{}", res).contains("failed to decode Protobuf message"));
 }
 
 #[test]
@@ -1109,15 +1177,22 @@ fn test_reply_store_seq_id() {
         mock_env(),
         Reply {
             id: IBC_TRANSFER_REPLY_ID,
+            payload: Binary::default(),
+            gas_used: 1000,
+            #[allow(deprecated)]
             result: SubMsgResult::Ok(SubMsgResponse {
                 events: vec![],
-                data: Some(
-                    to_json_binary(&MsgIbcTransferResponse {
-                        sequence_id: 0u64,
-                        channel: "channel".to_string(),
-                    })
-                    .unwrap(),
-                ),
+                data: None,
+                msg_responses: vec![MsgResponse {
+                    type_url: "/neutron.interchainquery.v1.MsgIbcTransferResponse".to_string(),
+                    value: Binary::from(
+                        MsgSubmitTxResponse {
+                            sequence_id: 0u64,
+                            channel: "channel".to_string(),
+                        }
+                        .encode_to_vec(),
+                    ),
+                }],
             }),
         },
     )

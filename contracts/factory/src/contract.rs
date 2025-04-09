@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use cosmwasm_std::{
     attr, from_json, instantiate2_address, to_json_binary, Addr, Binary, CodeInfoResponse,
-    CosmosMsg, Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
+    CosmosMsg, Deps, DepsMut, Empty, Env, HexBinary, MessageInfo, Response, StdResult, Uint128,
+    WasmMsg,
 };
 use cw2::ContractVersion;
 use drop_helpers::answer::response;
@@ -262,7 +263,10 @@ pub fn instantiate(
             msg: to_json_binary(&WithdrawalVoucherInstantiateMsg {
                 name: "Drop Voucher".to_string(),
                 symbol: "DROPV".to_string(),
-                minter: core_contract.to_string(),
+                collection_info_extension: Empty {},
+                minter: Some(core_contract.to_string()),
+                creator: Some(core_contract.to_string()),
+                withdraw_address: None,
             })?,
             funds: vec![],
             salt: Binary::from(salt),
@@ -442,7 +446,7 @@ fn get_proxied_message<T: cosmwasm_schema::serde::Serialize>(
 
 fn get_code_checksum(deps: Deps, code_id: u64) -> NeutronResult<HexBinary> {
     let CodeInfoResponse { checksum, .. } = deps.querier.query_wasm_code_info(code_id)?;
-    Ok(checksum)
+    Ok(HexBinary::from(checksum.as_slice()))
 }
 
 fn get_contract_label(base: &str) -> String {
@@ -480,7 +484,7 @@ fn get_splitter_receivers(
 ) -> ContractResult<Vec<(String, cosmwasm_std::Uint128)>> {
     match fee_params {
         Some(fee_params) => {
-            let fee_weight = PERCENT_PRECISION * fee_params.fee;
+            let fee_weight = PERCENT_PRECISION.mul_floor(fee_params.fee);
             let bond_provider_weight = PERCENT_PRECISION - fee_weight;
             Ok(vec![
                 (bond_provider_address, bond_provider_weight),
@@ -527,7 +531,7 @@ pub fn validate_contract_metadata(
     }
 
     let contract_config_owner = get_contract_config_owner(deps, contract_addr)?;
-    if contract_config_owner != env.contract.address {
+    if contract_config_owner != env.contract.address.as_str() {
         return Err(ContractError::InvalidContractOwner {
             contract: contract_addr.to_string(),
             expected: env.contract.address.to_string(),

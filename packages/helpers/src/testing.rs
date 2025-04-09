@@ -8,8 +8,8 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage};
 use cosmwasm_std::{
     from_json, to_json_binary, AllBalanceResponse, Api, BalanceResponse, BankQuery, Binary, Coin,
-    ContractResult, CustomQuery, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError,
-    SystemResult, Uint128,
+    ContractResult, CustomQuery, GrpcQuery, OwnedDeps, Querier, QuerierResult, QueryRequest,
+    SystemError, SystemResult, Uint128,
 };
 
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -92,9 +92,11 @@ impl Api for CustomMockApi {
 pub fn mock_dependencies_with_api(
     contract_balance: &[Coin],
 ) -> OwnedDeps<MockStorage, CustomMockApi, WasmMockQuerier, NeutronQuery> {
-    let contract_addr = MOCK_CONTRACT_ADDR;
-    let custom_querier: WasmMockQuerier =
-        WasmMockQuerier::new(MockQuerier::new(&[(contract_addr, contract_balance)]));
+    let contract_addr = MockApi::default().addr_make(MOCK_CONTRACT_ADDR);
+    let custom_querier: WasmMockQuerier = WasmMockQuerier::new(MockQuerier::new(&[(
+        contract_addr.as_str(),
+        contract_balance,
+    )]));
 
     OwnedDeps {
         storage: MockStorage::default(),
@@ -107,9 +109,11 @@ pub fn mock_dependencies_with_api(
 pub fn mock_dependencies(
     contract_balance: &[Coin],
 ) -> OwnedDeps<MockStorage, MockApi, WasmMockQuerier, NeutronQuery> {
-    let contract_addr = MOCK_CONTRACT_ADDR;
-    let custom_querier: WasmMockQuerier =
-        WasmMockQuerier::new(MockQuerier::new(&[(contract_addr, contract_balance)]));
+    let contract_addr = MockApi::default().addr_make(MOCK_CONTRACT_ADDR);
+    let custom_querier: WasmMockQuerier = WasmMockQuerier::new(MockQuerier::new(&[(
+        contract_addr.as_str(),
+        contract_balance,
+    )]));
 
     OwnedDeps {
         storage: MockStorage::default(),
@@ -161,6 +165,7 @@ impl WasmMockQuerier {
                         self.base.handle_query(request)
                     }
                 }
+                #[allow(deprecated)]
                 BankQuery::AllBalances { address, .. } => {
                     let custom_balance = self.bank_query_responses.get(address);
 
@@ -186,22 +191,21 @@ impl WasmMockQuerier {
                 SystemResult::Ok(
                     ContractResult::Ok(
                         (*self.ibc_query_responses.get(&channel_port).unwrap_or(
-                            &to_json_binary(&cosmwasm_std::ChannelResponse { channel: None })
-                                .unwrap(),
+                            &to_json_binary(&cosmwasm_std::ChannelResponse::new(None)).unwrap(),
                         ))
                         .clone(),
                     )
                     .clone(),
                 )
             }
-            QueryRequest::Stargate { path, data } => {
+            QueryRequest::Grpc(GrpcQuery { path, data }) => {
                 let mut stargate_query_responses = self.stargate_query_responses.borrow_mut();
                 let responses = match stargate_query_responses.get_mut(path) {
                     None => Err(SystemError::UnsupportedRequest {
                         kind: format!(
                             "Stargate query is not mocked. Path: {} Data {}",
                             path,
-                            String::from_utf8(data.0.clone()).unwrap()
+                            String::from_utf8(data.as_slice().to_vec()).unwrap()
                         ),
                     }),
                     Some(responses) => Ok(responses),
@@ -212,7 +216,7 @@ impl WasmMockQuerier {
                         kind: format!(
                             "Stargate query is not mocked. Path: {} Data {}",
                             path,
-                            String::from_utf8(data.0.clone()).unwrap()
+                            String::from_utf8(data.as_slice().to_vec()).unwrap()
                         ),
                     });
                 }
@@ -255,7 +259,7 @@ impl WasmMockQuerier {
                             kind: format!(
                                 "Wasm contract {} query is not mocked. Query {}",
                                 contract_addr,
-                                String::from_utf8(msg.0.clone()).unwrap()
+                                String::from_utf8(msg.as_slice().to_vec()).unwrap()
                             ),
                         }),
                         Some(responses) => Ok(responses),
@@ -266,7 +270,7 @@ impl WasmMockQuerier {
                             kind: format!(
                                 "Wasm contract {} query is not mocked. Query {}",
                                 contract_addr,
-                                String::from_utf8(msg.0.clone()).unwrap()
+                                String::from_utf8(msg.as_slice().to_vec()).unwrap()
                             ),
                         });
                     }
@@ -438,54 +442,70 @@ impl WasmMockQuerier {
 }
 
 pub fn mock_state_query(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQuerier, NeutronQuery>) {
+    let factory_contract_address = deps.api.addr_make("factory_contract");
+    let core_contract_address = deps.api.addr_make("core_contract");
+    let token_contract_address = deps.api.addr_make("token_contract");
+    let withdrawal_voucher_contract_address = deps.api.addr_make("withdrawal_voucher_contract");
+    let withdrawal_manager_contract_address = deps.api.addr_make("withdrawal_manager_contract");
+    let strategy_contract_address = deps.api.addr_make("strategy_contract");
+    let validators_set_contract_address = deps.api.addr_make("validators_set_contract");
+    let distribution_contract_address = deps.api.addr_make("distribution_contract");
+    let puppeteer_contract_address = deps.api.addr_make("puppeteer_contract");
+    let rewards_manager_contract_address = deps.api.addr_make("rewards_manager_contract");
+    let rewards_pump_contract_address = deps.api.addr_make("rewards_pump_contract");
+    let splitter_contract_address = deps.api.addr_make("splitter_contract");
+    let lsm_share_bond_provider_contract_address =
+        deps.api.addr_make("lsm_share_bond_provider_contract");
+    let native_bond_provider_contract_address = deps.api.addr_make("native_bond_provider_contract");
+
     deps.querier
-        .add_wasm_query_response("factory_contract", |_| {
+        .add_wasm_query_response(factory_contract_address.as_str(), move |_| {
             let contracts = HashMap::from([
-                ("core_contract".to_string(), "core_contract".to_string()),
-                ("token_contract".to_string(), "token_contract".to_string()),
+                ("core_contract".to_string(), core_contract_address.clone()),
+                ("token_contract".to_string(), token_contract_address.clone()),
                 (
                     "withdrawal_voucher_contract".to_string(),
-                    "withdrawal_voucher_contract".to_string(),
+                    withdrawal_voucher_contract_address.clone(),
                 ),
                 (
                     "withdrawal_manager_contract".to_string(),
-                    "withdrawal_manager_contract".to_string(),
+                    withdrawal_manager_contract_address.clone(),
                 ),
                 (
                     "strategy_contract".to_string(),
-                    "strategy_contract".to_string(),
+                    strategy_contract_address.clone(),
                 ),
                 (
                     "validators_set_contract".to_string(),
-                    "validators_set_contract".to_string(),
+                    validators_set_contract_address.clone(),
                 ),
                 (
                     "distribution_contract".to_string(),
-                    "distribution_contract".to_string(),
+                    distribution_contract_address.clone(),
                 ),
                 (
                     "puppeteer_contract".to_string(),
-                    "puppeteer_contract".to_string(),
+                    puppeteer_contract_address.clone(),
                 ),
                 (
                     "rewards_manager_contract".to_string(),
-                    "rewards_manager_contract".to_string(),
+                    rewards_manager_contract_address.clone(),
                 ),
                 (
                     "rewards_pump_contract".to_string(),
-                    "rewards_pump_contract".to_string(),
+                    rewards_pump_contract_address.clone(),
                 ),
                 (
                     "splitter_contract".to_string(),
-                    "splitter_contract".to_string(),
+                    splitter_contract_address.clone(),
                 ),
                 (
                     "lsm_share_bond_provider_contract".to_string(),
-                    "lsm_share_bond_provider_contract".to_string(),
+                    lsm_share_bond_provider_contract_address.clone(),
                 ),
                 (
                     "native_bond_provider_contract".to_string(),
-                    "native_bond_provider_contract".to_string(),
+                    native_bond_provider_contract_address.clone(),
                 ),
             ]);
             cosmwasm_std::ContractResult::Ok(to_json_binary(&contracts).unwrap())

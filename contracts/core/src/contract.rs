@@ -28,7 +28,7 @@ use drop_staking_base::{
             UNBOND_BATCH_ID,
         },
         validatorset::ValidatorInfo,
-        withdrawal_voucher::{Metadata, Trait},
+        withdrawal_voucher::{NftExtensionMsg, Trait},
     },
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
@@ -188,6 +188,7 @@ fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractRes
     let mut batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
     let mut unprocessed_dasset_to_unbond = Uint128::zero();
     let batch = unbond_batches_map().load(deps.storage, batch_id)?;
+
     if batch.status == UnbondBatchStatus::New {
         unprocessed_dasset_to_unbond += batch.total_dasset_amount_to_withdraw;
     }
@@ -458,7 +459,7 @@ fn execute_update_withdrawn_amount(
     let config = CONFIG.load(deps.storage)?;
     let addrs =
         drop_helpers::get_contracts!(deps, config.factory_contract, withdrawal_manager_contract);
-    if info.sender != addrs.withdrawal_manager_contract {
+    if info.sender.as_str() != addrs.withdrawal_manager_contract {
         return Err(ContractError::Unauthorized {});
     }
 
@@ -1142,7 +1143,7 @@ fn execute_unbond(
     unbond_batch.total_dasset_amount_to_withdraw += dasset_amount;
     unbond_batches_map().save(deps.storage, unbond_batch_id, &unbond_batch)?;
 
-    let extension = Some(Metadata {
+    let extension = Some(NftExtensionMsg {
         description: Some("Withdrawal voucher".into()),
         name: "LDV voucher".to_string(),
         batch_id: unbond_batch_id.to_string(),
@@ -1261,8 +1262,9 @@ fn get_unbonding_msg<T>(
     {
         let current_exchange_rate = query_exchange_rate(deps.as_ref(), config)?;
         attrs.push(attr("exchange_rate", current_exchange_rate.to_string()));
-        let expected_native_asset_amount =
-            unbond.total_dasset_amount_to_withdraw * current_exchange_rate;
+        let expected_native_asset_amount = unbond
+            .total_dasset_amount_to_withdraw
+            .mul_floor(current_exchange_rate);
 
         let calc_withdraw_query_result: Result<Vec<(String, Uint128)>, StdError> =
             deps.querier.query_wasm_smart(

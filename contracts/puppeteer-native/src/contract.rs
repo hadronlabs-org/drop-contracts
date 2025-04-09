@@ -1,9 +1,9 @@
 use cosmos_sdk_proto::cosmos::base::query::v1beta1::PageRequest;
 use cosmwasm_std::{
-    attr, ensure, to_json_binary, Addr, Attribute, BankMsg, Coin as StdCoin, CosmosMsg, Deps,
-    QueryRequest, Reply, StakingMsg, StdError, SubMsg, Uint128, WasmMsg,
+    attr, ensure, to_json_binary, Addr, Attribute, BankMsg, Binary, Coin as StdCoin, CosmosMsg,
+    Deps, DepsMut, Env, GrpcQuery, MessageInfo, QueryRequest, Reply, Response, StakingMsg,
+    StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
-use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{answer::response, validation::validate_addresses};
 
 use drop_puppeteer_base::{
@@ -115,7 +115,7 @@ fn query_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binar
 
     loop {
         let res: StdResult<QueryDelegatorDelegationsResponse> =
-            deps.querier.query(&QueryRequest::Stargate {
+            deps.querier.query(&QueryRequest::Grpc(GrpcQuery {
                 path: "/cosmos.staking.v1beta1.Query/DelegatorDelegations".to_string(),
                 data:
                     cosmos_sdk_proto::cosmos::staking::v1beta1::QueryDelegatorDelegationsRequest {
@@ -128,7 +128,7 @@ fn query_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binar
                     }
                     .encode_to_vec()
                     .into(),
-            });
+            }));
 
         match res {
             Ok(delegations_response) => {
@@ -184,7 +184,7 @@ fn query_unbonding_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractRe
     loop {
         let unbonding_response: QueryDelegatorUnbondingDelegationsResponse = deps
         .querier
-        .query(&QueryRequest::Stargate {
+        .query(&QueryRequest::Grpc(GrpcQuery {
         path: "/cosmos.staking.v1beta1.Query/DelegatorUnbondingDelegations".to_string(),
         data:
             cosmos_sdk_proto::cosmos::staking::v1beta1::QueryDelegatorUnbondingDelegationsRequest {
@@ -197,7 +197,7 @@ fn query_unbonding_delegations(deps: Deps<NeutronQuery>, env: Env) -> ContractRe
             }
             .encode_to_vec()
             .into(),
-    })?;
+    }))?;
 
         let unbonding_delegations: Vec<drop_puppeteer_base::state::UnbondingDelegation> =
             unbonding_response.clone().try_into()?;

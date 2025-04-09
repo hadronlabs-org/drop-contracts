@@ -8,8 +8,9 @@ use cosmwasm_std::{
     Timestamp, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
+use drop_helpers::ibc_client_state::{extract_identified_client_state, query_client_state};
 use drop_helpers::{
-    answer::response, get_contracts, ibc_client_state::query_client_state, ibc_fee::query_ibc_fee,
+    answer::response, get_contracts, ibc_fee::query_ibc_fee,
     icq_initia::new_delegations_and_balance_query_msg, interchain::prepare_any_msg,
     validation::validate_addresses,
 };
@@ -693,7 +694,7 @@ fn execute_redelegate(
             validator_from,
             validator_to,
             denom: config.remote_denom,
-            amount: amount.into(),
+            amount,
         },
         reply_to,
         ReplyMsg::SudoPayload.to_reply_id(),
@@ -827,10 +828,9 @@ fn sudo_response(
     )?;
 
     let client_state = query_client_state(&deps.as_ref(), channel_id, port_id)?;
-    let remote_height = client_state
-        .identified_client_state
-        .ok_or_else(|| StdError::generic_err("IBC client state identified_client_state not found"))?
-        .client_state
+    let identified_client_state = extract_identified_client_state(&deps.as_ref(), client_state)?;
+
+    let remote_height = identified_client_state
         .latest_height
         .ok_or_else(|| StdError::generic_err("IBC client state latest_height not found"))?
         .revision_height;
@@ -841,7 +841,7 @@ fn sudo_response(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
                 transaction: transaction.clone(),
                 local_height: env.block.height,
-                remote_height: remote_height.u64(),
+                remote_height,
             },)
         ))?
     ));
@@ -853,7 +853,7 @@ fn sudo_response(
                 ResponseHookMsg::Success(ResponseHookSuccessMsg {
                     transaction: transaction.clone(),
                     local_height: env.block.height,
-                    remote_height: remote_height.u64(),
+                    remote_height,
                 }),
             ))?,
             funds: vec![],

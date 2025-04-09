@@ -128,7 +128,7 @@ fn query_can_process_on_idle(deps: Deps<NeutronQuery>, env: &Env) -> ContractRes
 
 fn query_token_amount(coin: Coin, exchange_rate: Decimal) -> ContractResult<Binary> {
     if can_bond(LOCAL_DENOM.to_string(), coin.denom) {
-        let issue_amount = coin.amount * (Decimal::one() / exchange_rate);
+        let issue_amount = coin.amount.mul_floor(Decimal::one() / exchange_rate);
 
         return Ok(to_json_binary(&issue_amount)?);
     }

@@ -88,7 +88,6 @@ export interface FailedReceiverResponse {
 export interface Coin {
   amount: Uint128;
   denom: string;
-  [k: string]: unknown;
 }
 export interface Config {
   core_contract: string;

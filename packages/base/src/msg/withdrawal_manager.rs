@@ -1,6 +1,6 @@
 use crate::state::withdrawal_manager::Pause;
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cw721::Cw721ReceiveMsg;
+use cw721::receiver::Cw721ReceiveMsg;
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 
 #[cw_serde]

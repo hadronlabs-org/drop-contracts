@@ -9,12 +9,11 @@ pub struct Config {
     pub base_denom: String,
 }
 
+pub type Cw721ReceiveMsg = cw721::receiver::Cw721ReceiveMsg;
 #[cw_serde]
 #[derive(Default)]
 pub struct Pause {
     pub receive_nft_withdraw: Interval,
 }
-
-pub type Cw721ReceiveMsg = cw721::Cw721ReceiveMsg;
 pub const PAUSE: Item<Pause> = Item::new("pause");
 pub const CONFIG: Item<Config> = Item::new("config");

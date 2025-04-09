@@ -5,8 +5,8 @@ use crate::contract::{
 use cosmwasm_std::Binary;
 use cosmwasm_std::{
     attr, from_json,
-    testing::{mock_env, mock_info},
-    to_json_binary, Addr, BankMsg, DepsMut, Uint128,
+    testing::{message_info, mock_env, MockApi},
+    to_json_binary, Addr, BankMsg, Checksum, DepsMut, Empty, HexBinary, Uint128,
 };
 use drop_helpers::phonebook::{
     CORE_CONTRACT, DISTRIBUTION_CONTRACT, LSM_SHARE_BOND_PROVIDER_CONTRACT,
@@ -39,103 +39,98 @@ use drop_staking_base::{
             ExecuteMsg as ValidatorSetExecuteMsg, InstantiateMsg as ValidatorsSetInstantiateMsg,
         },
         withdrawal_manager::InstantiateMsg as WithdrawalManagerInstantiateMsg,
-        withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
     },
     state::{core::Pause as CorePause, splitter::Config as SplitterConfig},
 };
 use neutron_sdk::bindings::query::NeutronQuery;
 use std::collections::HashMap;
 
-fn set_default_factory_state(deps: DepsMut<NeutronQuery>) {
+fn set_default_factory_state(deps: DepsMut<NeutronQuery>, api: MockApi) {
     STATE
         .save(
             deps.storage,
             TOKEN_CONTRACT,
-            &Addr::unchecked("token_contract"),
+            &api.addr_make("token_contract"),
         )
         .unwrap();
     STATE
-        .save(
-            deps.storage,
-            CORE_CONTRACT,
-            &Addr::unchecked("core_contract"),
-        )
+        .save(deps.storage, CORE_CONTRACT, &api.addr_make("core_contract"))
         .unwrap();
     STATE
         .save(
             deps.storage,
             PUPPETEER_CONTRACT,
-            &Addr::unchecked("puppeteer_contract"),
+            &api.addr_make("puppeteer_contract"),
         )
         .unwrap();
     STATE
         .save(
             deps.storage,
             WITHDRAWAL_MANAGER_CONTRACT,
-            &Addr::unchecked("withdrawal_manager_contract"),
+            &api.addr_make("withdrawal_manager_contract"),
         )
         .unwrap();
     STATE
         .save(
             deps.storage,
             WITHDRAWAL_VOUCHER_CONTRACT,
-            &Addr::unchecked("withdrawal_voucher_contract"),
+            &api.addr_make("withdrawal_voucher_contract"),
         )
         .unwrap();
     STATE
         .save(
             deps.storage,
             STRATEGY_CONTRACT,
-            &Addr::unchecked("strategy_contract"),
+            &api.addr_make("strategy_contract"),
         )
         .unwrap();
     STATE
         .save(
             deps.storage,
             VALIDATORS_SET_CONTRACT,
-            &Addr::unchecked("validators_set_contract"),
+            &api.addr_make("validators_set_contract"),
         )
         .unwrap();
     STATE
         .save(
             deps.storage,
             DISTRIBUTION_CONTRACT,
-            &Addr::unchecked("distribution_contract"),
+            &api.addr_make("distribution_contract"),
         )
         .unwrap();
     STATE
         .save(
             deps.storage,
             REWARDS_MANAGER_CONTRACT,
-            &Addr::unchecked("rewards_manager_contract"),
+            &api.addr_make("rewards_manager_contract"),
         )
         .unwrap();
     STATE
         .save(
             deps.storage,
             REWARDS_PUMP_CONTRACT,
-            &Addr::unchecked("rewards_pump_contract"),
+            &api.addr_make("rewards_pump_contract"),
         )
         .unwrap();
     STATE
         .save(
             deps.storage,
             SPLITTER_CONTRACT,
-            &Addr::unchecked("splitter_contract"),
+            &api.addr_make("splitter_contract"),
         )
         .unwrap();
     STATE
         .save(
             deps.storage,
             LSM_SHARE_BOND_PROVIDER_CONTRACT,
-            &Addr::unchecked("lsm_share_bond_provider_contract"),
+            &api.addr_make("lsm_share_bond_provider_contract"),
         )
         .unwrap();
     STATE
         .save(
             deps.storage,
             NATIVE_BOND_PROVIDER_CONTRACT,
-            &Addr::unchecked("native_bond_provider_contract"),
+            &api.addr_make("native_bond_provider_contract"),
         )
         .unwrap();
 }
@@ -150,8 +145,8 @@ fn test_instantiate() {
             cosmwasm_std::ContractResult::Ok(
                 to_json_binary(&cosmwasm_std::CodeInfoResponse::new(
                     from_json(data).unwrap(),
-                    "creator".to_string(),
-                    cosmwasm_std::HexBinary::from(y.as_slice()),
+                    Addr::unchecked("creator".to_string()),
+                    Checksum::from_hex(HexBinary::from(y.as_slice()).to_hex().as_str()).unwrap(),
                 ))
                 .unwrap(),
             )
@@ -245,7 +240,7 @@ fn test_instantiate() {
     let res = instantiate(
         deps.as_mut().into_empty(),
         mocked_env,
-        mock_info("owner", &[]),
+        message_info(&Addr::unchecked("owner"), &[]),
         instantiate_msg,
     )
     .unwrap();
@@ -345,11 +340,16 @@ fn test_instantiate() {
                         admin: Some("factory_contract".to_string()),
                         code_id: 5,
                         label: "drop-staking-withdrawal-voucher".to_string(),
-                        msg: to_json_binary(&WithdrawalVoucherInstantiateMsg {
-                            name: "Drop Voucher".to_string(),
-                            symbol: "DROPV".to_string(),
-                            minter: "some_humanized_address".to_string(),
-                        })
+                        msg: to_json_binary(
+                            &drop_staking_base::msg::withdrawal_voucher::CW721InstantiateMsg {
+                                name: "Drop Voucher".to_string(),
+                                symbol: "DROPV".to_string(),
+                                collection_info_extension: Empty {},
+                                minter: Some("some_humanized_address".to_string()),
+                                creator: Some("some_humanized_address".to_string()),
+                                withdraw_address: None,
+                            }
+                        )
                         .unwrap(),
                         funds: vec![],
                         salt: cosmwasm_std::Binary::from("salt".as_bytes())
@@ -426,8 +426,14 @@ fn test_instantiate() {
 #[test]
 fn test_update_config_core_unauthorized() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     let new_core_config = drop_staking_base::state::core::ConfigOptional {
         factory_contract: None,
         base_denom: None,
@@ -443,7 +449,7 @@ fn test_update_config_core_unauthorized() {
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("not_an_owner", &[]),
+        message_info(&api.addr_make("not_an_owner"), &[]),
         ExecuteMsg::UpdateConfig(Box::new(UpdateConfigMsg::Core(Box::new(
             new_core_config.clone(),
         )))),
@@ -460,25 +466,31 @@ fn test_update_config_core_unauthorized() {
 #[test]
 fn test_update_config_core() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    set_default_factory_state(deps.as_mut());
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
+    set_default_factory_state(deps.as_mut(), api);
     let new_core_config = drop_staking_base::state::core::ConfigOptional {
-        factory_contract: Some("factory_contract1".to_string()),
+        factory_contract: Some(api.addr_make("factory_contract1").to_string()),
         base_denom: Some("base_denom1".to_string()),
         remote_denom: Some("remote_denom1".to_string()),
         idle_min_interval: Some(1u64),
         unbonding_period: Some(1u64),
         unbonding_safe_period: Some(1u64),
         unbond_batch_switch_time: Some(1u64),
-        pump_ica_address: Some("pump_ica_address1".to_string()),
-        rewards_receiver: Some("rewards_receiver1".to_string()),
-        emergency_address: Some("emergency_address1".to_string()),
+        pump_ica_address: Some(api.addr_make("pump_ica_address1").to_string()),
+        rewards_receiver: Some(api.addr_make("rewards_receiver1").to_string()),
+        emergency_address: Some(api.addr_make("emergency_address1").to_string()),
     };
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&api.addr_make("owner"), &[]),
         ExecuteMsg::UpdateConfig(Box::new(UpdateConfigMsg::Core(Box::new(
             new_core_config.clone(),
         )))),
@@ -495,7 +507,7 @@ fn test_update_config_core() {
             )
             .add_submessages(vec![cosmwasm_std::SubMsg::new(
                 cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
-                    contract_addr: "core_contract".to_string(),
+                    contract_addr: api.addr_make("core_contract").to_string(),
                     msg: to_json_binary(&CoreExecuteMsg::UpdateConfig {
                         new_config: Box::new(new_core_config.clone())
                     })
@@ -509,17 +521,25 @@ fn test_update_config_core() {
 #[test]
 fn test_update_config_validators_set_unauthorized() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     let new_validator_set_config = drop_staking_base::state::validatorset::ConfigOptional {
-        stats_contract: Some("validator_stats_contract".to_string()),
-        provider_proposals_contract: Some("provider_proposals_contract1".to_string()),
-        val_ref_contract: Some("val_ref_contract1".to_string()),
+        stats_contract: Some(api.addr_make("validator_stats_contract").to_string()),
+        provider_proposals_contract: Some(
+            api.addr_make("provider_proposals_contract1").to_string(),
+        ),
+        val_ref_contract: Some(api.addr_make("val_ref_contract1").to_string()),
     };
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("not_an_owner", &[]),
+        message_info(&api.addr_make("not_an_owner"), &[]),
         ExecuteMsg::UpdateConfig(Box::new(UpdateConfigMsg::ValidatorsSet(
             new_validator_set_config.clone(),
         ))),
@@ -536,19 +556,27 @@ fn test_update_config_validators_set_unauthorized() {
 #[test]
 fn test_update_config_validators_set() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    set_default_factory_state(deps.as_mut());
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
+    set_default_factory_state(deps.as_mut(), api);
 
     let new_validator_set_config = drop_staking_base::state::validatorset::ConfigOptional {
-        stats_contract: Some("validator_stats_contract".to_string()),
-        provider_proposals_contract: Some("provider_proposals_contract1".to_string()),
-        val_ref_contract: Some("val_ref_contract1".to_string()),
+        stats_contract: Some(api.addr_make("validator_stats_contract").to_string()),
+        provider_proposals_contract: Some(
+            api.addr_make("provider_proposals_contract1").to_string(),
+        ),
+        val_ref_contract: Some(api.addr_make("val_ref_contract1").to_string()),
     };
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&api.addr_make("owner"), &[]),
         ExecuteMsg::UpdateConfig(Box::new(UpdateConfigMsg::ValidatorsSet(
             new_validator_set_config.clone(),
         ))),
@@ -565,7 +593,7 @@ fn test_update_config_validators_set() {
             )
             .add_submessages(vec![cosmwasm_std::SubMsg::new(
                 cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
-                    contract_addr: "validators_set_contract".to_string(),
+                    contract_addr: api.addr_make("validators_set_contract").to_string(),
                     msg: to_json_binary(&ValidatorSetExecuteMsg::UpdateConfig {
                         new_config: new_validator_set_config.clone()
                     })
@@ -579,23 +607,29 @@ fn test_update_config_validators_set() {
 #[test]
 fn test_proxy_validators_set_update_validators_unauthorized() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    set_default_factory_state(deps.as_mut());
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
+    set_default_factory_state(deps.as_mut(), api);
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("not_an_owner", &[]),
+        message_info(&api.addr_make("not_an_owner"), &[]),
         ExecuteMsg::Proxy(drop_staking_base::msg::factory::ProxyMsg::ValidatorSet(
             ValidatorSetMsg::UpdateValidators {
                 validators: vec![
                     drop_staking_base::msg::validatorset::ValidatorData {
-                        valoper_address: "valoper_address1".to_string(),
+                        valoper_address: api.addr_make("valoper_address1").to_string(),
                         weight: 10u64,
                         on_top: Some(Uint128::zero()),
                     },
                     drop_staking_base::msg::validatorset::ValidatorData {
-                        valoper_address: "valoper_address2".to_string(),
+                        valoper_address: api.addr_make("valoper_address2").to_string(),
                         weight: 10u64,
                         on_top: Some(Uint128::zero()),
                     },
@@ -615,24 +649,30 @@ fn test_proxy_validators_set_update_validators_unauthorized() {
 #[test]
 fn test_proxy_validators_set_update_validators() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    set_default_factory_state(deps.as_mut());
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
+    set_default_factory_state(deps.as_mut(), api);
 
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&api.addr_make("owner"), &[]),
         ExecuteMsg::Proxy(drop_staking_base::msg::factory::ProxyMsg::ValidatorSet(
             ValidatorSetMsg::UpdateValidators {
                 validators: vec![
                     drop_staking_base::msg::validatorset::ValidatorData {
-                        valoper_address: "valoper_address1".to_string(),
+                        valoper_address: api.addr_make("valoper_address1").to_string(),
                         weight: 10u64,
                         on_top: Some(Uint128::zero()),
                     },
                     drop_staking_base::msg::validatorset::ValidatorData {
-                        valoper_address: "valoper_address2".to_string(),
+                        valoper_address: api.addr_make("valoper_address2").to_string(),
                         weight: 10u64,
                         on_top: Some(Uint128::zero()),
                     },
@@ -647,16 +687,16 @@ fn test_proxy_validators_set_update_validators() {
             .add_submessages(vec![
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "validators_set_contract".to_string(),
+                        contract_addr: api.addr_make("validators_set_contract").to_string(),
                         msg: to_json_binary(&ValidatorSetExecuteMsg::UpdateValidators {
                             validators: vec![
                                 drop_staking_base::msg::validatorset::ValidatorData {
-                                    valoper_address: "valoper_address1".to_string(),
+                                    valoper_address: api.addr_make("valoper_address1").to_string(),
                                     weight: 10u64,
                                     on_top: Some(Uint128::zero()),
                                 },
                                 drop_staking_base::msg::validatorset::ValidatorData {
-                                    valoper_address: "valoper_address2".to_string(),
+                                    valoper_address: api.addr_make("valoper_address2").to_string(),
                                     weight: 10u64,
                                     on_top: Some(Uint128::zero()),
                                 },
@@ -668,12 +708,12 @@ fn test_proxy_validators_set_update_validators() {
                 )),
                 cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                     cosmwasm_std::WasmMsg::Execute {
-                        contract_addr: "puppeteer_contract".to_string(),
+                        contract_addr: api.addr_make("puppeteer_contract").to_string(),
                         msg: to_json_binary(
                             &PuppeteerExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
                                 validators: vec![
-                                    "valoper_address1".to_string(),
-                                    "valoper_address2".to_string()
+                                    api.addr_make("valoper_address1").to_string(),
+                                    api.addr_make("valoper_address2").to_string()
                                 ]
                             }
                         )
@@ -694,16 +734,22 @@ fn test_proxy_validators_set_update_validators() {
 #[test]
 fn test_admin_execute_unauthorized() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("not_an_owner", &[]),
+        message_info(&api.addr_make("not_an_owner"), &[]),
         ExecuteMsg::AdminExecute {
             msgs: vec![
                 cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
-                    contract_addr: "core_contract".to_string(),
+                    contract_addr: api.addr_make("core_contract").to_string(),
                     msg: to_json_binary(&CoreExecuteMsg::SetPause(CorePause {
                         tick: Interval {
                             from: 1000,
@@ -719,7 +765,7 @@ fn test_admin_execute_unauthorized() {
                     funds: vec![],
                 }),
                 cosmwasm_std::CosmosMsg::Bank(BankMsg::Send {
-                    to_address: "somebody".to_string(),
+                    to_address: api.addr_make("somebody").to_string(),
                     amount: vec![
                         cosmwasm_std::Coin {
                             denom: "denom1".to_string(),
@@ -746,16 +792,22 @@ fn test_admin_execute_unauthorized() {
 #[test]
 fn test_admin_execute() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    let _ = cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    let _ = cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     let res = execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&api.addr_make("owner"), &[]),
         ExecuteMsg::AdminExecute {
             msgs: vec![
                 cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
-                    contract_addr: "core_contract".to_string(),
+                    contract_addr: api.addr_make("core_contract").to_string(),
                     msg: to_json_binary(&CoreExecuteMsg::SetPause(CorePause {
                         tick: Interval {
                             from: 1000,
@@ -771,7 +823,7 @@ fn test_admin_execute() {
                     funds: vec![],
                 }),
                 cosmwasm_std::CosmosMsg::Bank(BankMsg::Send {
-                    to_address: "somebody".to_string(),
+                    to_address: api.addr_make("somebody").to_string(),
                     amount: vec![
                         cosmwasm_std::Coin {
                             denom: "denom1".to_string(),
@@ -792,7 +844,7 @@ fn test_admin_execute() {
         cosmwasm_std::Response::new()
             .add_submessage(cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Wasm(
                 cosmwasm_std::WasmMsg::Execute {
-                    contract_addr: "core_contract".to_string(),
+                    contract_addr: api.addr_make("core_contract").to_string(),
                     msg: to_json_binary(&CoreExecuteMsg::SetPause(CorePause {
                         tick: Interval {
                             from: 1000,
@@ -809,8 +861,8 @@ fn test_admin_execute() {
                 }
             )))
             .add_submessage(cosmwasm_std::SubMsg::new(cosmwasm_std::CosmosMsg::Bank(
-                cosmwasm_std::BankMsg::Send {
-                    to_address: "somebody".to_string(),
+                BankMsg::Send {
+                    to_address: api.addr_make("somebody").to_string(),
                     amount: vec![
                         cosmwasm_std::Coin {
                             denom: "denom1".to_string(),
@@ -835,57 +887,65 @@ fn test_admin_execute() {
 #[test]
 fn test_query_state() {
     let mut deps = mock_dependencies(&[]);
-    set_default_factory_state(deps.as_mut());
+    let api = deps.api;
+    set_default_factory_state(deps.as_mut(), api);
     let query_res: HashMap<String, String> =
         from_json(query(deps.as_ref(), mock_env(), QueryMsg::State {}).unwrap()).unwrap();
     assert_eq!(
         query_res,
         HashMap::from([
-            ("core_contract".to_string(), "core_contract".to_string()),
-            ("token_contract".to_string(), "token_contract".to_string()),
+            (
+                "core_contract".to_string(),
+                api.addr_make("core_contract").to_string()
+            ),
+            (
+                "token_contract".to_string(),
+                api.addr_make("token_contract").to_string()
+            ),
             (
                 "puppeteer_contract".to_string(),
-                "puppeteer_contract".to_string()
+                api.addr_make("puppeteer_contract").to_string()
             ),
             (
                 "withdrawal_voucher_contract".to_string(),
-                "withdrawal_voucher_contract".to_string()
+                api.addr_make("withdrawal_voucher_contract").to_string()
             ),
             (
                 "withdrawal_manager_contract".to_string(),
-                "withdrawal_manager_contract".to_string()
+                api.addr_make("withdrawal_manager_contract").to_string()
             ),
             (
                 "strategy_contract".to_string(),
-                "strategy_contract".to_string()
+                api.addr_make("strategy_contract").to_string()
             ),
             (
                 "validators_set_contract".to_string(),
-                "validators_set_contract".to_string()
+                api.addr_make("validators_set_contract").to_string()
             ),
             (
                 "distribution_contract".to_string(),
-                "distribution_contract".to_string()
+                api.addr_make("distribution_contract").to_string()
             ),
             (
                 "rewards_manager_contract".to_string(),
-                "rewards_manager_contract".to_string()
+                api.addr_make("rewards_manager_contract").to_string()
             ),
             (
                 "rewards_pump_contract".to_string(),
-                "rewards_pump_contract".to_string()
+                api.addr_make("rewards_pump_contract").to_string()
             ),
             (
                 "splitter_contract".to_string(),
-                "splitter_contract".to_string()
+                api.addr_make("splitter_contract").to_string()
             ),
             (
                 "lsm_share_bond_provider_contract".to_string(),
-                "lsm_share_bond_provider_contract".to_string()
+                api.addr_make("lsm_share_bond_provider_contract")
+                    .to_string()
             ),
             (
                 "native_bond_provider_contract".to_string(),
-                "native_bond_provider_contract".to_string()
+                api.addr_make("native_bond_provider_contract").to_string()
             )
         ])
     );
@@ -894,21 +954,20 @@ fn test_query_state() {
 #[test]
 fn test_query_ownership() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
-    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> = from_json(
-        query(
-            deps.as_ref(),
-            mock_env(),
-            drop_staking_base::msg::factory::QueryMsg::Ownership {},
-        )
-        .unwrap(),
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
     )
     .unwrap();
+    let query_res: cw_ownable::Ownership<Addr> =
+        from_json(query(deps.as_ref(), mock_env(), QueryMsg::Ownership {}).unwrap()).unwrap();
     assert_eq!(
         query_res,
         cw_ownable::Ownership {
-            owner: Some(cosmwasm_std::Addr::unchecked("owner".to_string())),
+            owner: Some(api.addr_make("owner")),
             pending_expiry: None,
             pending_owner: None
         }
@@ -918,14 +977,20 @@ fn test_query_ownership() {
 #[test]
 fn test_transfer_ownership() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
     let deps_mut = deps.as_mut();
-    cw_ownable::initialize_owner(deps_mut.storage, deps_mut.api, Some("owner")).unwrap();
+    cw_ownable::initialize_owner(
+        deps_mut.storage,
+        deps_mut.api,
+        Some(api.addr_make("owner").as_str()),
+    )
+    .unwrap();
     execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("owner", &[]),
+        message_info(&api.addr_make("owner"), &[]),
         ExecuteMsg::UpdateOwnership(cw_ownable::Action::TransferOwnership {
-            new_owner: "new_owner".to_string(),
+            new_owner: api.addr_make("new_owner").to_string(),
             expiry: Some(cw_ownable::Expiration::Never {}),
         }),
     )
@@ -933,23 +998,16 @@ fn test_transfer_ownership() {
     execute(
         deps.as_mut().into_empty(),
         mock_env(),
-        mock_info("new_owner", &[]),
+        message_info(&api.addr_make("new_owner"), &[]),
         ExecuteMsg::UpdateOwnership(cw_ownable::Action::AcceptOwnership {}),
     )
     .unwrap();
-    let query_res: cw_ownable::Ownership<cosmwasm_std::Addr> = from_json(
-        query(
-            deps.as_ref(),
-            mock_env(),
-            drop_staking_base::msg::factory::QueryMsg::Ownership {},
-        )
-        .unwrap(),
-    )
-    .unwrap();
+    let query_res: cw_ownable::Ownership<Addr> =
+        from_json(query(deps.as_ref(), mock_env(), QueryMsg::Ownership {}).unwrap()).unwrap();
     assert_eq!(
         query_res,
         cw_ownable::Ownership {
-            owner: Some(cosmwasm_std::Addr::unchecked("new_owner".to_string())),
+            owner: Some(api.addr_make("new_owner")),
             pending_expiry: None,
             pending_owner: None
         }
@@ -1138,13 +1196,14 @@ fn test_validate_contract_metadata_wrong_contract_name() {
 #[test]
 fn test_validate_contract_metadata_wrong_owner() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
-    let contract_addr = "cosmos2contract";
+    let contract_addr = api.addr_make("cosmos2contract");
     let mocked_env = mock_env();
 
     setup_contract_metadata(
         &mut deps.querier,
-        contract_addr,
+        contract_addr.as_str(),
         "contract_name".to_string(),
         "wrong_owner_address".to_string(),
         None,
@@ -1153,7 +1212,7 @@ fn test_validate_contract_metadata_wrong_owner() {
     let error = validate_contract_metadata(
         deps.as_ref().into_empty(),
         &mocked_env,
-        &Addr::unchecked(contract_addr),
+        &contract_addr,
         &["contract_name"],
     )
     .unwrap_err();
@@ -1161,7 +1220,7 @@ fn test_validate_contract_metadata_wrong_owner() {
         error,
         drop_staking_base::error::factory::ContractError::InvalidContractOwner {
             contract: String::from(contract_addr),
-            expected: "cosmos2contract".to_string(),
+            expected: api.addr_make("cosmos2contract").to_string(),
             actual: "wrong_owner_address".to_string()
         }
     );
@@ -1170,13 +1229,14 @@ fn test_validate_contract_metadata_wrong_owner() {
 #[test]
 fn test_validate_contract_metadata_wrong_admin() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
-    let contract_addr = "cosmos2contract";
+    let contract_addr = api.addr_make("cosmos2contract");
     let mocked_env = mock_env();
 
     setup_contract_metadata(
         &mut deps.querier,
-        contract_addr,
+        contract_addr.as_str(),
         "contract_name".to_string(),
         mocked_env.contract.address.to_string(),
         Some("wrong_contract_admin".to_string()),
@@ -1185,7 +1245,7 @@ fn test_validate_contract_metadata_wrong_admin() {
     let error = validate_contract_metadata(
         deps.as_ref().into_empty(),
         &mocked_env,
-        &Addr::unchecked(contract_addr),
+        &contract_addr,
         &["contract_name"],
     )
     .unwrap_err();
@@ -1193,7 +1253,7 @@ fn test_validate_contract_metadata_wrong_admin() {
         error,
         drop_staking_base::error::factory::ContractError::InvalidContractAdmin {
             contract: String::from(contract_addr),
-            expected: "cosmos2contract".to_string(),
+            expected: api.addr_make("cosmos2contract").to_string(),
             actual: "wrong_contract_admin".to_string()
         }
     );
@@ -1202,13 +1262,14 @@ fn test_validate_contract_metadata_wrong_admin() {
 #[test]
 fn test_validate_contract_metadata_empty_admin() {
     let mut deps = mock_dependencies(&[]);
+    let api = deps.api;
 
-    let contract_addr = "cosmos2contract";
+    let contract_addr = api.addr_make("cosmos2contract");
     let mocked_env = mock_env();
 
     setup_contract_metadata(
         &mut deps.querier,
-        contract_addr,
+        contract_addr.as_str(),
         "contract_name".to_string(),
         mocked_env.contract.address.to_string(),
         None,
@@ -1217,7 +1278,7 @@ fn test_validate_contract_metadata_empty_admin() {
     let error = validate_contract_metadata(
         deps.as_ref().into_empty(),
         &mocked_env,
-        &Addr::unchecked(contract_addr),
+        &contract_addr,
         &["contract_name"],
     )
     .unwrap_err();
@@ -1225,7 +1286,7 @@ fn test_validate_contract_metadata_empty_admin() {
         error,
         drop_staking_base::error::factory::ContractError::InvalidContractAdmin {
             contract: String::from(contract_addr),
-            expected: "cosmos2contract".to_string(),
+            expected: api.addr_make("cosmos2contract").to_string(),
             actual: "None".to_string()
         }
     );
@@ -1259,9 +1320,15 @@ fn setup_contract_metadata(
         )
     });
 
+    let admin = contract_admin.clone().map(Addr::unchecked);
     querier.add_wasm_query_response(contract_addr, move |_| {
-        let mut response = cosmwasm_std::ContractInfoResponse::default();
-        response.admin = contract_admin.clone();
+        let response = cosmwasm_std::ContractInfoResponse::new(
+            42,
+            Addr::unchecked("creator"),
+            admin.clone(),
+            false,
+            None,
+        );
 
         cosmwasm_std::ContractResult::Ok(to_json_binary(&response).unwrap())
     });

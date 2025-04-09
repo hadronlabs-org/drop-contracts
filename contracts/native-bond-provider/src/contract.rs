@@ -7,7 +7,7 @@ use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{get_ownership, update_ownership};
 use drop_helpers::answer::{attr_coin, response};
 use drop_helpers::get_contracts;
-use drop_helpers::ibc_client_state::query_client_state;
+use drop_helpers::ibc_client_state::{extract_identified_client_state, query_client_state};
 use drop_helpers::ibc_fee::query_ibc_fee;
 use drop_puppeteer_base::peripheral_hook::{
     IBCTransferReason, ReceiverExecuteMsg, ResponseHookErrorMsg, ResponseHookMsg,
@@ -99,6 +99,7 @@ pub fn query(deps: Deps<NeutronQuery>, env: Env, msg: QueryMsg) -> ContractResul
 }
 
 fn query_can_be_removed(deps: Deps<NeutronQuery>, env: Env) -> ContractResult<Binary> {
+    #[allow(deprecated)]
     let all_balances = deps.querier.query_all_balances(env.contract.address)?;
     let all_balances_except_untrn = all_balances
         .into_iter()
@@ -182,7 +183,7 @@ fn query_token_amount(
     let config = CONFIG.load(deps.storage)?;
 
     if can_bond(config.base_denom, coin.denom) {
-        let issue_amount = coin.amount * (Decimal::one() / exchange_rate);
+        let issue_amount = coin.amount.mul_floor(Decimal::one() / exchange_rate);
 
         return Ok(to_json_binary(&issue_amount)?);
     }
@@ -290,7 +291,7 @@ fn execute_process_on_idle(
     let addrs = get_contracts!(deps, config.factory_contract, core_contract);
 
     ensure_eq!(
-        info.sender,
+        info.sender.as_str(),
         addrs.core_contract,
         ContractError::Unauthorized {}
     );
@@ -396,8 +397,8 @@ fn get_ibc_transfer_msg(
             msg,
             Transaction::IBCTransfer {
                 denom: pending_coin.denom,
-                amount: pending_coin.amount.u128(),
-                real_amount: pending_coin.amount.u128(),
+                amount: pending_coin.amount,
+                real_amount: pending_coin.amount,
                 recipient: ica_address.to_string(),
                 reason: IBCTransferReason::Delegate,
             },
@@ -425,7 +426,7 @@ fn execute_puppeteer_hook(
     );
 
     ensure_eq!(
-        info.sender,
+        info.sender.as_str(),
         addrs.puppeteer_contract,
         ContractError::Unauthorized {}
     );
@@ -517,9 +518,7 @@ fn transaction_reply(deps: DepsMut) -> ContractResult<Response> {
     TX_STATE.save(deps.storage, &tx_state)?;
 
     if let Some(Transaction::IBCTransfer { amount, .. }) = tx_state.transaction {
-        NON_STAKED_BALANCE.update(deps.storage, |balance| {
-            StdResult::Ok(balance + Uint128::from(amount))
-        })?;
+        NON_STAKED_BALANCE.update(deps.storage, |balance| StdResult::Ok(balance + amount))?;
     }
 
     Ok(Response::new())
@@ -571,9 +570,7 @@ fn sudo_error(
         .ok_or_else(|| StdError::generic_err("transaction not found"))?;
 
     if let Transaction::IBCTransfer { amount, .. } = transaction.clone() {
-        NON_STAKED_BALANCE.update(deps.storage, |balance| {
-            StdResult::Ok(balance - Uint128::from(amount))
-        })?;
+        NON_STAKED_BALANCE.update(deps.storage, |balance| StdResult::Ok(balance - amount))?;
     }
 
     TX_STATE.save(deps.storage, &TxState::default())?;
@@ -624,11 +621,10 @@ fn sudo_response(
         .ok_or_else(|| StdError::generic_err("source_port not found"))?;
 
     let client_state = query_client_state(&deps.as_ref(), channel_id, port_id)?;
+    let identified_client_state = extract_identified_client_state(&deps.as_ref(), client_state)?;
 
-    let remote_height = client_state
-        .identified_client_state
-        .ok_or_else(|| StdError::generic_err("IBC client state identified_client_state not found"))?
-        .client_state
+    // Finally, extract the revision_height from latest_height.
+    let remote_height = identified_client_state
         .latest_height
         .ok_or_else(|| StdError::generic_err("IBC client state latest_height not found"))?
         .revision_height;
@@ -646,7 +642,7 @@ fn sudo_response(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
                 transaction: transaction.clone(),
                 local_height: env.block.height,
-                remote_height: remote_height.u64(),
+                remote_height,
             },)
         ))?
     ));
@@ -656,7 +652,7 @@ fn sudo_response(
             ResponseHookMsg::Success(ResponseHookSuccessMsg {
                 transaction: transaction.clone(),
                 local_height: env.block.height,
-                remote_height: remote_height.u64(),
+                remote_height,
             }),
         ))?,
         funds: vec![],

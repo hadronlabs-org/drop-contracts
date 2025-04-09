@@ -91,7 +91,7 @@ fn mint(
     let addrs = get_contracts!(deps, factory_contract, core_contract);
 
     ensure_eq!(
-        info.sender,
+        info.sender.as_str(),
         addrs.core_contract,
         ContractError::Unauthorized
     );
@@ -114,7 +114,7 @@ fn burn(deps: DepsMut<NeutronQuery>, info: MessageInfo) -> ContractResult<Respon
     let factory_contract = FACTORY_CONTRACT.load(deps.storage)?;
     let addrs = get_contracts!(deps, factory_contract, core_contract);
     ensure_eq!(
-        info.sender,
+        info.sender.to_string(),
         addrs.core_contract,
         ContractError::Unauthorized
     );

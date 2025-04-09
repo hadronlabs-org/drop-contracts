@@ -9,12 +9,12 @@ version = "1.0.0"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-backtraces = ["cosmwasm-std/backtraces"]
 library = []
 
 [dependencies]
 cosmwasm-std = { workspace = true }
 neutron-sdk = { workspace = true }
+neutron-std = { workspace = true }
 drop-staking-base = { workspace = true }
 cw2 = { workspace = true }
 cw-ownable = { workspace = true }
@@ -27,3 +27,5 @@ cw-utils = { workspace = true }
 bech32 = { workspace = true }
 cw721 = { workspace = true }
 serde-json-wasm = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }

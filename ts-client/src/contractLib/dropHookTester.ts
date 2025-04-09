@@ -11,7 +11,7 @@ export type Transaction =
     }
   | {
       redelegate: {
-        amount: number;
+        amount: Uint128;
         denom: string;
         interchain_account_id: string;
         validator_from: string;
@@ -26,7 +26,7 @@ export type Transaction =
     }
   | {
       tokenize_share: {
-        amount: number;
+        amount: Uint128;
         denom: string;
         interchain_account_id: string;
         validator: string;
@@ -47,9 +47,9 @@ export type Transaction =
     }
   | {
       i_b_c_transfer: {
-        amount: number;
+        amount: Uint128;
         denom: string;
-        real_amount: number;
+        real_amount: Uint128;
         reason: IBCTransferReason;
         recipient: string;
       };
@@ -127,7 +127,6 @@ export interface TransferReadyBatchesMsg {
 export interface Coin {
   amount: Uint128;
   denom: string;
-  [k: string]: unknown;
 }
 export interface ResponseHookErrorMsg {
   details: string;

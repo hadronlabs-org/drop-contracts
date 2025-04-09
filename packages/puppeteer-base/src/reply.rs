@@ -4,7 +4,8 @@ use crate::{
 };
 use cosmwasm_std::{attr, DepsMut, Reply, Response, StdError, StdResult};
 use drop_helpers::{answer::response, query_id::get_query_id};
-use neutron_sdk::bindings::msg::{MsgIbcTransferResponse, MsgSubmitTxResponse};
+use neutron_sdk::interchain_txs::helpers::decode_message_response;
+use neutron_std::types::neutron::interchaintxs::v1::MsgSubmitTxResponse;
 use serde::{de::DeserializeOwned, Serialize};
 
 impl<'a, T, U, Z> PuppeteerBase<'a, T, U, Z>
@@ -76,15 +77,21 @@ where
     }
 
     pub fn submit_tx_reply(&self, deps: DepsMut, msg: Reply) -> StdResult<Response> {
-        let resp: MsgSubmitTxResponse = serde_json_wasm::from_slice(
-            msg.result
+        deps.api
+            .debug(format!("WASMDEBUG: submit_tx_reply; resp: {msg:?}").as_str());
+
+        let resp: MsgSubmitTxResponse = decode_message_response(
+            &msg.result
                 .into_result()
                 .map_err(StdError::generic_err)?
-                .data
-                .ok_or_else(|| StdError::generic_err("no result"))?
-                .as_slice(),
+                .msg_responses
+                .first()
+                .ok_or_else(|| StdError::generic_err("no msg_responses found"))?
+                .value
+                .to_vec(),
         )
-        .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?;
+        .map_err(|e| StdError::generic_err(format!("failed to parse response: {:?}", e)))?;
+
         deps.api
             .debug(format!("WASMDEBUG: prepare_sudo_payload received; resp: {resp:?}").as_str());
         let seq_id = resp.sequence_id;
@@ -101,15 +108,18 @@ where
     }
 
     pub fn submit_ibc_transfer_reply(&self, deps: DepsMut, msg: Reply) -> StdResult<Response> {
-        let resp: MsgIbcTransferResponse = serde_json_wasm::from_slice(
-            msg.result
+        let resp: MsgSubmitTxResponse = decode_message_response(
+            &msg.result
                 .into_result()
                 .map_err(StdError::generic_err)?
-                .data
-                .ok_or_else(|| StdError::generic_err("no result"))?
-                .as_slice(),
+                .msg_responses
+                .first()
+                .ok_or_else(|| StdError::generic_err("no msg_responses found"))?
+                .value
+                .to_vec(),
         )
-        .map_err(|e| StdError::generic_err(format!("failed to parse response: {e:?}")))?;
+        .map_err(|e| StdError::generic_err(format!("failed to parse response: {:?}", e)))?;
+
         deps.api
             .debug(format!("WASMDEBUG: prepare_sudo_payload received; resp: {resp:?}").as_str());
         let seq_id = resp.sequence_id;

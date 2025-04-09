@@ -17,8 +17,6 @@ exclude = [
 crate-type = ["cdylib", "rlib"]
 
 [features]
-# for more explicit tests, cargo test --features=backtraces
-backtraces = ["cosmwasm-std/backtraces"]
 # use library feature to disable all instantiate/execute/query exports
 library = []
 
@@ -32,14 +30,13 @@ drop-puppeteer-base = { workspace = true }
 drop-helpers = { workspace = true }
 drop-macros = { workspace = true }
 drop-proto = { workspace = true }
-cw721-base = { workspace = true }
 cw721 = { workspace = true }
 thiserror = { workspace = true }
 cw-ownable = { workspace = true }
 time = { workspace = true }
 optfield = { workspace = true }
-astroport = { workspace = true }
 prost = { workspace = true }
 serde = { workspace = true }
 cw-utils = { workspace = true }
 semver = { workspace = true }
+schemars = { workspace = true }
