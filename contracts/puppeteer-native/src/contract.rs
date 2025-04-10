@@ -231,16 +231,9 @@ pub fn execute(
         } => execute_undelegate(deps, env, info, items, batch_id, reply_to),
         ExecuteMsg::Redelegate {
             amount,
-            source_validator,
-            destination_validator,
-        } => execute_redelegate(
-            deps,
-            env,
-            info,
-            amount,
-            source_validator,
-            destination_validator,
-        ),
+            src_validator,
+            dst_validator,
+        } => execute_redelegate(deps, env, info, amount, src_validator, dst_validator),
         ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
             validators,
             transfer,

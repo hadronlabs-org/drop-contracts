@@ -30,8 +30,8 @@ pub enum ExecuteMsg {
     },
     Redelegate {
         amount: Option<Uint128>,
-        source_validator: String,
-        destination_validator: String,
+        src_validator: String,
+        dst_validator: String,
     },
     ClaimRewardsAndOptionalyTransfer {
         validators: Vec<String>,
