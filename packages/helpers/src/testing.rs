@@ -173,19 +173,15 @@ impl WasmMockQuerier {
                 }
                 _ => self.base.handle_query(request),
             },
-            QueryRequest::Staking(staking_query) => match staking_query {
-                StakingQuery::Delegation { validator, .. } => {
-                    let delegation = self.staking_query_responses.get(validator);
+            QueryRequest::Staking(StakingQuery::Delegation { validator, .. }) => {
+                let delegation = self.staking_query_responses.get(validator);
 
-                    if let Some(delegation) = delegation {
-                        SystemResult::Ok(ContractResult::Ok(delegation.clone()))
-                    } else {
-                        self.base.handle_query(request)
-                    }
+                if let Some(delegation) = delegation {
+                    SystemResult::Ok(ContractResult::Ok(delegation.clone()))
+                } else {
+                    self.base.handle_query(request)
                 }
-                _ => self.base.handle_query(request),
-            },
-
+            }
             QueryRequest::Ibc(cosmwasm_std::IbcQuery::Channel {
                 channel_id,
                 port_id,

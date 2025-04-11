@@ -886,31 +886,60 @@ describe('Core', () => {
           ),
         );
       });
-    });
-    describe('second cycle', () => {
-      it('tick to idle', async () => {
-        const res = await context.coreContractClient.tick(
+
+      it('redelegate from one validator to another', async () => {
+        await context.factoryContractClient.adminExecute(
           context.neutronUserAddress,
+          {
+            msgs: [
+              {
+                wasm: {
+                  execute: {
+                    contract_addr:
+                      context.puppeteerContractClient.contractAddress,
+                    msg: Buffer.from(
+                      JSON.stringify({
+                        redelegate: {
+                          src_validator: context.validatorAddress,
+                          dst_validator: context.secondValidatorAddress,
+                        },
+                      }),
+                    ).toString('base64'),
+                    funds: [],
+                  },
+                },
+              },
+            ],
+          },
           1.5,
           undefined,
           [],
         );
-        expect(res.transactionHash).toHaveLength(64);
-        const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('idle');
-      });
 
-      it('tick to idle', async () => {
-        const res = await context.coreContractClient.tick(
-          context.neutronUserAddress,
-          2.5,
-          undefined,
-          [],
+        const res = (await context.puppeteerContractClient.queryExtension({
+          msg: { delegations: {} },
+        } as any)) as any;
+        expect(
+          sortByStringKey(res.delegations.delegations as any[], 'validator'),
+        ).toEqual(
+          sortByStringKey(
+            [
+              {
+                amount: { amount: '200000', denom: 'untrn' },
+                share_ratio: '200000',
+                validator: context.validatorAddress,
+                delegator: context.puppeteerContractClient.contractAddress,
+              },
+              {
+                amount: { amount: '200000', denom: 'untrn' },
+                share_ratio: '200000',
+                validator: context.secondValidatorAddress,
+                delegator: context.puppeteerContractClient.contractAddress,
+              },
+            ],
+            'validator',
+          ),
         );
-        expect(res.transactionHash).toHaveLength(64);
-        console.log(res);
-        const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('idle');
       });
     });
   });

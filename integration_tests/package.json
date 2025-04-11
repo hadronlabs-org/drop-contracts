@@ -11,7 +11,7 @@
     "test:core": "REMOTE_CHAIN_OPTS=./dockerfiles/gaia/options.json vitest --run core.test.ts --bail 1",
     "test:core:slashing": "vitest --run core-slashing.test.ts --bail 1",
     "test:core:native": "REMOTE_CHAIN_OPTS=./dockerfiles/neutronv2/options.json vitest --run core-native.test.ts --bail 1",
-    "test:core:native:long": "REMOTE_CHAIN_OPTS=./dockerfiles/neutronv2/options.json vitest --run core-native-long-idle.test.ts --bail 1",
+    "test:core:native:restake": "REMOTE_CHAIN_OPTS=./dockerfiles/neutronv2/options.json vitest --run core-native-restake.test.ts --bail 1",
     "test:pump": "vitest --run pump.test.ts --bail 1",
     "test:bond-mirror": "vitest --run bond-mirror.test.ts --bail 1",
     "test:pump-multi": "vitest --run pump-multi.test.ts --bail 1",
