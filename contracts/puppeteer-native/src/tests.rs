@@ -3,8 +3,8 @@ use crate::contract::{CLAIM_REWARDS_REPLY_ID, CONTRACT_NAME};
 use cosmwasm_std::{
     coin, from_json,
     testing::{mock_env, mock_info},
-    to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal256, DepsMut, Event, Response,
-    StakingMsg, StdError, SubMsg, Timestamp, Uint128, Uint64, WasmMsg,
+    to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Decimal256, DelegationResponse, DepsMut, Event,
+    FullDelegation, Response, StakingMsg, StdError, SubMsg, Timestamp, Uint128, Uint64, WasmMsg,
 };
 use cw_utils::PaymentError;
 use drop_helpers::testing::mock_dependencies;
@@ -387,6 +387,193 @@ fn test_execute_delegate() {
                     .add_attributes(vec![("action", "stake"), ("amount_to_stake", "1000")])
             )
     );
+}
+
+#[test]
+fn test_execute_redelegate_unauthorized() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(&mut deps.as_mut());
+
+    let env: cosmwasm_std::Env = mock_env();
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("not_an_owner", &[]),
+        drop_staking_base::msg::puppeteer_native::ExecuteMsg::Redelegate {
+            amount: Some(Uint128::from(1000u128)),
+            src_validator: "src_validator".to_string(),
+            dst_validator: "dst_validator".to_string(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
+    )
+}
+
+#[test]
+fn test_execute_redelegate() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(&mut deps.as_mut());
+
+    let env: cosmwasm_std::Env = mock_env();
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("owner", &[Coin::new(1000u128, DEFAULT_DENOM.to_string())]),
+        drop_staking_base::msg::puppeteer_native::ExecuteMsg::Redelegate {
+            amount: Some(Uint128::from(1000u128)),
+            src_validator: "src_validator".to_string(),
+            dst_validator: "dst_validator".to_string(),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        res,
+        Response::new()
+            .add_messages(vec![CosmosMsg::Staking(StakingMsg::Redelegate {
+                src_validator: "src_validator".to_string(),
+                dst_validator: "dst_validator".to_string(),
+                amount: cosmwasm_std::Coin::new(1000u128, DEFAULT_DENOM.to_string()),
+            }),])
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-puppeteer-native-redelegate")
+                    .add_attributes(vec![
+                        ("action", "redelegate"),
+                        ("amount", "1000"),
+                        ("src_validator", "src_validator"),
+                        ("dst_validator", "dst_validator")
+                    ])
+            )
+    );
+}
+
+#[test]
+fn test_execute_redelegate_no_amount() {
+    let mut deps = mock_dependencies(&[]);
+
+    base_init(&mut deps.as_mut());
+
+    let env: cosmwasm_std::Env = mock_env();
+
+    deps.querier.add_staking_query_response(
+        "src_validator".to_string(),
+        DelegationResponse {
+            delegation: Some(FullDelegation {
+                amount: Coin::new(1000u128, "untrn".to_string()),
+                delegator: env.contract.clone().address,
+                validator: "src_validator".to_string(),
+                can_redelegate: Coin::new(1000u128, "base_denom".to_string()),
+                accumulated_rewards: vec![],
+            }),
+        },
+    );
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("owner", &[Coin::new(1000u128, DEFAULT_DENOM.to_string())]),
+        drop_staking_base::msg::puppeteer_native::ExecuteMsg::Redelegate {
+            amount: None,
+            src_validator: "src_validator".to_string(),
+            dst_validator: "dst_validator".to_string(),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        res,
+        Response::new()
+            .add_messages(vec![CosmosMsg::Staking(StakingMsg::Redelegate {
+                src_validator: "src_validator".to_string(),
+                dst_validator: "dst_validator".to_string(),
+                amount: cosmwasm_std::Coin::new(1000u128, DEFAULT_DENOM.to_string()),
+            }),])
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-puppeteer-native-redelegate")
+                    .add_attributes(vec![
+                        ("action", "redelegate"),
+                        ("amount", "1000"),
+                        ("src_validator", "src_validator"),
+                        ("dst_validator", "dst_validator")
+                    ])
+            )
+    );
+}
+
+#[test]
+fn test_execute_redelegate_no_amount_zero_amount() {
+    let mut deps = mock_dependencies(&[]);
+
+    base_init(&mut deps.as_mut());
+
+    let env: cosmwasm_std::Env = mock_env();
+
+    deps.querier.add_staking_query_response(
+        "src_validator".to_string(),
+        DelegationResponse {
+            delegation: Some(FullDelegation {
+                amount: Coin::new(0u128, "untrn".to_string()),
+                delegator: env.contract.clone().address,
+                validator: "src_validator".to_string(),
+                can_redelegate: Coin::new(0u128, "base_denom".to_string()),
+                accumulated_rewards: vec![],
+            }),
+        },
+    );
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("owner", &[Coin::new(1000u128, DEFAULT_DENOM.to_string())]),
+        drop_staking_base::msg::puppeteer_native::ExecuteMsg::Redelegate {
+            amount: None,
+            src_validator: "src_validator".to_string(),
+            dst_validator: "dst_validator".to_string(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::InvalidFunds {
+            reason: "amount must be greater than 0".to_string()
+        }
+    );
+}
+
+#[test]
+fn test_execute_redelegate_zero_amount() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(&mut deps.as_mut());
+
+    let env: cosmwasm_std::Env = mock_env();
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("owner", &[Coin::new(1000u128, DEFAULT_DENOM.to_string())]),
+        drop_staking_base::msg::puppeteer_native::ExecuteMsg::Redelegate {
+            amount: Some(Uint128::zero()),
+            src_validator: "src_validator".to_string(),
+            dst_validator: "dst_validator".to_string(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::InvalidFunds {
+            reason: "amount must be greater than 0".to_string()
+        }
+    )
 }
 
 #[test]

@@ -8,8 +8,8 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage};
 use cosmwasm_std::{
     from_json, to_json_binary, AllBalanceResponse, Api, BalanceResponse, BankQuery, Binary, Coin,
-    ContractResult, CustomQuery, OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError,
-    SystemResult, Uint128,
+    ContractResult, CustomQuery, DelegationResponse, OwnedDeps, Querier, QuerierResult,
+    QueryRequest, StakingQuery, SystemError, SystemResult, Uint128,
 };
 
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -125,6 +125,7 @@ type CustomFn = dyn Fn(&QueryRequest<NeutronQuery>) -> Binary;
 pub struct WasmMockQuerier {
     base: MockQuerier<NeutronQuery>,
     bank_query_responses: HashMap<String, Binary>,
+    staking_query_responses: HashMap<String, Binary>,
     query_responses: HashMap<u64, Binary>,
     registered_queries: HashMap<u64, Binary>,
     ibc_query_responses: HashMap<String, Binary>,
@@ -172,6 +173,19 @@ impl WasmMockQuerier {
                 }
                 _ => self.base.handle_query(request),
             },
+            QueryRequest::Staking(staking_query) => match staking_query {
+                StakingQuery::Delegation { validator, .. } => {
+                    let delegation = self.staking_query_responses.get(validator);
+
+                    if let Some(delegation) = delegation {
+                        SystemResult::Ok(ContractResult::Ok(delegation.clone()))
+                    } else {
+                        self.base.handle_query(request)
+                    }
+                }
+                _ => self.base.handle_query(request),
+            },
+
             QueryRequest::Ibc(cosmwasm_std::IbcQuery::Channel {
                 channel_id,
                 port_id,
@@ -346,6 +360,15 @@ impl WasmMockQuerier {
         self.bank_query_responses
             .insert(address, to_json_binary(&response).unwrap());
     }
+    pub fn add_staking_query_response(
+        &mut self,
+        src_validator_address: String,
+        response: DelegationResponse,
+    ) {
+        self.staking_query_responses
+            .insert(src_validator_address, to_json_binary(&response).unwrap());
+    }
+
     pub fn add_all_balances_query_response(
         &mut self,
         address: String,
@@ -427,6 +450,7 @@ impl WasmMockQuerier {
         WasmMockQuerier {
             base,
             bank_query_responses: HashMap::new(),
+            staking_query_responses: HashMap::new(),
             query_responses: HashMap::new(),
             registered_queries: HashMap::new(),
             ibc_query_responses: HashMap::new(),
