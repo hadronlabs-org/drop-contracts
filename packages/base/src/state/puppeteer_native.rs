@@ -61,6 +61,11 @@ impl From<DelegationResponseNative> for DropDelegation {
 }
 
 #[cw_serde]
+pub struct QueryDelegationResponse {
+    pub delegation_response: Option<DelegationResponseNative>,
+}
+
+#[cw_serde]
 pub struct QueryDelegatorDelegationsResponse {
     pub delegation_responses: Vec<DelegationResponseNative>,
     pub pagination: PageResponse,

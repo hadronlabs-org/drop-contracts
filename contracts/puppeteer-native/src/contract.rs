@@ -11,7 +11,7 @@ use drop_puppeteer_base::{
     msg::TransferReadyBatchesMsg,
     peripheral_hook::{ReceiverExecuteMsg, ResponseHookMsg, ResponseHookSuccessMsg, Transaction},
 };
-use drop_staking_base::state::puppeteer_native::REWARDS_WITHDRAW_ADDR;
+use drop_staking_base::state::puppeteer_native::{QueryDelegationResponse, REWARDS_WITHDRAW_ADDR};
 use drop_staking_base::{
     msg::puppeteer_native::{
         BalancesResponse, DelegationsResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryExtMsg,
@@ -269,9 +269,8 @@ fn execute_redelegate(
     let amount = match amount {
         Some(amount) => Some(amount),
         None => {
-            let delegation = deps
-                .querier
-                .query_delegation(env.contract.address, src_validator.clone())?;
+            let delegation =
+                get_delegator_delegation(env.clone(), deps.as_ref(), src_validator.clone())?;
 
             if let Some(delegation) = delegation {
                 if delegation.amount.denom != DEFAULT_DENOM {
@@ -315,6 +314,27 @@ fn execute_redelegate(
     ];
 
     Ok(response("redelegate", CONTRACT_NAME, attrs).add_message(msg))
+}
+
+pub fn get_delegator_delegation(
+    env: Env,
+    deps: Deps<NeutronQuery>,
+    src_validator: String,
+) -> ContractResult<Option<DropDelegation>> {
+    let res: StdResult<QueryDelegationResponse> = deps.querier.query(&QueryRequest::Stargate {
+        path: "/cosmos.staking.v1beta1.Query/Delegation".to_string(),
+        data: cosmos_sdk_proto::cosmos::staking::v1beta1::QueryDelegationRequest {
+            delegator_addr: env.contract.address.to_string(),
+            validator_addr: src_validator.to_string(),
+        }
+        .encode_to_vec()
+        .into(),
+    });
+
+    match res {
+        Ok(delegation_response) => Ok(delegation_response.delegation_response.map(|d| d.into())),
+        Err(e) => Err(ContractError::Std(e)),
+    }
 }
 
 fn execute_update_config(

@@ -925,14 +925,8 @@ describe('Core', () => {
           sortByStringKey(
             [
               {
-                amount: { amount: '200000', denom: 'untrn' },
-                share_ratio: '200000',
-                validator: context.validatorAddress,
-                delegator: context.puppeteerContractClient.contractAddress,
-              },
-              {
-                amount: { amount: '200000', denom: 'untrn' },
-                share_ratio: '200000',
+                amount: { amount: '400000', denom: 'untrn' },
+                share_ratio: '400000',
                 validator: context.secondValidatorAddress,
                 delegator: context.puppeteerContractClient.contractAddress,
               },
