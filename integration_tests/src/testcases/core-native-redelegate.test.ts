@@ -887,7 +887,63 @@ describe('Core', () => {
         );
       });
 
-      it('redelegate from one validator to another', async () => {
+      it('redelegate specific amount from one validator to another', async () => {
+        await context.factoryContractClient.adminExecute(
+          context.neutronUserAddress,
+          {
+            msgs: [
+              {
+                wasm: {
+                  execute: {
+                    contract_addr:
+                      context.puppeteerContractClient.contractAddress,
+                    msg: Buffer.from(
+                      JSON.stringify({
+                        redelegate: {
+                          amount: '50000',
+                          src_validator: context.validatorAddress,
+                          dst_validator: context.secondValidatorAddress,
+                        },
+                      }),
+                    ).toString('base64'),
+                    funds: [],
+                  },
+                },
+              },
+            ],
+          },
+          1.5,
+          undefined,
+          [],
+        );
+
+        const res = (await context.puppeteerContractClient.queryExtension({
+          msg: { delegations: {} },
+        } as any)) as any;
+        expect(
+          sortByStringKey(res.delegations.delegations as any[], 'validator'),
+        ).toEqual(
+          sortByStringKey(
+            [
+              {
+                amount: { amount: '150000', denom: 'untrn' },
+                share_ratio: '150000',
+                validator: context.validatorAddress,
+                delegator: context.puppeteerContractClient.contractAddress,
+              },
+              {
+                amount: { amount: '250000', denom: 'untrn' },
+                share_ratio: '250000',
+                validator: context.secondValidatorAddress,
+                delegator: context.puppeteerContractClient.contractAddress,
+              },
+            ],
+            'validator',
+          ),
+        );
+      });
+
+      it('redelegate everything from one validator to another', async () => {
         await context.factoryContractClient.adminExecute(
           context.neutronUserAddress,
           {
