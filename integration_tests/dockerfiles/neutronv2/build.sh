@@ -9,7 +9,7 @@ if [[ "$CI" == "true" ]]; then
 else
     VERSION=":$VERSION"
 fi
-git clone git@github.com:neutron-org/neutron
+git clone https://github.com/neutron-org/neutron
 cd neutron
 git checkout $COMMIT_HASH_OR_BRANCH 
 go mod tidy
