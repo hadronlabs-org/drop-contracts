@@ -122,11 +122,16 @@ describe('Core', () => {
   beforeAll(async (t) => {
     context.park = await setupPark(
       t,
-      ['neutron', 'gaia'],
+      ['neutronv2', 'gaia'],
       {
         gaia: {
           genesis_opts: {
             'app_state.staking.params.unbonding_time': `${UNBONDING_TIME}s`,
+          },
+        },
+        neutronv2: {
+          genesis_opts: {
+            'app_state.staking.params.bond_denom': `untrn`,
           },
         },
       },
@@ -159,11 +164,11 @@ describe('Core', () => {
     );
     context.account = (await context.wallet.getAccounts())[0];
     context.neutronClient = new NeutronClient({
-      apiURL: `http://127.0.0.1:${context.park.ports.neutron.rest}`,
-      rpcURL: `127.0.0.1:${context.park.ports.neutron.rpc}`,
+      apiURL: `http://127.0.0.1:${context.park.ports.neutronv2.rest}`,
+      rpcURL: `127.0.0.1:${context.park.ports.neutronv2.rpc}`,
       prefix: 'neutron',
     });
-    context.neutronRPCEndpoint = `http://127.0.0.1:${context.park.ports.neutron.rpc}`;
+    context.neutronRPCEndpoint = `http://127.0.0.1:${context.park.ports.neutronv2.rpc}`;
     context.client = await SigningCosmWasmClient.connectWithSigner(
       context.neutronRPCEndpoint,
       context.wallet,
@@ -1016,7 +1021,10 @@ describe('Core', () => {
 
     expect(result.transactionHash).toHaveLength(64);
 
-    await awaitBlocks(`http://127.0.0.1:${context.park.ports.neutron.rpc}`, 3);
+    await awaitBlocks(
+      `http://127.0.0.1:${context.park.ports.neutronv2.rpc}`,
+      3,
+    );
   });
 
   it('check core contract settings', async () => {

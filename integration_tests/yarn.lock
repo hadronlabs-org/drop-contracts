@@ -580,9 +580,10 @@
     events "^3.3.0"
     protobufjs "^7.2.0"
 
-"@neutron-org/contracts2ts@neutron-org/contracts2ts#instantiate_admin_support":
-  version "1.5.0"
-  resolved "https://codeload.github.com/neutron-org/contracts2ts/tar.gz/fd12ed5eaafaf5bb86bf2aec1efb404b886b7680"
+"@neutron-org/contracts2ts@1.5.2":
+  version "1.5.2"
+  resolved "https://registry.yarnpkg.com/@neutron-org/contracts2ts/-/contracts2ts-1.5.2.tgz#ff323a6238904b4fec60cc6c2b45da646f5da620"
+  integrity sha512-JkxOqV1TAyJKBhmmInncex3FDSRF9Z9Y+E9u87YmrQVUr4OHZdO3oclaGAtglB1IQSqe2RfZp3iHnT7JrIM8jQ==
   dependencies:
     "@apidevtools/json-schema-ref-parser" "^11.5.4"
     "@cosmjs/cosmwasm-stargate" "^0.32.4"
@@ -599,15 +600,15 @@
     lodash "^4.17.21"
     node-recursive-directory "^1.2.0"
 
-"@neutron-org/cosmopark@^1.7.3":
-  version "1.7.3"
-  resolved "https://registry.yarnpkg.com/@neutron-org/cosmopark/-/cosmopark-1.7.3.tgz#0bf2da78100bb690ffc537b9048cbeab16eedd2b"
-  integrity sha512-V/EDCw6FB30+l0PFkO4JhD3fk6tskgxTkOy30k8X51wuYrVQx3MEGxG71Vwq424GNU6R6AGQgMIbMTAg+SOzDA==
+"@neutron-org/cosmopark@1.7.14":
+  version "1.7.14"
+  resolved "https://registry.yarnpkg.com/@neutron-org/cosmopark/-/cosmopark-1.7.14.tgz#75eec7d140a2346e6e792454c21e365a83ae7f83"
+  integrity sha512-pOn8TvH2VbwJ1JnylE2/aPJnHI2wWjTBPVvR+oK7upQsuot7jr3lZ1EkpSKRTnOK9fVbqck7GCt8bnP8tnU32A==
   dependencies:
     "@iarna/toml" "^2.2.5"
     commander "^11.0.0"
     docker-cli-js "^2.10.0"
-    docker-compose "^0.24.2"
+    docker-compose "1.1.0"
     lodash "^4.17.21"
     pino "^8.17.2"
     rimraf "^5.0.7"
@@ -1548,10 +1549,10 @@ docker-cli-js@^2.10.0:
     lodash.snakecase "^4.1.1"
     nodeify-ts "1.0.6"
 
-docker-compose@^0.24.2:
-  version "0.24.8"
-  resolved "https://registry.yarnpkg.com/docker-compose/-/docker-compose-0.24.8.tgz#6c125e6b9e04cf68ced47e2596ef2bb93ee9694e"
-  integrity sha512-plizRs/Vf15H+GCVxq2EUvyPK7ei9b/cVesHvjnX4xaXjM9spHe2Ytq0BitndFgvTJ3E3NljPNUEl7BAN43iZw==
+docker-compose@1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/docker-compose/-/docker-compose-1.1.0.tgz#ccc21b280430357e51e192e29dc7b4cef81f3784"
+  integrity sha512-VrkQJNafPQ5d6bGULW0P6KqcxSkv3ZU5Wn2wQA19oB71o7+55vQ9ogFe2MMeNbK+jc9rrKVy280DnHO5JLMWOQ==
   dependencies:
     yaml "^2.2.2"
 
@@ -1581,7 +1582,7 @@ dotparser@^1.1.1:
     "@cosmjs/cosmwasm-stargate" "^0.32.4"
     "@cosmjs/proto-signing" "^0.32.4"
     "@neutron-org/client-ts" "^1.4.0"
-    "@neutron-org/contracts2ts" neutron-org/contracts2ts#instantiate_admin_support
+    "@neutron-org/contracts2ts" "1.5.2"
 
 eastasianwidth@^0.2.0:
   version "0.2.0"
