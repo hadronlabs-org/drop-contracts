@@ -124,6 +124,7 @@ pub enum ExecuteMsg {
 pub struct MigrateMsg {
     pub lsm_share_bond_provider_contract: String,
     pub native_bond_provider_contract: String,
+    pub factory_contract: String,
 }
 
 #[cw_serde]
