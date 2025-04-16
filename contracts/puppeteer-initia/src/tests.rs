@@ -774,7 +774,11 @@ fn test_migrate_wrong_contract() {
     let res = crate::contract::migrate(
         deps.as_mut(),
         mock_env(),
-        drop_staking_base::msg::puppeteer::MigrateMsg {},
+        drop_staking_base::msg::puppeteer::MigrateMsg {
+            native_bond_provider: "native_bond_provider".to_string(),
+            allowed_senders: vec!["allowed_sender".to_string()],
+            factory_contract: "factory_contract".to_string(),
+        },
     )
     .unwrap_err();
     assert_eq!(

@@ -1,18 +1,12 @@
 use std::collections::HashMap;
 
-use crate::{
-    error::ContractResult,
-    msg::{
-        ExecuteMsg, InstantiateMsg, MigrateMsg, ProxyMsg, QueryMsg, UpdateConfigMsg,
-        ValidatorSetMsg,
-    },
-    state::{State, STATE, STATE_OLD},
-};
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, from_json, instantiate2_address, to_json_binary, Addr, Binary, CodeInfoResponse,
     CosmosMsg, Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use cw2::ContractVersion;
+use cw_storage_plus::Item;
 use drop_helpers::answer::response;
 use drop_helpers::phonebook::{
     CORE_CONTRACT, DISTRIBUTION_CONTRACT, LSM_SHARE_BOND_PROVIDER_CONTRACT,
@@ -28,6 +22,8 @@ use drop_staking_base::msg::factory::{
 use drop_staking_base::msg::{
     core::InstantiateMsg as CoreInstantiateMsg,
     distribution::InstantiateMsg as DistributionInstantiateMsg, factory::InstantiateMsg,
+    lsm_share_bond_provider::InstantiateMsg as LsmShareBondProviderInstantiateMsg,
+    native_bond_provider::InstantiateMsg as NativeBondProviderInstantiateMsg,
     rewards_manager::InstantiateMsg as RewardsMangerInstantiateMsg,
     splitter::InstantiateMsg as SplitterInstantiateMsg,
     strategy::InstantiateMsg as StrategyInstantiateMsg,
@@ -460,8 +456,8 @@ fn get_contract_label(base: &str) -> String {
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn migrate(
     deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    _msg: MigrateMsg,
+    env: Env,
+    msg: MigrateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
     let storage_contract_name = contract_version_metadata.contract.as_str();
@@ -478,7 +474,23 @@ pub fn migrate(
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-        let state = STATE_OLD.load(deps.storage)?;
+        #[cw_serde]
+        pub struct OldState {
+            pub token_contract: String,
+            pub core_contract: String,
+            pub puppeteer_contract: String,
+            pub staker_contract: String,
+            pub withdrawal_voucher_contract: String,
+            pub withdrawal_manager_contract: String,
+            pub strategy_contract: String,
+            pub validators_set_contract: String,
+            pub distribution_contract: String,
+            pub rewards_manager_contract: String,
+            pub rewards_pump_contract: String,
+            pub splitter_contract: String,
+        }
+
+        let state = Item::<OldState>::new("state").load(deps.storage)?;
 
         let mut messages = vec![];
 
@@ -486,8 +498,10 @@ pub fn migrate(
 
         let canonical_self_address = deps.api.addr_canonicalize(env.contract.address.as_str())?;
 
-        let lsm_share_bond_provider_checksum =
-            get_code_checksum(deps.as_ref(), msg.lsm_share_bond_provider_code_id)?;
+        let lsm_share_bond_provider_checksum = get_code_checksum(
+            deps.as_ref().into_empty(),
+            msg.lsm_share_bond_provider_code_id,
+        )?;
 
         let lsm_share_bond_provider_address = instantiate2_address(
             &lsm_share_bond_provider_checksum,
@@ -502,7 +516,7 @@ pub fn migrate(
 
         let core_config = deps
             .querier
-            .query_wasm_smart::<drop_staking_base::state::core::ConfigDeprecated>(
+            .query_wasm_smart::<drop_staking_base::state::core::OldConfig>(
                 &state.core_contract,
                 &drop_staking_base::msg::core::QueryMsg::Config {},
             )?;
@@ -513,12 +527,10 @@ pub fn migrate(
             label: get_contract_label("lsm_share_bond_provider"),
             msg: to_json_binary(&LsmShareBondProviderInstantiateMsg {
                 owner: env.contract.address.to_string(),
-                core_contract: state.core_contract.to_string(),
-                validators_set_contract: state.validators_set_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
                 port_id: msg.port_id.to_string(),
                 transfer_channel_id: core_config.transfer_channel_id.to_string(),
                 timeout: msg.timeout,
-                puppeteer_contract: state.puppeteer_contract.to_string(),
                 lsm_min_bond_amount: core_config.lsm_min_bond_amount,
                 lsm_redeem_threshold: core_config.lsm_redeem_threshold,
                 lsm_redeem_maximum_interval: core_config.lsm_redeem_maximum_interval,
@@ -528,7 +540,7 @@ pub fn migrate(
         }));
 
         let native_bond_provider_checksum =
-            get_code_checksum(deps.as_ref(), msg.native_bond_provider_code_id)?;
+            get_code_checksum(deps.as_ref().into_empty(), msg.native_bond_provider_code_id)?;
 
         let native_bond_provider_address = instantiate2_address(
             &native_bond_provider_checksum,
@@ -548,9 +560,7 @@ pub fn migrate(
             msg: to_json_binary(&NativeBondProviderInstantiateMsg {
                 owner: env.contract.address.to_string(),
                 base_denom: core_config.base_denom.to_string(),
-                puppeteer_contract: state.puppeteer_contract.to_string(),
-                core_contract: state.core_contract.to_string(),
-                strategy_contract: state.strategy_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
                 min_ibc_transfer: msg.min_ibc_transfer,
                 min_stake_amount: core_config.min_stake_amount,
                 transfer_channel_id: core_config.transfer_channel_id.to_string(),
@@ -567,6 +577,7 @@ pub fn migrate(
             msg: to_json_binary(&drop_staking_base::msg::core::MigrateMsg {
                 lsm_share_bond_provider_contract: lsm_share_bond_provider_contract.to_string(),
                 native_bond_provider_contract: native_bond_provider_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
             })?,
         }));
 
@@ -583,7 +594,7 @@ pub fn migrate(
         }));
 
         messages.push(CosmosMsg::Wasm(WasmMsg::Migrate {
-            contract_addr: msg.unbonding_pump_contract,
+            contract_addr: msg.unbonding_pump_contract.to_string(),
             new_code_id: msg.pump_code_id,
             msg: to_json_binary(&drop_staking_base::msg::pump::MigrateMsg {})?,
         }));
@@ -605,6 +616,7 @@ pub fn migrate(
             new_code_id: msg.puppeteer_code_id,
             msg: to_json_binary(&drop_staking_base::msg::puppeteer::MigrateMsg {
                 native_bond_provider: native_bond_provider_contract.to_string(),
+                factory_contract: env.contract.address.to_string(),
                 allowed_senders: vec![
                     lsm_share_bond_provider_contract.to_string(),
                     native_bond_provider_contract.to_string(),
@@ -644,21 +656,73 @@ pub fn migrate(
 
         STATE.save(
             deps.storage,
-            &State {
-                token_contract: state.token_contract,
-                core_contract: state.core_contract,
-                puppeteer_contract: state.puppeteer_contract,
-                withdrawal_voucher_contract: state.withdrawal_voucher_contract,
-                withdrawal_manager_contract: state.withdrawal_manager_contract,
-                strategy_contract: state.strategy_contract,
-                validators_set_contract: state.validators_set_contract,
-                distribution_contract: state.distribution_contract,
-                rewards_manager_contract: state.rewards_manager_contract,
-                rewards_pump_contract: state.rewards_pump_contract,
-                splitter_contract: state.splitter_contract,
-                lsm_share_bond_provider_contract: lsm_share_bond_provider_contract.to_string(),
-                native_bond_provider_contract: native_bond_provider_contract.to_string(),
-            },
+            WITHDRAWAL_MANAGER_CONTRACT,
+            &deps.api.addr_validate(&state.withdrawal_manager_contract)?,
+        )?;
+        STATE.save(
+            deps.storage,
+            WITHDRAWAL_VOUCHER_CONTRACT,
+            &deps.api.addr_validate(&state.withdrawal_voucher_contract)?,
+        )?;
+        STATE.save(
+            deps.storage,
+            VALIDATORS_SET_CONTRACT,
+            &deps.api.addr_validate(&state.validators_set_contract)?,
+        )?;
+        STATE.save(
+            deps.storage,
+            DISTRIBUTION_CONTRACT,
+            &deps.api.addr_validate(&state.distribution_contract)?,
+        )?;
+        STATE.save(
+            deps.storage,
+            SPLITTER_CONTRACT,
+            &deps.api.addr_validate(&state.splitter_contract)?,
+        )?;
+        STATE.save(
+            deps.storage,
+            REWARDS_MANAGER_CONTRACT,
+            &deps.api.addr_validate(&state.rewards_manager_contract)?,
+        )?;
+        STATE.save(
+            deps.storage,
+            REWARDS_PUMP_CONTRACT,
+            &deps.api.addr_validate(&state.rewards_pump_contract)?,
+        )?;
+        STATE.save(
+            deps.storage,
+            LSM_SHARE_BOND_PROVIDER_CONTRACT,
+            &deps.api.addr_validate(&lsm_share_bond_provider_contract)?,
+        )?;
+        STATE.save(
+            deps.storage,
+            NATIVE_BOND_PROVIDER_CONTRACT,
+            &deps.api.addr_validate(&native_bond_provider_contract)?,
+        )?;
+        STATE.save(
+            deps.storage,
+            CORE_CONTRACT,
+            &deps.api.addr_validate(&state.core_contract)?,
+        )?;
+        STATE.save(
+            deps.storage,
+            PUPPETEER_CONTRACT,
+            &deps.api.addr_validate(&state.puppeteer_contract)?,
+        )?;
+        STATE.save(
+            deps.storage,
+            TOKEN_CONTRACT,
+            &deps.api.addr_validate(&state.token_contract)?,
+        )?;
+        STATE.save(
+            deps.storage,
+            UNBONDING_PUMP_CONTRACT,
+            &deps.api.addr_validate(&msg.unbonding_pump_contract)?,
+        )?;
+        STATE.save(
+            deps.storage,
+            STRATEGY_CONTRACT,
+            &deps.api.addr_validate(&state.strategy_contract)?,
         )?;
 
         return Ok(Response::new().add_messages(messages));

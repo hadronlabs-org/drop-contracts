@@ -177,11 +177,16 @@ describe('Core', () => {
   beforeAll(async (t) => {
     context.park = await setupPark(
       t,
-      ['neutron', 'gaia'],
+      ['neutronv2', 'gaia'],
       {
         gaia: {
           genesis_opts: {
             'app_state.staking.params.unbonding_time': `${UNBONDING_TIME}s`,
+          },
+        },
+        neutronv2: {
+          genesis_opts: {
+            'app_state.staking.params.bond_denom': `untrn`,
           },
         },
       },
@@ -217,11 +222,11 @@ describe('Core', () => {
     );
     context.account = (await context.wallet.getAccounts())[0];
     context.neutronClient = new NeutronClient({
-      apiURL: `http://127.0.0.1:${context.park.ports.neutron.rest}`,
-      rpcURL: `127.0.0.1:${context.park.ports.neutron.rpc}`,
+      apiURL: `http://127.0.0.1:${context.park.ports.neutronv2.rest}`,
+      rpcURL: `127.0.0.1:${context.park.ports.neutronv2.rpc}`,
       prefix: 'neutron',
     });
-    context.neutronRPCEndpoint = `http://127.0.0.1:${context.park.ports.neutron.rpc}`;
+    context.neutronRPCEndpoint = `http://127.0.0.1:${context.park.ports.neutronv2.rpc}`;
     context.client = await SigningCosmWasmClient.connectWithSigner(
       context.neutronRPCEndpoint,
       context.wallet,
@@ -332,170 +337,192 @@ describe('Core', () => {
     context.codeIds = {};
 
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../migration_data/v1.1.0/v1.0.1/drop_core.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../migration_data/v1.1.0/v1.0.1/drop_core.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.core = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../migration_data/v1.1.0/v1.0.1/drop_token.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../migration_data/v1.1.0/v1.0.1/drop_token.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.token = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(
+          __dirname,
+          '../../migration_data/v1.1.0/v1.0.1/drop_withdrawal_voucher.wasm',
+        ),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(
-            __dirname,
-            '../../migration_data/v1.1.0/v1.0.1/drop_withdrawal_voucher.wasm',
-          ),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.withdrawalVoucher = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(
+          __dirname,
+          '../../migration_data/v1.1.0/v1.0.1/drop_withdrawal_manager.wasm',
+        ),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(
-            __dirname,
-            '../../migration_data/v1.1.0/v1.0.1/drop_withdrawal_manager.wasm',
-          ),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.withdrawalManager = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../migration_data/v1.1.0/v1.0.1/drop_pump.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../migration_data/v1.1.0/v1.0.1/drop_pump.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.pump = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(
+          __dirname,
+          '../../migration_data/v1.1.0/v1.0.1/drop_strategy.wasm',
+        ),
+      );
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(
-            __dirname,
-            '../../migration_data/v1.1.0/v1.0.1/drop_strategy.wasm',
-          ),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.strategy = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(
+          __dirname,
+          '../../migration_data/v1.1.0/v1.0.1/drop_distribution.wasm',
+        ),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(
-            __dirname,
-            '../../migration_data/v1.1.0/v1.0.1/drop_distribution.wasm',
-          ),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.distribution = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(
+          __dirname,
+          '../../migration_data/v1.1.0/v1.0.1/drop_validators_set.wasm',
+        ),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(
-            __dirname,
-            '../../migration_data/v1.1.0/v1.0.1/drop_validators_set.wasm',
-          ),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.validatorsSet = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(
+          __dirname,
+          '../../migration_data/v1.1.0/v1.0.1/drop_puppeteer.wasm',
+        ),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(
-            __dirname,
-            '../../migration_data/v1.1.0/v1.0.1/drop_puppeteer.wasm',
-          ),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.puppeteer = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(
+          __dirname,
+          '../../migration_data/v1.1.0/v1.0.1/drop_rewards_manager.wasm',
+        ),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(
-            __dirname,
-            '../../migration_data/v1.1.0/v1.0.1/drop_rewards_manager.wasm',
-          ),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.rewardsManager = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(
+          __dirname,
+          '../../migration_data/v1.1.0/v1.0.1/drop_splitter.wasm',
+        ),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(
-            __dirname,
-            '../../migration_data/v1.1.0/v1.0.1/drop_splitter.wasm',
-          ),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.splitter = res.codeId;
     }
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../migration_data/v1.1.0/v1.0.1/drop_staker.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(
-            __dirname,
-            '../../migration_data/v1.1.0/v1.0.1/drop_staker.wasm',
-          ),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.staker = res.codeId;
     }
 
+    const buffer = fs.readFileSync(
+      join(__dirname, '../../migration_data/v1.1.0/v1.0.1/drop_factory.wasm'),
+    );
+
     const res = await client.upload(
       account.address,
-      fs.readFileSync(
-        join(__dirname, '../../migration_data/v1.1.0/v1.0.1/drop_factory.wasm'),
-      ),
+      new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
@@ -978,9 +1005,10 @@ describe('Core', () => {
     context.validatorAddress = (await wallet.getAccounts())[0].address;
     const res = await context.park.executeInNetwork(
       'gaia',
-      `gaiad tx staking delegate ${context.validatorAddress} 1000000stake --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --output json`,
+      `gaiad tx staking delegate ${context.validatorAddress} 1000000stake --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --output json --fees 1000stake`,
     );
     expect(res.exitCode).toBe(0);
+    console.log(res);
     const out = JSON.parse(res.out);
     expect(out.code).toBe(0);
     expect(out.txhash).toHaveLength(64);
@@ -989,7 +1017,7 @@ describe('Core', () => {
   it('tokenize share on gaia side', async () => {
     const res = await context.park.executeInNetwork(
       'gaia',
-      `gaiad tx staking tokenize-share ${context.validatorAddress} 600000stake ${context.gaiaUserAddress} --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
+      `gaiad tx staking tokenize-share ${context.validatorAddress} 600000stake ${context.gaiaUserAddress} --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json  --fees 1000stake`,
     );
     expect(res.exitCode).toBe(0);
     const out = JSON.parse(res.out);
@@ -1009,7 +1037,7 @@ describe('Core', () => {
   it('transfer tokenized share to neutron', async () => {
     const res = await context.park.executeInNetwork(
       'gaia',
-      `gaiad tx ibc-transfer transfer transfer channel-0 ${context.neutronUserAddress} 600000${context.validatorAddress}/1 --from ${context.gaiaUserAddress}  --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json`,
+      `gaiad tx ibc-transfer transfer transfer channel-0 ${context.neutronUserAddress} 600000${context.validatorAddress}/1 --from ${context.gaiaUserAddress}  --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --output json  --fees 1000stake`,
     );
     expect(res.exitCode).toBe(0);
     const out = JSON.parse(res.out);
@@ -1149,22 +1177,26 @@ describe('Core', () => {
     const { client, account, contractAddress } = context;
 
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../migration_data/v1.1.0/v1.0.2/drop_core.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../migration_data/v1.1.0/v1.0.2/drop_core.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.core = res.codeId;
     }
 
+    const buffer = fs.readFileSync(
+      join(__dirname, '../../migration_data/v1.1.0/v1.0.2/drop_factory.wasm'),
+    );
+
     const res = await client.upload(
       account.address,
-      fs.readFileSync(
-        join(__dirname, '../../migration_data/v1.1.0/v1.0.2/drop_factory.wasm'),
-      ),
+      new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
@@ -1186,7 +1218,10 @@ describe('Core', () => {
 
     expect(result.transactionHash).toHaveLength(64);
 
-    await awaitBlocks(`http://127.0.0.1:${context.park.ports.neutron.rpc}`, 3);
+    await awaitBlocks(
+      `http://127.0.0.1:${context.park.ports.neutronv2.rpc}`,
+      3,
+    );
   });
 
   it('check core contract settings', async () => {
@@ -1257,9 +1292,13 @@ describe('Core', () => {
     const { client, account, contractAddress } = context;
 
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_core.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_core.wasm')),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -1267,11 +1306,13 @@ describe('Core', () => {
     }
 
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_distribution.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_distribution.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -1279,14 +1320,13 @@ describe('Core', () => {
     }
 
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_lsm_share_bond_provider.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(
-            __dirname,
-            '../../../artifacts/drop_lsm_share_bond_provider.wasm',
-          ),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -1294,11 +1334,13 @@ describe('Core', () => {
     }
 
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_native_bond_provider.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_native_bond_provider.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -1306,9 +1348,13 @@ describe('Core', () => {
     }
 
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_pump.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(join(__dirname, '../../../artifacts/drop_pump.wasm')),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -1316,11 +1362,13 @@ describe('Core', () => {
     }
 
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_puppeteer.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_puppeteer.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -1328,11 +1376,13 @@ describe('Core', () => {
     }
 
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_strategy.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_strategy.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
@@ -1340,20 +1390,26 @@ describe('Core', () => {
     }
 
     {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
+      );
+
       const res = await client.upload(
         account.address,
-        fs.readFileSync(
-          join(__dirname, '../../../artifacts/drop_validators_set.wasm'),
-        ),
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
         1.5,
       );
       expect(res.codeId).toBeGreaterThan(0);
       context.codeIds.validatorsSet = res.codeId;
     }
 
+    const buffer = fs.readFileSync(
+      join(__dirname, '../../../artifacts/drop_factory.wasm'),
+    );
+
     const res = await client.upload(
       account.address,
-      fs.readFileSync(join(__dirname, '../../../artifacts/drop_factory.wasm')),
+      new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
       1.5,
     );
     expect(res.codeId).toBeGreaterThan(0);
@@ -1388,7 +1444,10 @@ describe('Core', () => {
 
     expect(result.transactionHash).toHaveLength(64);
 
-    await awaitBlocks(`http://127.0.0.1:${context.park.ports.neutron.rpc}`, 3);
+    await awaitBlocks(
+      `http://127.0.0.1:${context.park.ports.neutronv2.rpc}`,
+      3,
+    );
   });
 
   it('register new clients', () => {

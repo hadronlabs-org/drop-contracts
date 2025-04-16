@@ -18,7 +18,7 @@
     "test:validators-stats": "vitest --run validators-stats.test.ts --bail 1",
     "test:validator-set": "vitest --run validator-set.test.ts --bail 1",
     "test:distribution": "vitest --run distribution.test.ts --bail 1",
-    "test:pre-migration-v1.0.2": "vitest --run pre-migration-v1.0.2.test --bail 1",
+    "test:migration-pre-v1.0.2-v1.3.0": "vitest --run migration-pre-v1.0.2-v1.3.0.test --bail 1",
     "test:initia": "REMOTE_CHAIN_OPTS=./dockerfiles/initia/options.json vitest --run initia.test.ts --bail 1",
     "test:auto-withdrawer": "vitest --run auto-withdrawer.test.ts --bail 1",
     "test:gv": "vitest --run gv.test.ts --bail 1",

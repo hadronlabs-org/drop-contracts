@@ -7,6 +7,7 @@ use cosmwasm_std::{
     StdError, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
+use cw_storage_plus::Item;
 use drop_helpers::{
     answer::response,
     get_contracts,
@@ -48,7 +49,7 @@ use drop_staking_base::{
     },
     state::puppeteer::{
         BalancesAndDelegations, Config, ConfigOptional, Delegations, KVQueryType, CONFIG,
-        CONFIG_DEPRECATED, NON_NATIVE_REWARD_BALANCES,
+        NON_NATIVE_REWARD_BALANCES,
     },
 };
 use neutron_sdk::{
@@ -64,7 +65,8 @@ use std::vec;
 
 pub type Puppeteer<'a> = PuppeteerBase<'a, Config, KVQueryType, BalancesAndDelegations>;
 
-pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
+pub const CONTRACT_NAME: &str =
+    concat!("crates.io:drop-neutron-contracts__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_DELEGATIONS_QUERIES_CHUNK_SIZE: u32 = 15;
 
@@ -1343,8 +1345,6 @@ pub fn migrate(
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-
-        let native_bond_provider = deps.api.addr_validate(&msg.native_bond_provider)?;
 
         let allowed_senders = validate_addresses(
             deps.as_ref().into_empty(),

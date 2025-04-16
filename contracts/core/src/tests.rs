@@ -2094,7 +2094,11 @@ fn test_migrate_wrong_contract() {
     let res = crate::contract::migrate(
         deps.as_mut(),
         mock_env(),
-        drop_staking_base::msg::core::MigrateMsg {},
+        drop_staking_base::msg::core::MigrateMsg {
+            lsm_share_bond_provider_contract: "lsm_share_bond_provider_contract".to_string(),
+            native_bond_provider_contract: "native_bond_provider_contract".to_string(),
+            factory_contract: "factory_contract".to_string(),
+        },
     )
     .unwrap_err();
     assert_eq!(

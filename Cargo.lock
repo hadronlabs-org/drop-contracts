@@ -922,6 +922,7 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-ownable",
+ "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
  "drop-helpers",
  "drop-proto",
