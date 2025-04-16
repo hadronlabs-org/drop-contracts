@@ -29,8 +29,9 @@ module me::drop_lp {
     struct LpConfig has key {
         extend_ref: ExtendRef,
         name: String,
-        backup: address,
+        owner: address,
         slinky_pair: String,
+        ignore_slinky_errors: bool,
         pair: Object<dex::Config>,
         asset: Object<fungible_asset::Metadata>,
         recipient: address,
@@ -54,8 +55,21 @@ module me::drop_lp {
         ty: String,
         lp_address: address,
         name: String,
-        backup: address,
+        owner: address,
         slinky_pair: String,
+        ignore_slinky_errors: bool,
+        pair: Object<dex::Config>,
+        asset: Object<fungible_asset::Metadata>,
+        recipient: address,
+    }
+
+    #[event]
+    struct UpdateConfigEvent has drop {
+        ty: String,
+        lp_address: address,
+        owner: address,
+        slinky_pair: String,
+        ignore_slinky_errors: bool,
         pair: Object<dex::Config>,
         asset: Object<fungible_asset::Metadata>,
         recipient: address,
@@ -116,10 +130,10 @@ module me::drop_lp {
     public entry fun create_liquidity_provider(
         account: &signer,
         name: String,                            // Just a name for a visual reference, e.g. "testnet_uinit"
-        backup: address,                         // Priviliged account with a right to withdraw any coins from module object,
-                                                 // will be set to `account` if omitted
+        owner: address,                          // Priviliged account with rights to update config and withdraw any coins from module object
 
         slinky_pair: String,                     // Name of a slinky pair, e.g. "INIT/USD"
+        ignore_slinky_errors: bool,              // If set to true, this module will ignore slinky errors and provide liquidity blindly
         pair: Object<dex::Config>,               // Address of liquidity pool, e.g. 0xdbf06c48af3984ec6d9ae8a9aa7dbb0bb1e784aa9b8c4a5681af660cf8558d7d
                                                  // for uinit-usdc on initiation-2 testnet
 
@@ -153,8 +167,9 @@ module me::drop_lp {
             LpConfig {
                 extend_ref,
                 name,
-                backup,
+                owner,
                 slinky_pair,
+                ignore_slinky_errors,
                 pair,
                 asset,
                 recipient,
@@ -168,13 +183,49 @@ module me::drop_lp {
                 ty: string::utf8(b"execute_create_liquidity_provider"),
                 lp_address,
                 name,
-                backup,
+                owner,
                 slinky_pair,
+                ignore_slinky_errors,
                 pair,
                 asset,
                 recipient,
             }
         );
+    }
+
+    public entry fun update_config(
+        account: &signer,
+        lp_address: address,
+        owner: address,
+        slinky_pair: String,
+        ignore_slinky_errors: bool,
+        pair: Object<dex::Config>,
+        asset: Object<fungible_asset::Metadata>,
+        recipient: address,
+    ) acquires LpConfig {
+        let lp_config = borrow_global_mut<LpConfig>(lp_address);
+        assert!(
+            signer::address_of(account) == lp_config.owner,
+            error::permission_denied(EUNAUTHORIZED),
+        );
+
+        lp_config.owner = owner;
+        lp_config.slinky_pair = slinky_pair;
+        lp_config.ignore_slinky_errors = ignore_slinky_errors;
+        lp_config.pair = pair;
+        lp_config.asset = asset;
+        lp_config.recipient = recipient;
+
+        event::emit(UpdateConfigEvent{
+            ty: string::utf8(b"execute_update_config"),
+            lp_address,
+            owner,
+            slinky_pair,
+            ignore_slinky_errors,
+            pair,
+            asset,
+            recipient,
+        });
     }
 
     // Emits stargate message which:
@@ -212,7 +263,7 @@ module me::drop_lp {
         });
     }
 
-    // Last resort function only available for a specially designated backup address to withdraw all funds
+    // Last resort function only available for the owner address to withdraw all funds
     // of `coin` denomination from module's object address in case if there is an unrecoverable bug somewhere
     public entry fun backup(
         account: &signer,
@@ -221,19 +272,19 @@ module me::drop_lp {
     ) acquires LpConfig {
         let lp_config = borrow_global<LpConfig>(lp_address);
         assert!(
-            signer::address_of(account) == lp_config.backup,
+            signer::address_of(account) == lp_config.owner,
             error::permission_denied(EUNAUTHORIZED),
         );
 
         let lp_signer = object::generate_signer_for_extending(&lp_config.extend_ref);
         let amount_out = coin::balance(signer::address_of(&lp_signer), coin);
-        coin::transfer(&lp_signer, lp_config.backup, coin, amount_out);
+        coin::transfer(&lp_signer, lp_config.owner, coin, amount_out);
         event::emit(BackupEvent {
             ty: string::utf8(b"execute_backup"),
             account: signer::address_of(account),
             coin,
             amount: amount_out,
-            recipient: lp_config.backup,
+            recipient: lp_config.owner,
         });
     }
 
@@ -354,8 +405,11 @@ module me::drop_lp {
                 event.will_provide_liquidity = true;
             }
         } else {
-            // Slinky doesn't know about INIT yet, skip any validation and go full YOLO
-            event.will_provide_liquidity = true;
+            // Slinky doesn't know about INIT yet
+            if (lp_config.ignore_slinky_errors) {
+                // skip any validation and go full YOLO
+                event.will_provide_liquidity = true;
+            }
         };
 
         if (event.will_provide_liquidity) {
@@ -415,6 +469,7 @@ module me::drop_lp {
             string::utf8(b"name"),
             chain_addr,
             string::utf8(b""),
+            true,
             config_object,
             init_metadata,
             chain_addr
@@ -456,6 +511,7 @@ module me::drop_lp {
             string::utf8(b""),
             chain_addr,
             string::utf8(b"slinky_pair"),
+            true,
             config_object,
             init_metadata,
             chain_addr
@@ -497,6 +553,7 @@ module me::drop_lp {
             string::utf8(vector::map<u64, u8>(vector::range(0, 65), |e| e as u8)),
             chain_addr,
             string::utf8(b"slinky_pair"),
+            true,
             config_object,
             init_metadata,
             chain_addr
@@ -537,6 +594,7 @@ module me::drop_lp {
             string::utf8(b"name"),
             chain_addr,
             string::utf8(b"slinky_pair"),
+            true,
             config_object,
             init_metadata,
             chain_addr
@@ -551,7 +609,7 @@ module me::drop_lp {
         // 2 characters for "0x", then 2 characters per address byte (32 bytes)
         assert!(string::length(&address::to_string(object::address_from_extend_ref(&lp_config.extend_ref))) == 66);
         assert!(lp_config.name == string::utf8(b"name"));
-        assert!(lp_config.backup == chain_addr);
+        assert!(lp_config.owner == chain_addr);
         assert!(lp_config.slinky_pair == string::utf8(b"slinky_pair"));
         assert!(lp_config.pair == config_object);
         assert!(lp_config.asset == init_metadata);
@@ -596,6 +654,7 @@ module me::drop_lp {
             string::utf8(b"name"),
             chain_addr,
             string::utf8(b"slinky_pair"),
+            true,
             config_object,
             init_metadata,
             chain_addr
@@ -637,6 +696,7 @@ module me::drop_lp {
             string::utf8(b"name"),
             chain_addr,
             string::utf8(b"slinky_pair"),
+            true,
             config_object,
             init_metadata,
             chain_addr
@@ -682,6 +742,7 @@ module me::drop_lp {
             string::utf8(b"name"),
             chain_addr,
             string::utf8(b"slinky_pair"),
+            true,
             config_object,
             init_metadata,
             chain_addr
@@ -728,6 +789,7 @@ module me::drop_lp {
             string::utf8(b"name"),
             chain_addr,
             string::utf8(b"slinky_pair"),
+            true,
             config_object,
             init_metadata,
             chain_addr
@@ -792,6 +854,7 @@ module me::drop_lp {
             string::utf8(b"name"),
             chain_addr,
             string::utf8(b"slinky_pair"),
+            true,
             config_object,
             init_metadata,
             chain_addr
@@ -835,6 +898,7 @@ module me::drop_lp {
             string::utf8(b"name"),
             chain_addr,
             string::utf8(b"slinky_pair"),
+            true,
             config_object,
             init_metadata,
             chain_addr
@@ -879,6 +943,7 @@ module me::drop_lp {
             string::utf8(b"name"),
             chain_addr,
             string::utf8(b"slinky_pair"),
+            true,
             config_object,
             init_metadata,
             chain_addr
@@ -933,6 +998,7 @@ module me::drop_lp {
             string::utf8(b"name"),
             chain_addr,
             string::utf8(b"slinky_pair"),
+            true,
             config_object,
             init_metadata,
             chain_addr
@@ -975,6 +1041,7 @@ module me::drop_lp {
             string::utf8(b"name"),
             chain_addr,
             string::utf8(b"slinky_pair"),
+            true,
             config_object,
             init_metadata,
             chain_addr
@@ -988,7 +1055,7 @@ module me::drop_lp {
 
         let config_before_extend_ref = signer::address_of(&object::generate_signer_for_extending(&config_before.extend_ref));
         let config_before_name = config_before.name;
-        let config_before_backup = config_before.backup;
+        let config_before_owner = config_before.owner;
         let config_before_slinky_pair = config_before.slinky_pair;
         let config_before_pair = config_before.pair;
         let config_before_asset = config_before.asset;
@@ -1001,7 +1068,7 @@ module me::drop_lp {
         let config_after = borrow_global<LpConfig>(lp_object_address);
         assert!(config_before_extend_ref == signer::address_of(&object::generate_signer_for_extending(&config_after.extend_ref)));
         assert!(config_before_name == config_after.name);
-        assert!(config_before_backup == config_after.backup);
+        assert!(config_before_owner == config_after.owner);
         assert!(config_before_slinky_pair == config_after.slinky_pair);
         assert!(config_before_pair == config_after.pair);
         assert!(config_before_asset == config_after.asset);
@@ -1050,6 +1117,7 @@ module me::drop_lp {
             string::utf8(b"name"),
             chain_addr,
             string::utf8(b"slinky_pair"),
+            true,
             config_object,
             init_metadata,
             chain_addr
@@ -1060,7 +1128,7 @@ module me::drop_lp {
         let config_before = borrow_global<LpConfig>(lp_object_address);
         let config_before_extend_ref = signer::address_of(&object::generate_signer_for_extending(&config_before.extend_ref));
         let config_before_name = config_before.name;
-        let config_before_backup = config_before.backup;
+        let config_before_owner = config_before.owner;
         let config_before_slinky_pair = config_before.slinky_pair;
         let config_before_pair = config_before.pair;
         let config_before_asset = config_before.asset;
@@ -1073,7 +1141,7 @@ module me::drop_lp {
         let config_after = borrow_global<LpConfig>(lp_object_address);
         assert!(config_before_extend_ref == signer::address_of(&object::generate_signer_for_extending(&config_after.extend_ref)));
         assert!(config_before_name == config_after.name);
-        assert!(config_before_backup == config_after.backup);
+        assert!(config_before_owner == config_after.owner);
         assert!(config_before_slinky_pair == config_after.slinky_pair);
         assert!(config_before_pair == config_after.pair);
         assert!(config_before_asset == config_after.asset);
@@ -1118,6 +1186,7 @@ module me::drop_lp {
             string::utf8(b"name"),
             chain_addr,
             string::utf8(b"slinky_pair"),
+            true,
             config_object,
             init_metadata,
             chain_addr
@@ -1159,6 +1228,7 @@ module me::drop_lp {
             string::utf8(b"name"),
             chain_addr,
             string::utf8(b"slinky_pair"),
+            true,
             config_object,
             init_metadata,
             chain_addr
@@ -1188,7 +1258,7 @@ module me::drop_lp {
     }
     
     #[test(chain = @me)]
-    fun test_execute_callback_failure(chain: &signer) acquires LpConfig {
+    fun test_execute_callback_failure_ignore(chain: &signer) acquires LpConfig {
         initia_std::primary_fungible_store::init_module_for_test();
         initia_std::dex::init_module_for_test();
 
@@ -1221,6 +1291,7 @@ module me::drop_lp {
             string::utf8(b"name"),
             chain_addr,
             string::utf8(b"slinky_pair"),
+            true,
             config_object,
             init_metadata,
             chain_addr
@@ -1245,5 +1316,184 @@ module me::drop_lp {
             )
         );
         assert!(pool_coin_a_amount_after == pool_coin_a_amount_before + 123)
+    }
+
+    #[test(chain = @me)]
+    fun test_execute_callback_failure_do_not_ignore(chain: &signer) acquires LpConfig {
+        initia_std::primary_fungible_store::init_module_for_test();
+        initia_std::dex::init_module_for_test();
+
+        let chain_addr = signer::address_of(chain);
+        let (_, _, init_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"INIT"));
+        let (_, _, usdc_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"USDC"));
+        let init_metadata = coin::metadata(chain_addr, string::utf8(b"INIT"));
+        let _ = coin::metadata(chain_addr, string::utf8(b"USDC"));
+        coin::mint_to(&init_mint_cap, chain_addr, 100000000);
+        coin::mint_to(&usdc_mint_cap, chain_addr, 100000000);
+        dex::create_pair_script(
+            chain,
+            std::string::utf8(b"name"),
+            std::string::utf8(b"SYMBOL"),
+            bigdecimal::from_ratio_u64(3, 1000),
+            bigdecimal::from_ratio_u64(8, 10),
+            bigdecimal::from_ratio_u64(2, 10),
+            coin::metadata(chain_addr, string::utf8(b"INIT")),
+            coin::metadata(chain_addr, string::utf8(b"USDC")),
+            80000000,
+            20000000
+        );
+
+        let pair_metadata_address = coin::metadata_address(signer::address_of(chain), string::utf8(b"SYMBOL")); 
+        let config_object = object::address_to_object<dex::Config>(pair_metadata_address);
+        create_liquidity_provider(
+            chain,
+            string::utf8(b"name"),
+            chain_addr,
+            string::utf8(b"slinky_pair"),
+            false,
+            config_object,
+            init_metadata,
+            chain_addr
+        );
+
+        let seed = b"drop_lp_name";
+        let lp_object_address = object::create_object_address(&chain_addr, seed);
+        let lp_object_config = borrow_global_mut<LpConfig>(lp_object_address);
+        let lp_signer = object::generate_signer_for_extending(&lp_object_config.extend_ref);
+        coin::mint_to(&init_mint_cap, signer::address_of(&lp_signer), 123);
+
+        let pool_coin_a_amount_before = dex::get_coin_a_amount_from_pool_info_response(
+            &dex::get_pool_info_by_denom(
+                string::utf8(b"SYMBOL")
+            )
+        );
+        callback(&lp_signer, PROVIDE_CB_ID, false);
+
+        let pool_coin_a_amount_after = dex::get_coin_a_amount_from_pool_info_response(
+            &dex::get_pool_info_by_denom(
+                string::utf8(b"SYMBOL")
+            )
+        );
+        assert!(pool_coin_a_amount_after == pool_coin_a_amount_before)
+    }
+
+    #[test(chain = @me, someone = @0x100)]
+    #[expected_failure(abort_code = 327684, location = Self)]
+    fun execute_update_config_unauthorized(chain: &signer, someone: &signer) acquires LpConfig {
+        initia_std::primary_fungible_store::init_module_for_test();
+        initia_std::dex::init_module_for_test();
+
+        let chain_addr = signer::address_of(chain);
+        let (_, _, init_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"INIT"));
+        let (_, _, usdc_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"USDC"));
+        let init_metadata = coin::metadata(chain_addr, string::utf8(b"INIT"));
+        let _ = coin::metadata(chain_addr, string::utf8(b"USDC"));
+        coin::mint_to(&init_mint_cap, chain_addr, 100000000);
+        coin::mint_to(&usdc_mint_cap, chain_addr, 100000000);
+        dex::create_pair_script(
+            chain,
+            std::string::utf8(b"name"),
+            std::string::utf8(b"SYMBOL"),
+            bigdecimal::from_ratio_u64(3, 1000),
+            bigdecimal::from_ratio_u64(8, 10),
+            bigdecimal::from_ratio_u64(2, 10),
+            coin::metadata(chain_addr, string::utf8(b"INIT")),
+            coin::metadata(chain_addr, string::utf8(b"USDC")),
+            80000000,
+            20000000
+        );
+
+        let pair_metadata_address = coin::metadata_address(signer::address_of(chain), string::utf8(b"SYMBOL"));
+        let config_object = object::address_to_object<dex::Config>(pair_metadata_address);
+        create_liquidity_provider(
+            chain,
+            string::utf8(b"name"),
+            chain_addr,
+            string::utf8(b"slinky_pair"),
+            true,
+            config_object,
+            init_metadata,
+            chain_addr
+        );
+
+        let seed = b"drop_lp_name";
+        let lp_object_address = object::create_object_address(&chain_addr, seed);
+
+        update_config(
+            someone,
+            lp_object_address,
+            signer::address_of(someone),
+            string::utf8(b"other_pair"),
+            false,
+            config_object,
+            init_metadata,
+            signer::address_of(someone)
+        );
+    }
+
+    #[test(chain = @me)]
+    fun execute_update_config_success(chain: &signer) acquires LpConfig {
+        initia_std::primary_fungible_store::init_module_for_test();
+        initia_std::dex::init_module_for_test();
+
+        let chain_addr = signer::address_of(chain);
+        let (_, _, init_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"INIT"));
+        let (_, _, usdc_mint_cap) =
+            initialize_coin_for_testing(chain, string::utf8(b"USDC"));
+        let init_metadata = coin::metadata(chain_addr, string::utf8(b"INIT"));
+        let _ = coin::metadata(chain_addr, string::utf8(b"USDC"));
+        coin::mint_to(&init_mint_cap, chain_addr, 100000000);
+        coin::mint_to(&usdc_mint_cap, chain_addr, 100000000);
+        dex::create_pair_script(
+            chain,
+            std::string::utf8(b"name"),
+            std::string::utf8(b"SYMBOL"),
+            bigdecimal::from_ratio_u64(3, 1000),
+            bigdecimal::from_ratio_u64(8, 10),
+            bigdecimal::from_ratio_u64(2, 10),
+            coin::metadata(chain_addr, string::utf8(b"INIT")),
+            coin::metadata(chain_addr, string::utf8(b"USDC")),
+            80000000,
+            20000000
+        );
+
+        let pair_metadata_address = coin::metadata_address(signer::address_of(chain), string::utf8(b"SYMBOL"));
+        let config_object = object::address_to_object<dex::Config>(pair_metadata_address);
+        create_liquidity_provider(
+            chain,
+            string::utf8(b"name"),
+            chain_addr,
+            string::utf8(b"slinky_pair"),
+            true,
+            config_object,
+            init_metadata,
+            chain_addr
+        );
+
+        let seed = b"drop_lp_name";
+        let lp_object_address = object::create_object_address(&chain_addr, seed);
+
+        update_config(
+            chain,
+            lp_object_address,
+            @0x5,
+            string::utf8(b"other_pair"),
+            false,
+            config_object,
+            init_metadata,
+            @0x6
+        );
+        let lp_config = borrow_global<LpConfig>(lp_object_address);
+        assert!(lp_config.name == string::utf8(b"name"));
+        assert!(lp_config.owner == @0x5);
+        assert!(lp_config.slinky_pair == string::utf8(b"other_pair"));
+        assert!(lp_config.pair == config_object);
+        assert!(lp_config.asset == init_metadata);
+        assert!(lp_config.recipient == @0x6);
     }
 }

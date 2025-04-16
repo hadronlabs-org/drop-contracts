@@ -914,7 +914,7 @@ describe('Core', () => {
       (
         await context.park.executeInNetwork(
           'initia',
-          `initiad tx move execute ${ownerAddress} drop_lp create_liquidity_provider --args '["string:test_uinit", "option<address>:null", "string:INIT/USD", "object:${context.moveToken.metadataAddr}", "object:${initiaUINITmetadata}", "address:${rewardsPumpIcaAddress}"]' --from demo3 --home /opt --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --chain-id ${context.park.config.networks['initia'].chain_id} --keyring-backend test -y -o json`,
+          `initiad tx move execute ${ownerAddress} drop_lp create_liquidity_provider --args '["string:test_uinit", "address:${ownerAddress}", "string:INIT/USD", "bool:true", "object:${context.moveToken.metadataAddr}", "object:${initiaUINITmetadata}", "address:${rewardsPumpIcaAddress}"]' --from demo3 --home /opt --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --chain-id ${context.park.config.networks['initia'].chain_id} --keyring-backend test -y -o json`,
         )
       ).out,
     );
