@@ -172,7 +172,7 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResu
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> ContractResult<Response<NeutronMsg>> {
+pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> ContractResult<Response<NeutronMsg>> {
     let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
     let storage_contract_name = contract_version_metadata.contract.as_str();
     if storage_contract_name != CONTRACT_NAME {
@@ -187,6 +187,9 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> ContractResult<Res
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+        let factory_contract = deps.api.addr_validate(&msg.factory_contract)?;
+        FACTORY_CONTRACT.save(deps.storage, &factory_contract)?;
     }
 
     Ok(Response::new())

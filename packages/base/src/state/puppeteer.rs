@@ -78,7 +78,7 @@ pub enum KVQueryType {
     NonNativeRewardsBalances,
 }
 
-pub const CONFIG: Item<Config> = Item::new("config_v1");
+pub const CONFIG: Item<Config> = Item::new("config");
 
 pub const NON_NATIVE_REWARD_BALANCES: Item<BalancesAndDelegationsState<MultiBalances>> =
     Item::new("non_native_reward_balances");

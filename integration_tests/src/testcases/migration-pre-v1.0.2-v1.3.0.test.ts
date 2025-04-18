@@ -674,6 +674,7 @@ describe('Core', () => {
     );
     context.oldClients.rewardsPumpContractClient =
       new DeprecatedDropPump.Client(context.client, res.rewards_pump_contract);
+
     context.oldClients.tokenContractClient = new DeprecatedDropToken.Client(
       context.client,
       res.token_contract,
@@ -1008,7 +1009,6 @@ describe('Core', () => {
       `gaiad tx staking delegate ${context.validatorAddress} 1000000stake --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --output json --fees 1000stake`,
     );
     expect(res.exitCode).toBe(0);
-    console.log(res);
     const out = JSON.parse(res.out);
     expect(out.code).toBe(0);
     expect(out.txhash).toHaveLength(64);
@@ -1403,6 +1403,48 @@ describe('Core', () => {
       context.codeIds.validatorsSet = res.codeId;
     }
 
+    {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_rewards_manager.wasm'),
+      );
+
+      const res = await client.upload(
+        account.address,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.rewardsManager = res.codeId;
+    }
+
+    {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_withdrawal_manager.wasm'),
+      );
+
+      const res = await client.upload(
+        account.address,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.withdrawalManager = res.codeId;
+    }
+
+    {
+      const buffer = fs.readFileSync(
+        join(__dirname, '../../../artifacts/drop_token.wasm'),
+      );
+
+      const res = await client.upload(
+        account.address,
+        new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+        1.5,
+      );
+      expect(res.codeId).toBeGreaterThan(0);
+      context.codeIds.token = res.codeId;
+    }
+
     const buffer = fs.readFileSync(
       join(__dirname, '../../../artifacts/drop_factory.wasm'),
     );
@@ -1434,6 +1476,9 @@ describe('Core', () => {
         puppeteer_code_id: context.codeIds.puppeteer,
         validators_set_code_id: context.codeIds.validatorsSet,
         strategy_code_id: context.codeIds.strategy,
+        rewards_manager_code_id: context.codeIds.rewardsManager,
+        withdrawal_manager_code_id: context.codeIds.withdrawalManager,
+        token_code_id: context.codeIds.token,
         salt: 'salt',
         port_id: 'port',
         timeout: 100,
@@ -1483,6 +1528,10 @@ describe('Core', () => {
     context.coreContractClient = instrumentCoreClass(
       new DropCore.Client(context.client, res.core_contract),
     );
+    context.puppeteerContractClient = new DropPuppeteer.Client(
+      context.client,
+      res.puppeteer_contract,
+    );
     context.lsmShareBondProviderContractClient =
       new DropLsmShareBondProvider.Client(
         context.client,
@@ -1493,6 +1542,15 @@ describe('Core', () => {
         context.client,
         res.native_bond_provider_contract,
       );
+    context.pumpContractClient = new DropPump.Client(
+      context.client,
+      res.unbonding_pump_contract,
+    );
+
+    context.rewardsPumpContractClient = new DropPump.Client(
+      context.client,
+      res.rewards_pump_contract,
+    );
   });
 
   it('check core bond providers settings', async () => {
@@ -1501,12 +1559,11 @@ describe('Core', () => {
 
     expect(bondProviders.length).toEqual(2);
 
-    expect(bondProviders.flat()).toContain(
-      context.lsmShareBondProviderContractClient.contractAddress,
-    );
-
-    expect(bondProviders.flat()).toContain(
-      context.nativeBondProviderContractClient.contractAddress,
+    expect(bondProviders.sort()).toEqual(
+      [
+        context.lsmShareBondProviderContractClient.contractAddress,
+        context.nativeBondProviderContractClient.contractAddress,
+      ].sort(),
     );
   });
 
@@ -1525,6 +1582,74 @@ describe('Core', () => {
           '1000',
         ],
       ],
+    });
+  });
+
+  it('check puppeteer contract allowed senders', async () => {
+    const {
+      puppeteerContractClient,
+      lsmShareBondProviderContractClient,
+      nativeBondProviderContractClient,
+      coreContractClient,
+      factoryContractClient,
+    } = context;
+
+    const config = await puppeteerContractClient.queryConfig();
+
+    expect(config['allowed_senders'].sort()).toEqual(
+      [
+        lsmShareBondProviderContractClient.contractAddress,
+        nativeBondProviderContractClient.contractAddress,
+        coreContractClient.contractAddress,
+        factoryContractClient.contractAddress,
+      ].sort(),
+    );
+  });
+
+  it('check unbonding pump contract config', async () => {
+    const {
+      pumpContractClient,
+      neutronUserAddress,
+      oldClients: { withdrawalManagerContractClient },
+    } = context;
+
+    console.log('Unbonding pump contract config');
+
+    const config = await pumpContractClient.queryConfig();
+
+    console.log(config);
+
+    expect(config).toMatchObject({
+      dest_address: withdrawalManagerContractClient.contractAddress,
+      dest_channel: 'channel-0',
+      dest_port: 'transfer',
+      connection_id: 'connection-0',
+      refundee: neutronUserAddress,
+      timeout: { local: 60, remote: 60 },
+      local_denom: 'untrn',
+    });
+  });
+
+  it('check rewards pump contract config', async () => {
+    const {
+      rewardsPumpContractClient,
+      oldClients: { splitterContractClient },
+    } = context;
+
+    console.log('Rewards pump contract config');
+
+    const config = await rewardsPumpContractClient.queryConfig();
+
+    console.log(config);
+
+    expect(config).toMatchObject({
+      dest_address: splitterContractClient.contractAddress,
+      dest_channel: 'channel-0',
+      dest_port: 'transfer',
+      connection_id: 'connection-0',
+      refundee: null,
+      timeout: { local: 60, remote: 60 },
+      local_denom: 'untrn',
     });
   });
 });

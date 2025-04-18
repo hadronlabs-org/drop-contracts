@@ -588,6 +588,12 @@ pub fn migrate(
         }));
 
         messages.push(CosmosMsg::Wasm(WasmMsg::Migrate {
+            contract_addr: state.rewards_manager_contract.clone(),
+            new_code_id: msg.rewards_manager_code_id,
+            msg: to_json_binary(&drop_staking_base::msg::rewards_manager::MigrateMsg {})?,
+        }));
+
+        messages.push(CosmosMsg::Wasm(WasmMsg::Migrate {
             contract_addr: state.rewards_pump_contract.clone(),
             new_code_id: msg.pump_code_id,
             msg: to_json_binary(&drop_staking_base::msg::pump::MigrateMsg {})?,
@@ -602,7 +608,25 @@ pub fn migrate(
         messages.push(CosmosMsg::Wasm(WasmMsg::Migrate {
             contract_addr: state.strategy_contract.clone(),
             new_code_id: msg.strategy_code_id,
-            msg: to_json_binary(&drop_staking_base::msg::strategy::MigrateMsg {})?,
+            msg: to_json_binary(&drop_staking_base::msg::strategy::MigrateMsg {
+                factory_contract: env.contract.address.to_string(),
+            })?,
+        }));
+
+        messages.push(CosmosMsg::Wasm(WasmMsg::Migrate {
+            contract_addr: state.withdrawal_manager_contract.clone(),
+            new_code_id: msg.withdrawal_manager_code_id,
+            msg: to_json_binary(&drop_staking_base::msg::withdrawal_manager::MigrateMsg {
+                factory_contract: env.contract.address.to_string(),
+            })?,
+        }));
+
+        messages.push(CosmosMsg::Wasm(WasmMsg::Migrate {
+            contract_addr: state.token_contract.clone(),
+            new_code_id: msg.token_code_id,
+            msg: to_json_binary(&drop_staking_base::msg::strategy::MigrateMsg {
+                factory_contract: env.contract.address.to_string(),
+            })?,
         }));
 
         messages.push(CosmosMsg::Wasm(WasmMsg::Migrate {

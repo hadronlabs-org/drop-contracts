@@ -546,7 +546,9 @@ fn test_migrate_wrong_contract() {
     let res = crate::contract::migrate(
         deps.as_mut().into_empty(),
         mock_env(),
-        drop_staking_base::msg::token::MigrateMsg {},
+        drop_staking_base::msg::token::MigrateMsg {
+            factory_contract: "factory_contract".to_string(),
+        },
     )
     .unwrap_err();
     assert_eq!(

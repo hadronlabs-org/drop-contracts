@@ -27,6 +27,7 @@ cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }
 cw-ownable = { workspace = true }
 cw2 = { workspace = true }
+cw-storage-plus = { workspace = true }
 neutron-sdk = { workspace = true }
 drop-staking-base = { workspace = true }
 drop-helpers = { workspace = true }

@@ -1,6 +1,10 @@
-use cosmwasm_std::{attr, ensure_eq, to_json_binary, Addr, Attribute, Deps, Order, Uint128};
+use cosmwasm_schema::cw_serde;
+use cosmwasm_std::{
+    attr, ensure_eq, to_json_binary, Addr, Attribute, Decimal, Deps, Order, Uint128,
+};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw_ownable::{get_ownership, update_ownership};
+use cw_storage_plus::{Item, Map};
 use drop_helpers::answer::response;
 use drop_staking_base::error::validatorset::{ContractError, ContractResult};
 use drop_staking_base::msg::validatorset::{
@@ -9,8 +13,7 @@ use drop_staking_base::msg::validatorset::{
 };
 use drop_staking_base::state::provider_proposals::ProposalInfo;
 use drop_staking_base::state::validatorset::{
-    Config, ConfigOptional, ValidatorInfo, CONFIG, CONFIG_DEPRECATED, VALIDATORS_LIST_CACHE,
-    VALIDATORS_LIST_CACHE_DEPRECATED, VALIDATORS_SET, VALIDATORS_SET_DEPRECATED,
+    Config, ConfigOptional, ValidatorInfo, CONFIG, VALIDATORS_LIST_CACHE, VALIDATORS_SET,
 };
 use neutron_sdk::bindings::msg::NeutronMsg;
 use neutron_sdk::bindings::query::NeutronQuery;
@@ -394,8 +397,14 @@ pub fn migrate(
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-        let old_config = CONFIG_DEPRECATED.load(deps.storage)?;
-        CONFIG_DEPRECATED.remove(deps.storage);
+        #[cw_serde]
+        pub struct ConfigDeprecated {
+            pub stats_contract: Addr,
+            pub provider_proposals_contract: Option<Addr>,
+        }
+
+        let old_config = Item::<ConfigDeprecated>::new("config").load(deps.storage)?;
+
         let new_config = Config {
             val_ref_contract: None,
             stats_contract: old_config.stats_contract,
@@ -403,9 +412,27 @@ pub fn migrate(
         };
         CONFIG.save(deps.storage, &new_config)?;
 
-        let validators = VALIDATORS_LIST_CACHE_DEPRECATED.load(deps.storage)?;
-        VALIDATORS_SET_DEPRECATED.clear(deps.storage);
-        VALIDATORS_LIST_CACHE_DEPRECATED.remove(deps.storage);
+        #[cw_serde]
+        pub struct ValidatorInfoDeprecated {
+            pub valoper_address: String,
+            pub weight: u64,
+            pub last_processed_remote_height: Option<u64>,
+            pub last_processed_local_height: Option<u64>,
+            pub last_validated_height: Option<u64>,
+            pub last_commission_in_range: Option<u64>,
+            pub uptime: Decimal,
+            pub tombstone: bool,
+            pub jailed_number: Option<u64>,
+            pub init_proposal: Option<u64>,
+            pub total_passed_proposals: u64,
+            pub total_voted_proposals: u64,
+        }
+
+        let validators =
+            Item::<Vec<ValidatorInfoDeprecated>>::new("validators_list").load(deps.storage)?;
+
+        Map::<String, ValidatorInfoDeprecated>::new("validators_set").clear(deps.storage);
+
         for validator in validators {
             let validator_info = ValidatorInfo {
                 valoper_address: validator.valoper_address,

@@ -1345,13 +1345,6 @@ pub fn migrate(
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-
-        let allowed_senders = validate_addresses(
-            deps.as_ref().into_empty(),
-            msg.allowed_senders.as_ref(),
-            None,
-        )?;
-
         #[cosmwasm_schema::cw_serde]
         pub struct OldConfig {
             pub connection_id: String,
@@ -1368,6 +1361,12 @@ pub fn migrate(
         let config = Item::<OldConfig>::new("config").load(deps.storage)?;
 
         let factory_contract = deps.api.addr_validate(&msg.factory_contract)?;
+
+        let allowed_senders = validate_addresses(
+            deps.as_ref().into_empty(),
+            msg.allowed_senders.as_ref(),
+            None,
+        )?;
 
         CONFIG.save(
             deps.storage,
