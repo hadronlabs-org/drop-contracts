@@ -49,10 +49,15 @@ import { awaitBlocks, awaitTargetChannels, setupPark } from '../testSuite';
 import fs from 'fs';
 import Cosmopark from '@neutron-org/cosmopark';
 import { waitFor } from '../helpers/waitFor';
-import { UnbondBatch as DeprecatedUnbondBatch } from 'drop-ts-client-v1-0-1/lib/contractLib/dropCore';
+import {
+  UnbondBatch as DeprecatedUnbondBatch,
+  ResponseHookMsg,
+} from 'drop-ts-client-v1-0-1/lib/contractLib/dropCore';
 import { stringToPath } from '@cosmjs/crypto';
 import { waitForTx } from '../helpers/waitForTx';
 import { instrumentCoreClass } from '../helpers/knot';
+import { waitForPuppeteerICQ } from '../helpers/waitForPuppeteerICQ';
+import { checkExchangeRate } from '../helpers/exchangeRate';
 
 const DeprecatedDropTokenClass = DeprecatedDropToken.Client;
 const DeprecatedDropFactoryClass = DeprecatedDropFactory.Client;
@@ -138,7 +143,7 @@ describe('Core', () => {
       typeof DropNativeBondProviderClass
     >;
     account?: AccountData;
-    icaAddress?: string;
+    puppeteerIcaAddress?: string;
     stakerIcaAddress?: string;
     rewardsPumpIcaAddress?: string;
     client?: SigningCosmWasmClient;
@@ -648,8 +653,9 @@ describe('Core', () => {
     expect(puppeteerContractInfo.data.contract_info.label).toBe(
       'drop-staking-puppeteer',
     );
-    context.oldClients.coreContractClient = instrumentCoreClass(
-      new DeprecatedDropCore.Client(context.client, res.core_contract),
+    context.oldClients.coreContractClient = new DeprecatedDropCore.Client(
+      context.client,
+      res.core_contract,
     );
     context.oldClients.withdrawalVoucherContractClient =
       new DeprecatedDropWithdrawalVoucher.Client(
@@ -774,7 +780,7 @@ describe('Core', () => {
     }, 100_000);
     expect(ica).toHaveLength(65);
     expect(ica.startsWith('cosmos')).toBeTruthy();
-    context.icaAddress = ica;
+    context.puppeteerIcaAddress = ica;
   });
   it('set puppeteer ICA to the staker', async () => {
     const res = await context.oldClients.factoryContractClient.adminExecute(
@@ -790,7 +796,7 @@ describe('Core', () => {
                   JSON.stringify({
                     update_config: {
                       new_config: {
-                        puppeteer_ica: context.icaAddress,
+                        puppeteer_ica: context.puppeteerIcaAddress,
                       },
                     },
                   }),
@@ -868,7 +874,7 @@ describe('Core', () => {
     const out = JSON.parse(res.out);
     expect(out.grants).toHaveLength(1);
     const grant = out.grants[0];
-    expect(grant.granter).toEqual(context.icaAddress);
+    expect(grant.granter).toEqual(context.puppeteerIcaAddress);
     expect(grant.grantee).toEqual(context.stakerIcaAddress);
   });
 
@@ -1170,6 +1176,132 @@ describe('Core', () => {
     expect(config).toMatchObject({
       denom: neutronIBCDenom,
       receivers: [[stakerContractClient.contractAddress, '10000']],
+    });
+  });
+
+  describe('state machine', () => {
+    const ica: { balance?: number } = {};
+    describe('prepare', () => {
+      it('get ICA balance', async () => {
+        const { gaiaClient } = context;
+        const res = await gaiaClient.getBalance(
+          context.puppeteerIcaAddress,
+          context.park.config.networks.gaia.denom,
+        );
+        ica.balance = parseInt(res.amount);
+        expect(ica.balance).toEqual(0);
+      });
+      it('get machine state', async () => {
+        const state =
+          await context.oldClients.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+    });
+    describe('first cycle', () => {
+      it('first tick did nothing and stays in idle', async () => {
+        const {
+          gaiaClient,
+          neutronUserAddress,
+          oldClients: { coreContractClient, puppeteerContractClient },
+        } = context;
+
+        const kvKeys = await puppeteerContractClient.queryKVQueryIds();
+        console.log('kvKeys', kvKeys);
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        const res = await coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+
+        const state = await coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+      it('tick', async () => {
+        const {
+          gaiaClient,
+          neutronUserAddress,
+          oldClients: { coreContractClient, puppeteerContractClient },
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        const res = await coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await coreContractClient.queryContractState();
+        expect(state).toEqual('peripheral');
+      });
+      it('wait for the response from puppeteer', async () => {
+        let response: ResponseHookMsg;
+        await waitFor(async () => {
+          try {
+            response = (
+              await context.oldClients.coreContractClient.queryLastPuppeteerResponse()
+            ).response;
+          } catch (e) {
+            //
+          }
+          return !!response;
+        }, 100_000);
+        expect(response).toBeTruthy();
+        expect<ResponseHookMsg>(response).toHaveProperty('success');
+      });
+      it('next tick should go to idle', async () => {
+        const {
+          gaiaClient,
+          neutronUserAddress,
+          oldClients: { coreContractClient, puppeteerContractClient },
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        const res = await coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+
+        const state = await coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
     });
   });
 
