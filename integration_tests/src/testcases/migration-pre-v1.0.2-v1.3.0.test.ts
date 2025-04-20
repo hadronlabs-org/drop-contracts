@@ -1001,6 +1001,14 @@ describe('Core', () => {
     expect(bonded).toEqual('500000');
   });
 
+  it('verify non staked balance', async () => {
+    const {
+      oldClients: { stakerContractClient },
+    } = context;
+    const bonded = await stakerContractClient.queryNonStakedBalance();
+    expect(bonded).toEqual('500000');
+  });
+
   it('delegate tokens on gaia side', async () => {
     const wallet = await DirectSecp256k1HdWallet.fromMnemonic(
       context.park.config.master_mnemonic,
@@ -1745,11 +1753,7 @@ describe('Core', () => {
       oldClients: { withdrawalManagerContractClient },
     } = context;
 
-    console.log('Unbonding pump contract config');
-
     const config = await pumpContractClient.queryConfig();
-
-    console.log(config);
 
     expect(config).toMatchObject({
       dest_address: withdrawalManagerContractClient.contractAddress,
@@ -1768,11 +1772,7 @@ describe('Core', () => {
       oldClients: { splitterContractClient },
     } = context;
 
-    console.log('Rewards pump contract config');
-
     const config = await rewardsPumpContractClient.queryConfig();
-
-    console.log(config);
 
     expect(config).toMatchObject({
       dest_address: splitterContractClient.contractAddress,
@@ -1782,6 +1782,27 @@ describe('Core', () => {
       refundee: null,
       timeout: { local: 60, remote: 60 },
       local_denom: 'untrn',
+    });
+  });
+
+  it('validate unbonding batch', async () => {
+    const { coreContractClient } = context;
+
+    const batch = await coreContractClient.queryUnbondBatch({
+      batch_id: '0',
+    });
+
+    expect(batch).toBeTruthy();
+    expect(batch).toEqual<DeprecatedUnbondBatch>({
+      slashing_effect: null,
+      status_timestamps: expect.any(Object),
+      expected_release_time: 0,
+      status: 'new',
+      total_dasset_amount_to_withdraw: '500000',
+      expected_native_asset_amount: '0',
+      total_unbond_items: 2,
+      unbonded_amount: null,
+      withdrawn_amount: null,
     });
   });
 });
