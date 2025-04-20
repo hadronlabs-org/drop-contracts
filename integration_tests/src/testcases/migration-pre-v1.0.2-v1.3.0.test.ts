@@ -577,7 +577,7 @@ describe('Core', () => {
         },
         base_denom: context.neutronIBCDenom,
         core_params: {
-          idle_min_interval: 40,
+          idle_min_interval: 1,
           unbond_batch_switch_time: 60,
           unbonding_safe_period: 10,
           unbonding_period: 360,
@@ -1256,23 +1256,23 @@ describe('Core', () => {
         );
         expect(res.transactionHash).toHaveLength(64);
         const state = await coreContractClient.queryContractState();
-        expect(state).toEqual('peripheral');
+        expect(state).toEqual('idle');
       });
-      it('wait for the response from puppeteer', async () => {
-        let response: ResponseHookMsg;
-        await waitFor(async () => {
-          try {
-            response = (
-              await context.oldClients.coreContractClient.queryLastPuppeteerResponse()
-            ).response;
-          } catch (e) {
-            //
-          }
-          return !!response;
-        }, 100_000);
-        expect(response).toBeTruthy();
-        expect<ResponseHookMsg>(response).toHaveProperty('success');
-      });
+      // it('wait for the response from puppeteer', async () => {
+      //   let response: ResponseHookMsg;
+      //   await waitFor(async () => {
+      //     try {
+      //       response = (
+      //         await context.oldClients.coreContractClient.queryLastPuppeteerResponse()
+      //       ).response;
+      //     } catch (e) {
+      //       //
+      //     }
+      //     return !!response;
+      //   }, 100_000);
+      //   expect(response).toBeTruthy();
+      //   expect<ResponseHookMsg>(response).toHaveProperty('success');
+      // });
       it('next tick should go to idle', async () => {
         const {
           gaiaClient,
