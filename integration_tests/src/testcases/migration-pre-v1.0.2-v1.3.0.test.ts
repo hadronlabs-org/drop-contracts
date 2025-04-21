@@ -577,11 +577,11 @@ describe('Core', () => {
         },
         base_denom: context.neutronIBCDenom,
         core_params: {
-          idle_min_interval: 1,
+          idle_min_interval: 600,
           unbond_batch_switch_time: 60,
           unbonding_safe_period: 10,
           unbonding_period: 360,
-          lsm_redeem_threshold: 2,
+          lsm_redeem_threshold: 1,
           lsm_min_bond_amount: '1000',
           lsm_redeem_max_interval: 60_000,
           bond_limit: '0',
@@ -1001,11 +1001,11 @@ describe('Core', () => {
     expect(bonded).toEqual('500000');
   });
 
-  it('verify non staked balance', async () => {
+  it('verify all staker balance', async () => {
     const {
       oldClients: { stakerContractClient },
     } = context;
-    const bonded = await stakerContractClient.queryNonStakedBalance();
+    const bonded = await stakerContractClient.queryAllBalance();
     expect(bonded).toEqual('500000');
   });
 
@@ -1163,7 +1163,7 @@ describe('Core', () => {
       oldClients: { coreContractClient },
     } = context;
     const config = await coreContractClient.queryConfig();
-    expect(config.lsm_redeem_threshold).toBe(2);
+    expect(config.lsm_redeem_threshold).toBe(1);
   });
 
   it('check staker contract settings', async () => {
@@ -1206,15 +1206,38 @@ describe('Core', () => {
       });
     });
     describe('first cycle', () => {
-      it('first tick did nothing and stays in idle', async () => {
+      it('staker ibc transfer', async () => {
+        const {
+          neutronUserAddress,
+          oldClients: { stakerContractClient },
+        } = context;
+        const res = await stakerContractClient.iBCTransfer(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [{ amount: '20000', denom: 'untrn' }],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        await waitFor(async () => {
+          const res = await stakerContractClient.queryTxState();
+          return res.status === 'idle';
+        }, 80_000);
+        const balances = await context.gaiaClient.getAllBalances(
+          context.stakerIcaAddress,
+        );
+        expect(balances).toEqual([
+          {
+            amount: '500000',
+            denom: context.park.config.networks.gaia.denom,
+          },
+        ]);
+      });
+      it('first tick goes to staking_bond', async () => {
         const {
           gaiaClient,
           neutronUserAddress,
           oldClients: { coreContractClient, puppeteerContractClient },
         } = context;
-
-        const kvKeys = await puppeteerContractClient.queryKVQueryIds();
-        console.log('kvKeys', kvKeys);
 
         await waitForPuppeteerICQ(
           gaiaClient,
@@ -1236,8 +1259,33 @@ describe('Core', () => {
         expect(res.transactionHash).toHaveLength(64);
 
         const state = await coreContractClient.queryContractState();
-        expect(state).toEqual('idle');
+        expect(state).toEqual('staking_bond');
       });
+      it('wait for staker to get into idle state', async () => {
+        const {
+          oldClients: { stakerContractClient },
+        } = context;
+
+        let response;
+        await waitFor(async () => {
+          try {
+            response = await stakerContractClient.queryTxState();
+          } catch (e) {
+            //
+          }
+          return response.status === 'idle';
+        }, 100_000);
+      });
+      it('get staker ICA zeroed balance', async () => {
+        const { gaiaClient } = context;
+        const res = await gaiaClient.getBalance(
+          context.stakerIcaAddress,
+          context.park.config.networks.gaia.denom,
+        );
+        const balance = parseInt(res.amount);
+        expect(balance).toEqual(0);
+      });
+
       it('tick', async () => {
         const {
           gaiaClient,
@@ -1309,6 +1357,104 @@ describe('Core', () => {
 
         const state = await coreContractClient.queryContractState();
         expect(state).toEqual('idle');
+      });
+
+      it('next tick should go to idle', async () => {
+        const {
+          gaiaClient,
+          neutronUserAddress,
+          oldClients: { coreContractClient, puppeteerContractClient },
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        const res = await coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+
+        const state = await coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+
+      it('next tick should go to idle', async () => {
+        const {
+          gaiaClient,
+          neutronUserAddress,
+          oldClients: { coreContractClient, puppeteerContractClient },
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        const res = await coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+
+        const state = await coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+
+      it('next tick should go to idle', async () => {
+        const {
+          gaiaClient,
+          neutronUserAddress,
+          oldClients: { coreContractClient, puppeteerContractClient },
+        } = context;
+
+        await waitForPuppeteerICQ(
+          gaiaClient,
+          coreContractClient,
+          puppeteerContractClient,
+        );
+
+        const res = await coreContractClient.tick(
+          neutronUserAddress,
+          1.5,
+          undefined,
+          [
+            {
+              amount: '1000000',
+              denom: 'untrn',
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+
+        const state = await coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+
+      it('verify all staker balance', async () => {
+        const {
+          oldClients: { stakerContractClient },
+        } = context;
+        const bonded = await stakerContractClient.queryAllBalance();
+        expect(bonded).toEqual('500000');
       });
     });
   });
