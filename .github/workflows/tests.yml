@@ -763,8 +763,8 @@ jobs:
           docker stop -t0 $(docker ps -a -q) || true
           docker container prune -f || true
           docker volume rm $(docker volume ls -q) || true
-  test-puppeteer:
-    name: test:puppeteer Integration Tests
+  test-puppeteer-tokenize-shares:
+    name: test:puppeteer:tokenize-shares Integration Tests
     needs:
       - images-prepare
       - artifacts-prepare
@@ -800,8 +800,53 @@ jobs:
         with:
           path: artifacts
           key: ${{ runner.os }}-${{ github.sha }}
-      - name: Run test test:puppeteer
-        run: cd integration_tests && yarn && yarn test:puppeteer
+      - name: Run test test:puppeteer:tokenize-shares
+        run: cd integration_tests && yarn && yarn test:puppeteer:tokenize-shares
+      - name: Cleanup resources
+        if: always()
+        run: |
+          docker stop -t0 $(docker ps -a -q) || true
+          docker container prune -f || true
+          docker volume rm $(docker volume ls -q) || true
+  test-puppeteer-redelegate:
+    name: test:puppeteer:redelegate Integration Tests
+    needs:
+      - images-prepare
+      - artifacts-prepare
+    runs-on: ubicloud-standard-4
+    steps:
+      - name: Upgrade docker compose to use v2
+        run: sudo curl -L
+          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
+          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
+          /usr/local/bin/docker-compose
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.12.2
+      - name: Install Yarn
+        run: npm install -g yarn
+      - name: Log in to Private Registry
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+      - name: Clean volumes
+        run: docker volume prune -f
+      - name: Download images
+        run: |
+          cd integration_tests
+          yarn build-images
+      - name: Download artifacts
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: ${{ runner.os }}-${{ github.sha }}
+      - name: Run test test:puppeteer:redelegate
+        run: cd integration_tests && yarn && yarn test:puppeteer:redelegate
       - name: Cleanup resources
         if: always()
         run: |
