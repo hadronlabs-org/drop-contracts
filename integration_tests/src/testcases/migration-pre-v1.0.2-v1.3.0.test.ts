@@ -266,7 +266,7 @@ describe('Core', () => {
   });
 
   afterAll(async () => {
-    await context.park.stop();
+    // await context.park.stop();
   });
 
   it('transfer tokens to neutron', async () => {
@@ -585,7 +585,7 @@ describe('Core', () => {
           lsm_min_bond_amount: '1000',
           lsm_redeem_max_interval: 60_000,
           bond_limit: '0',
-          min_stake_amount: '2',
+          min_stake_amount: '1',
           icq_update_delay: 5,
         },
         staker_params: {
@@ -1313,6 +1313,75 @@ describe('Core', () => {
         expect(res.transactionHash).toHaveLength(64);
         const state = await coreContractClient.queryContractState();
         expect(state).toEqual('idle');
+      });
+
+      it('bond lsm shares', async () => {
+        const {
+          oldClients: {
+            coreContractClient,
+            puppeteerContractClient,
+            stakerContractClient,
+          },
+          neutronUserAddress,
+          tokenizedDenomOnNeutron,
+        } = context;
+        await awaitBlocks(`http://127.0.0.1:${context.park.ports.gaia.rpc}`, 5);
+
+        console.log(
+          'Puppeteer address',
+          puppeteerContractClient.contractAddress,
+        );
+
+        const puppeteerRes: any = await puppeteerContractClient.queryExtension({
+          msg: {
+            delegations: {},
+          },
+        });
+
+        console.log('Puppeteer delegations');
+        console.log(puppeteerRes);
+
+        const bonded = await stakerContractClient.queryAllBalance();
+        console.log('Staker balance');
+        console.log(bonded);
+
+        const balances: any = await puppeteerContractClient.queryExtension({
+          msg: {
+            balances: {},
+          },
+        });
+
+        console.log('Puppeteer balances');
+        console.log(balances);
+
+        const puppeteerICADelegations = await context.park.executeInNetwork(
+          'gaia',
+          `gaiad q staking delegations ${context.puppeteerIcaAddress} --output json`,
+        );
+        console.log('Puppeteer ICA delegations');
+        console.log(puppeteerICADelegations);
+
+        const res = await coreContractClient.bond(
+          neutronUserAddress,
+          {},
+          1.6,
+          undefined,
+          [
+            {
+              amount: '100000',
+              denom: tokenizedDenomOnNeutron,
+            },
+          ],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+
+        const lsmShresToRedeem =
+          await coreContractClient.queryLSMSharesToRedeem();
+        const pendingLsmShares =
+          await coreContractClient.queryPendingLSMShares();
+
+        expect(lsmShresToRedeem).toEqual('100000');
+        expect(pendingLsmShares).toEqual([]);
       });
       // it('wait for the response from puppeteer', async () => {
       //   let response: ResponseHookMsg;
