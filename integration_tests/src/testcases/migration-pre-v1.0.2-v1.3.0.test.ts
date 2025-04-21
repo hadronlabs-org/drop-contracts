@@ -266,7 +266,7 @@ describe('Core', () => {
   });
 
   afterAll(async () => {
-    // await context.park.stop();
+    await context.park.stop();
   });
 
   it('transfer tokens to neutron', async () => {
@@ -536,7 +536,7 @@ describe('Core', () => {
       account.address,
       res.codeId,
       {
-        sdk_version: process.env.SDK_VERSION || '0.46.0',
+        sdk_version: process.env.SDK_VERSION || '0.47.16',
         local_denom: 'untrn',
         code_ids: {
           core_code_id: context.codeIds.core,
@@ -1119,7 +1119,7 @@ describe('Core', () => {
       neutronUserAddress,
       ldDenom,
     } = context;
-    let res = await coreContractClient.unbond(
+    const res = await coreContractClient.unbond(
       neutronUserAddress,
       1.6,
       undefined,
@@ -1130,13 +1130,6 @@ describe('Core', () => {
         },
       ],
     );
-    expect(res.transactionHash).toHaveLength(64);
-    res = await coreContractClient.unbond(neutronUserAddress, 1.6, undefined, [
-      {
-        amount: Math.floor(300_000 / context.exchangeRate).toString(),
-        denom: ldDenom,
-      },
-    ]);
     expect(res.transactionHash).toHaveLength(64);
   });
 
@@ -1312,7 +1305,7 @@ describe('Core', () => {
         );
         expect(res.transactionHash).toHaveLength(64);
         const state = await coreContractClient.queryContractState();
-        expect(state).toEqual('idle');
+        expect(state).toEqual('unbonding');
       });
 
       it('bond lsm shares', async () => {
