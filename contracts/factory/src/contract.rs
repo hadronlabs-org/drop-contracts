@@ -645,7 +645,7 @@ pub fn migrate(
                     validators_set_contract: None,
                     base_denom: None,
                     remote_denom: None,
-                    idle_min_interval: Some(22896000), // 1 year
+                    idle_min_interval: None,
                     unbonding_period: None,
                     unbonding_safe_period: None,
                     unbond_batch_switch_time: None,
