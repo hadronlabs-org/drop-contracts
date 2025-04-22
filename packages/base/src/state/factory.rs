@@ -13,6 +13,12 @@ pub struct CodeIds {
     pub distribution_code_id: u64,
     pub rewards_manager_code_id: u64,
     pub splitter_code_id: u64,
+    pub native_bond_provider_code_id: Option<u64>,
+    pub puppeteer_code_id: Option<u64>,
+    pub val_ref_code_id: Option<u64>,
+    pub lsm_share_bond_provider_code_id: Option<u64>,
+    pub unbonding_pump_code_id: Option<u64>,
+    pub rewards_pump_code_id: Option<u64>,
 }
 
 #[cw_serde]

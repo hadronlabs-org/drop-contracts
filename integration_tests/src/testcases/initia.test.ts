@@ -845,6 +845,11 @@ describe('Core', () => {
           validators_set_code_id: context.codeIds.validatorsSet,
           withdrawal_manager_code_id: context.codeIds.withdrawalManager,
           withdrawal_voucher_code_id: context.codeIds.withdrawalVoucher,
+          native_bond_provider_code_id: context.codeIds.nativeBondProvider,
+          puppeteer_code_id: context.codeIds.puppeteer,
+          lsm_share_bond_provider_code_id: context.codeIds.lsmShareBondProvider,
+          unbonding_pump_code_id: context.codeIds.pump,
+          rewards_pump_code_id: context.codeIds.pump,
         },
         core_params: {
           icq_update_delay: 5,

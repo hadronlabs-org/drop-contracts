@@ -177,6 +177,7 @@ fn test_instantiate() {
         "crates.io:drop-staking__drop-native-bond-provider".to_string(),
         mocked_env.contract.address.to_string(),
         Some(contract_admin.clone()),
+        13,
     );
     setup_contract_metadata(
         &mut deps.querier,
@@ -184,6 +185,7 @@ fn test_instantiate() {
         "crates.io:drop-staking__drop-puppeteer".to_string(),
         mocked_env.contract.address.to_string(),
         Some(contract_admin),
+        14,
     );
 
     let instantiate_msg = InstantiateMsg {
@@ -197,6 +199,12 @@ fn test_instantiate() {
             distribution_code_id: 9,
             rewards_manager_code_id: 10,
             splitter_code_id: 12,
+            native_bond_provider_code_id: Some(13),
+            puppeteer_code_id: Some(14),
+            val_ref_code_id: Some(15),
+            lsm_share_bond_provider_code_id: Some(16),
+            unbonding_pump_code_id: Some(17),
+            rewards_pump_code_id: Some(18),
         },
         pre_instantiated_contracts: PreInstantiatedContracts {
             native_bond_provider_address: cosmwasm_std::Addr::unchecked(
@@ -1065,6 +1073,7 @@ fn test_validate_contract_metadata() {
         "contract_name".to_string(),
         mocked_env.contract.address.to_string(),
         Some(contract_admin),
+        161,
     );
 
     validate_contract_metadata(
@@ -1072,6 +1081,7 @@ fn test_validate_contract_metadata() {
         &mocked_env,
         &Addr::unchecked(contract_addr),
         &["contract_name"],
+        161,
     )
     .unwrap();
 }
@@ -1091,6 +1101,7 @@ fn test_validate_contract_metadata_two_names() {
         "contract_name".to_string(),
         mocked_env.contract.address.to_string(),
         Some(contract_admin),
+        161,
     );
 
     validate_contract_metadata(
@@ -1098,6 +1109,7 @@ fn test_validate_contract_metadata_two_names() {
         &mocked_env,
         &Addr::unchecked(contract_addr),
         &["another_valid_name", "contract_name"],
+        161,
     )
     .unwrap();
 }
@@ -1109,14 +1121,13 @@ fn test_validate_contract_metadata_wrong_contract_name() {
     let contract_addr = "cosmos2contract";
     let mocked_env = mock_env();
 
-    // let contract_admin = mocked_env.contract.address.to_string();
-
     setup_contract_metadata(
         &mut deps.querier,
         contract_addr,
         "wrong_name".to_string(),
         mocked_env.contract.address.to_string(),
         None,
+        161,
     );
 
     let error = validate_contract_metadata(
@@ -1124,6 +1135,7 @@ fn test_validate_contract_metadata_wrong_contract_name() {
         &mocked_env,
         &Addr::unchecked(contract_addr),
         &["contract_name"],
+        161,
     )
     .unwrap_err();
     assert_eq!(
@@ -1148,6 +1160,7 @@ fn test_validate_contract_metadata_wrong_owner() {
         "contract_name".to_string(),
         "wrong_owner_address".to_string(),
         None,
+        161,
     );
 
     let error = validate_contract_metadata(
@@ -1155,6 +1168,7 @@ fn test_validate_contract_metadata_wrong_owner() {
         &mocked_env,
         &Addr::unchecked(contract_addr),
         &["contract_name"],
+        161,
     )
     .unwrap_err();
     assert_eq!(
@@ -1180,6 +1194,7 @@ fn test_validate_contract_metadata_wrong_admin() {
         "contract_name".to_string(),
         mocked_env.contract.address.to_string(),
         Some("wrong_contract_admin".to_string()),
+        161,
     );
 
     let error = validate_contract_metadata(
@@ -1187,6 +1202,7 @@ fn test_validate_contract_metadata_wrong_admin() {
         &mocked_env,
         &Addr::unchecked(contract_addr),
         &["contract_name"],
+        161,
     )
     .unwrap_err();
     assert_eq!(
@@ -1212,6 +1228,7 @@ fn test_validate_contract_metadata_empty_admin() {
         "contract_name".to_string(),
         mocked_env.contract.address.to_string(),
         None,
+        161,
     );
 
     let error = validate_contract_metadata(
@@ -1219,6 +1236,7 @@ fn test_validate_contract_metadata_empty_admin() {
         &mocked_env,
         &Addr::unchecked(contract_addr),
         &["contract_name"],
+        161,
     )
     .unwrap_err();
     assert_eq!(
@@ -1231,12 +1249,49 @@ fn test_validate_contract_metadata_empty_admin() {
     );
 }
 
+#[test]
+fn test_validate_contract_metadata_wrong_code_id() {
+    let mut deps = mock_dependencies(&[]);
+
+    let contract_addr = "cosmos2contract";
+    let mocked_env = mock_env();
+
+    let contract_admin = mocked_env.contract.address.to_string();
+
+    setup_contract_metadata(
+        &mut deps.querier,
+        contract_addr,
+        "contract_name".to_string(),
+        mocked_env.contract.address.to_string(),
+        Some(contract_admin),
+        161,
+    );
+
+    let error = validate_contract_metadata(
+        deps.as_ref().into_empty(),
+        &mocked_env,
+        &Addr::unchecked(contract_addr),
+        &["contract_name"],
+        123,
+    )
+    .unwrap_err();
+    assert_eq!(
+        error,
+        drop_staking_base::error::factory::ContractError::InvalidContractCodeId {
+            contract: String::from(contract_addr),
+            expected: "123".to_string(),
+            actual: "161".to_string()
+        }
+    );
+}
+
 fn setup_contract_metadata(
     querier: &mut WasmMockQuerier,
     contract_addr: &str,
     contract_name: String,
     factory_address: String,
     contract_admin: Option<String>,
+    contract_code_id: u64,
 ) {
     querier.add_wasm_query_response(contract_addr, move |_| {
         cosmwasm_std::ContractResult::Ok(
@@ -1262,6 +1317,7 @@ fn setup_contract_metadata(
     querier.add_wasm_query_response(contract_addr, move |_| {
         let mut response = cosmwasm_std::ContractInfoResponse::default();
         response.admin = contract_admin.clone();
+        response.code_id = contract_code_id;
 
         cosmwasm_std::ContractResult::Ok(to_json_binary(&response).unwrap())
     });

@@ -42,6 +42,12 @@ pub enum ContractError {
         expected: String,
         actual: String,
     },
+    #[error("Invalid contract code id for {contract}. Expected: {expected}, actual: {actual}")]
+    InvalidContractCodeId {
+        contract: String,
+        expected: String,
+        actual: String,
+    },
     #[error("Contract address not found: {name}")]
     ContractAddressNotFound { name: String },
 
