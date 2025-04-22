@@ -7,6 +7,7 @@ export class Config {
     factoryContractAddress: string;
     icqRunCmd: string;
     checksPeriod: number;
+    nativeMode: boolean;
   };
   neutron: {
     rpc: string;
@@ -38,6 +39,9 @@ export class Config {
       checksPeriod: process.env.COORDINATOR_CHECKS_PERIOD
         ? parseInt(process.env.COORDINATOR_CHECKS_PERIOD, 10)
         : 10,
+      nativeMode: process.env.COORDINATOR_NATIVE_MODE
+        ? process.env.COORDINATOR_NATIVE_MODE === 'true'
+        : false,
     };
 
     this.neutron = {

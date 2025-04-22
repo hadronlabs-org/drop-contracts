@@ -147,7 +147,9 @@ class Service {
   }
 
   registerModules() {
-    const pumpDenomAllowlist = [this.context.config.target.denom];
+    const pumpDenomAllowlist = [
+      process.env.PUMP_DENOM || this.context.config.target.denom,
+    ];
     const rewardsPumpDenomAllowlist = [
       process.env.REWARDS_PUMP_DENOM || this.context.config.target.denom,
     ];

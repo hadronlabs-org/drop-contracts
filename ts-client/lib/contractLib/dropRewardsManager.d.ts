@@ -51,14 +51,6 @@ export type Timestamp = Uint64;
  */
 export type Uint64 = string;
 /**
- * Information about if the contract is currently paused.
- */
-export type PauseInfoResponse = {
-    paused: {};
-} | {
-    unpaused: {};
-};
-/**
  * Actions that can be taken to alter the contract's ownership
  */
 export type UpdateOwnershipArgs = {
@@ -68,8 +60,8 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropRewardsManagerSchema {
-    responses: ArrayOfHandlerConfig | OwnershipForString | PauseInfoResponse;
-    execute: AddHandlerArgs | RemoveHandlerArgs | ExchangeRewardsArgs | UpdateOwnershipArgs;
+    responses: ArrayOfHandlerConfig | OwnershipForString | Pause;
+    execute: AddHandlerArgs | RemoveHandlerArgs | ExchangeRewardsArgs | SetPauseArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -95,6 +87,13 @@ export interface OwnershipForString {
      */
     pending_owner?: string | null;
 }
+export interface Pause {
+    exchange_rewards: Interval;
+}
+export interface Interval {
+    from: number;
+    to: number;
+}
 export interface AddHandlerArgs {
     config: HandlerConfig;
 }
@@ -104,6 +103,12 @@ export interface RemoveHandlerArgs {
 export interface ExchangeRewardsArgs {
     denoms: string[];
 }
+export interface SetPauseArgs {
+    pause: Pause1;
+}
+export interface Pause1 {
+    exchange_rewards: Interval;
+}
 export interface InstantiateMsg {
     owner: string;
 }
@@ -112,15 +117,29 @@ export declare class Client {
     contractAddress: string;
     constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string);
     mustBeSigningClient(): Error;
-    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
-    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
+    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
+    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: Uint8Array, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
     queryHandlers: () => Promise<ArrayOfHandlerConfig>;
+    queryPause: () => Promise<Pause>;
     queryOwnership: () => Promise<OwnershipForString>;
-    queryPauseInfo: () => Promise<PauseInfoResponse>;
     addHandler: (sender: string, args: AddHandlerArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    addHandlerMsg: (args: AddHandlerArgs) => {
+        add_handler: AddHandlerArgs;
+    };
     removeHandler: (sender: string, args: RemoveHandlerArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    removeHandlerMsg: (args: RemoveHandlerArgs) => {
+        remove_handler: RemoveHandlerArgs;
+    };
     exchangeRewards: (sender: string, args: ExchangeRewardsArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    exchangeRewardsMsg: (args: ExchangeRewardsArgs) => {
+        exchange_rewards: ExchangeRewardsArgs;
+    };
+    setPause: (sender: string, args: SetPauseArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    setPauseMsg: (args: SetPauseArgs) => {
+        set_pause: SetPauseArgs;
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    pause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    unpause: (sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
 }

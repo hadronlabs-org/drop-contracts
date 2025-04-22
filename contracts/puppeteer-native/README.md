@@ -1,0 +1,1 @@
+# DROP Native chain puppeteer support

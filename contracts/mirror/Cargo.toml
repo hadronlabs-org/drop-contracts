@@ -34,3 +34,5 @@ semver = { workspace = true }
 cw-storage-plus = { workspace = true }
 cw-utils = { workspace = true }
 bech32 = { workspace = true }
+thiserror = { workspace = true }
+serde-json-wasm = { workspace = true }

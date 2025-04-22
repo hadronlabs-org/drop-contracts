@@ -8,8 +8,7 @@ KEYRING_BACKEND="${KEYRING_BACKEND:-test}"
 DEPLOY_WALLET="${DEPLOY_WALLET:-demowallet1}"
 MIN_NTRN_REQUIRED="${MIN_NTRN_REQUIRED:-10}"
 ARTIFACTS_DIR="${ARTIFACTS_DIR:-../../artifacts}"
-
-PUPPETEER_TYPE="${PUPPETEER_TYPE:-puppeteer}"
+CONTRACTS_TO_UPLOAD="${CONTRACTS_TO_UPLOAD}"
 
 source ./utils.bash
 
@@ -17,14 +16,12 @@ echo "DEPLOY_WALLET: $DEPLOY_WALLET"
 echo "NEUTRON_RPC: $NEUTRON_RPC"
 echo "NEUTRON_HOME: $NEUTRON_HOME"
 
-
 main() {
   set -euo pipefail
   IFS=$'\n\t'
 
   pre_deploy_check_balance
   deploy_wasm_code
-  deploy_puppeteer_code
 
   echo
   echo   "CONTRACTS UPLOAD SUCCEDED"

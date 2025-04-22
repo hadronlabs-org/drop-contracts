@@ -19,12 +19,6 @@ pub enum ContractError {
     #[error("{0}")]
     PaymentError(#[from] cw_utils::PaymentError),
 
-    #[error("Wrong denom")]
-    WrongDenom,
-
-    #[error("Backup is not set")]
-    BackupIsNotSet,
-
     #[error("Unauthorized")]
     Unauthorized,
 
@@ -39,9 +33,6 @@ pub enum ContractError {
 
     #[error("No tokens minted amount found")]
     NoTokensMintedAmountFound,
-
-    #[error("Wrong bond state. Expected {expected:?}, got {got:?}")]
-    WrongBondState { expected: String, got: String },
 
     #[error("Channel on the host chain wasn't found")]
     SourceChannelNotFound,

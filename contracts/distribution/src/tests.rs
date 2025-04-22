@@ -5,7 +5,7 @@ use cosmwasm_std::{
 };
 use drop_staking_base::{
     error::distribution::ContractError,
-    msg::distribution::{Delegation, Delegations, QueryMsg},
+    msg::distribution::{Delegation, QueryMsg},
 };
 use std::marker::PhantomData;
 
@@ -18,21 +18,16 @@ fn mock_dependencies<Q: Querier + Default>() -> OwnedDeps<MockStorage, MockApi, 
     }
 }
 
-fn make_delegations(delegations: &[(&str, u128, u128, u64)]) -> Delegations {
-    Delegations {
-        total_stake: delegations.iter().map(|d| Uint128::new(d.1)).sum(),
-        total_on_top: delegations.iter().map(|d| Uint128::new(d.2)).sum(),
-        total_weight: delegations.iter().map(|d| d.3).sum(),
-        delegations: delegations
-            .iter()
-            .map(|d| Delegation {
-                valoper_address: d.0.to_string(),
-                stake: Uint128::new(d.1),
-                on_top: Uint128::new(d.2),
-                weight: d.3,
-            })
-            .collect(),
-    }
+fn make_delegations(delegations: &[(&str, u128, u128, u64)]) -> Vec<Delegation> {
+    delegations
+        .iter()
+        .map(|d| Delegation {
+            valoper_address: d.0.to_string(),
+            stake: Uint128::new(d.1),
+            on_top: Uint128::new(d.2),
+            weight: d.3,
+        })
+        .collect()
 }
 
 fn assert_distributions_eq(mut left: Vec<(String, Uint128)>, right: &[(&str, u128)]) {
@@ -322,6 +317,19 @@ fn on_top_deposit_one_of_three_oversatisfacty() {
 }
 
 #[test]
+fn deposit_prioritize_farthest_from_target() {
+    let stake = Uint128::new(100);
+    let delegations = make_delegations(&[
+        ("1", 200, 100, 10),
+        ("2", 200, 1000, 10),
+        ("3", 0, 1000, 10),
+    ]);
+
+    let distribution = calc_deposit(stake, delegations).unwrap();
+    assert_distributions_eq(distribution, &[("3", 100)]);
+}
+
+#[test]
 fn on_top_withdraw_from_one_of_one_enough_excess() {
     let withdraw = Uint128::new(40);
     let delegations = make_delegations(&[("1", 100, 20, 10)]);
@@ -437,6 +445,15 @@ fn withdraw_from_two_of_two_mixed_on_top_and_normal() {
 
     let distribution = calc_withdraw(withdraw, delegations).unwrap();
     assert_distributions_eq(distribution, &[("1", 40), ("2", 100)]);
+}
+
+#[test]
+fn withdraw_prioritize_unbonding() {
+    let withdraw = Uint128::new(50);
+    let delegations = make_delegations(&[("1", 1050, 50, 10), ("2", 1050, 50, 1), ("3", 10, 0, 0)]);
+
+    let distribution = calc_withdraw(withdraw, delegations).unwrap();
+    assert_distributions_eq(distribution, &[("3", 10), ("2", 40)]);
 }
 
 #[test]
