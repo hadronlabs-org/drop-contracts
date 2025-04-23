@@ -58,7 +58,7 @@ fn test_instantiate() {
             "crates.io:drop-neutron-contracts__drop-pump-instantiate"
         ).add_attributes(vec![
             ("contract_name", "crates.io:drop-neutron-contracts__drop-pump"),
-            ("contract_version", "1.1.0"),
+            ("contract_version", "1.3.0"),
             ("msg", "InstantiateMsg { dest_address: Some(\"dest_address\"), dest_channel: Some(\"dest_channel\"), dest_port: Some(\"dest_port\"), connection_id: \"connection\", refundee: Some(\"refundee\"), timeout: PumpTimeout { local: Some(10), remote: 10 }, local_denom: \"local_denom\", owner: Some(\"owner\") }"),
             ("sender", "owner")
         ]))
