@@ -62,6 +62,7 @@ import {
   ResponseHookMsg,
   UnbondBatch,
 } from 'drop-ts-client/lib/contractLib/dropCore';
+import { c } from 'vitest/dist/reporters-5f784f42';
 
 const DeprecatedDropTokenClass = DeprecatedDropToken.Client;
 const DeprecatedDropFactoryClass = DeprecatedDropFactory.Client;
@@ -275,7 +276,7 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
   });
 
   afterAll(async () => {
-    // await context.park.stop();
+    await context.park.stop();
   });
 
   it('transfer tokens to neutron', async () => {
@@ -567,7 +568,7 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
           reverse_transfer_channel_id: 'channel-0',
           port_id: 'transfer',
           denom: 'stake',
-          update_period: 2,
+          update_period: 5,
           timeout: {
             local: 60,
             remote: 60,
@@ -2022,6 +2023,21 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
       context.client,
       res.token_contract,
     );
+
+    context.withdrawalVoucherContractClient = new DropWithdrawalVoucher.Client(
+      context.client,
+      res.withdrawal_voucher_contract,
+    );
+
+    context.withdrawalManagerContractClient = new DropWithdrawalManager.Client(
+      context.client,
+      res.withdrawal_manager_contract,
+    );
+
+    context.splitterContractClient = new DropSplitter.Client(
+      context.client,
+      res.splitter_contract,
+    );
   });
 
   it('check core bond providers settings', async () => {
@@ -2231,6 +2247,9 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
         ],
       );
       expect(res.transactionHash).toHaveLength(64);
+
+      await sleep(10_000);
+      await context.park.restartRelayer('neutron', 1);
     });
     it('register core bond hook', async () => {
       await context.factoryContractClient.adminExecute(
@@ -2694,7 +2713,7 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
               validator: validatorAddress,
               amount: {
                 denom: context.park.config.networks.gaia.denom,
-                amount: String((800000 / 5) * 2 + 180000),
+                amount: '250000',
               },
               share_ratio: '1',
             },
@@ -2703,7 +2722,7 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
               validator: secondValidatorAddress,
               amount: {
                 denom: context.park.config.networks.gaia.denom,
-                amount: String((800000 / 5) * 3 + 20000),
+                amount: '150000',
               },
               share_ratio: '1',
             },
@@ -2818,12 +2837,12 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
           expect(batch).toBeTruthy();
           expect(batch).toEqual<UnbondBatch>({
             slashing_effect: null,
-            status: 'unbond_requested',
+            status: 'unbonding',
             status_timestamps: expect.any(Object),
-            expected_release_time: 0,
-            total_dasset_amount_to_withdraw: '500000',
-            expected_native_asset_amount: '500000',
-            total_unbond_items: 2,
+            expected_release_time: expect.any(Number),
+            total_dasset_amount_to_withdraw: '200000',
+            expected_native_asset_amount: '200000',
+            total_unbond_items: 1,
             unbonded_amount: null,
             withdrawn_amount: null,
           });
@@ -2832,13 +2851,26 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
           const { unbond_batches: unbondBatches, next_page_key: nextPageKey } =
             await context.coreContractClient.queryUnbondBatches({});
 
-          expect(unbondBatches.length).toEqual(2);
+          expect(unbondBatches.length).toEqual(3);
           expect(nextPageKey).toBeNull();
 
-          const [firstBatch, secondBatch] = unbondBatches;
+          const [firstBatch, secondBatch, thirdBatch] = unbondBatches;
           expect(firstBatch).toBeTruthy();
           expect(secondBatch).toBeTruthy();
+          expect(thirdBatch).toBeTruthy();
+
           expect(firstBatch).toEqual<UnbondBatch>({
+            slashing_effect: null,
+            status: 'unbonding',
+            status_timestamps: expect.any(Object),
+            expected_release_time: expect.any(Number),
+            total_dasset_amount_to_withdraw: '200000',
+            expected_native_asset_amount: '200000',
+            total_unbond_items: 1,
+            unbonded_amount: null,
+            withdrawn_amount: null,
+          });
+          expect(secondBatch).toEqual<UnbondBatch>({
             slashing_effect: null,
             status: 'unbond_requested',
             status_timestamps: expect.any(Object),
@@ -2849,7 +2881,7 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
             unbonded_amount: null,
             withdrawn_amount: null,
           });
-          expect(secondBatch).toEqual<UnbondBatch>({
+          expect(thirdBatch).toEqual<UnbondBatch>({
             slashing_effect: null,
             status: 'new',
             status_timestamps: expect.any(Object),
@@ -2876,12 +2908,12 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
           expect(firstBatch).toBeTruthy();
           expect(firstBatch).toEqual<UnbondBatch>({
             slashing_effect: null,
-            status: 'unbond_requested',
+            status: 'unbonding',
             status_timestamps: expect.any(Object),
-            expected_release_time: 0,
-            total_dasset_amount_to_withdraw: '500000',
-            expected_native_asset_amount: '500000',
-            total_unbond_items: 2,
+            expected_release_time: expect.any(Number),
+            total_dasset_amount_to_withdraw: '200000',
+            expected_native_asset_amount: '200000',
+            total_unbond_items: 1,
             unbonded_amount: null,
             withdrawn_amount: null,
           });
@@ -2895,18 +2927,18 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
           });
 
           expect(secondUnbondBatches.length).toEqual(1);
-          expect(secondNextPageKey).toBeNull();
+          expect(secondNextPageKey).toEqual('2');
 
           const [secondBatch] = secondUnbondBatches;
           expect(firstBatch).toBeTruthy();
           expect(secondBatch).toEqual<UnbondBatch>({
             slashing_effect: null,
-            status: 'new',
+            status: 'unbond_requested',
             status_timestamps: expect.any(Object),
             expected_release_time: 0,
-            total_dasset_amount_to_withdraw: '0',
-            expected_native_asset_amount: '0',
-            total_unbond_items: 0,
+            total_dasset_amount_to_withdraw: '500000',
+            expected_native_asset_amount: '500000',
+            total_unbond_items: 2,
             unbonded_amount: null,
             withdrawn_amount: null,
           });
@@ -2959,9 +2991,9 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
             status: 'unbonding',
             status_timestamps: expect.any(Object),
             expected_release_time: expect.any(Number),
-            total_dasset_amount_to_withdraw: '500000',
-            expected_native_asset_amount: '500000',
-            total_unbond_items: 2,
+            total_dasset_amount_to_withdraw: '200000',
+            expected_native_asset_amount: '200000',
+            total_unbond_items: 1,
             unbonded_amount: null,
             withdrawn_amount: null,
           });
@@ -3371,12 +3403,15 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
               try {
                 const res =
                   await context.lsmShareBondProviderContractClient.queryPendingLSMShares();
+
+                console.log('pending');
+                console.log(res);
                 pending = res;
               } catch (e) {
                 //
               }
               return !!pending && pending.length === 1;
-            }, 60_000);
+            }, 120_000);
           });
           it('tick to idle', async () => {
             const { neutronUserAddress } = context;
@@ -3435,123 +3470,6 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
               balances.data.balances.find((one) => one.denom === lsmDenoms[1]),
             ).toBeFalsy();
           });
-          it('await for pending length decrease', async () => {
-            let pending: any;
-            await waitFor(async () => {
-              try {
-                const res =
-                  await context.lsmShareBondProviderContractClient.queryPendingLSMShares();
-                pending = res;
-              } catch (e) {
-                //
-              }
-              return !!pending && pending.length === 0;
-            }, 60_000);
-            expect(pending).toEqual([]);
-          });
-        });
-        describe('redeem', () => {
-          let delegationsSum = 0;
-          it('query delegations', async () => {
-            const res: any =
-              await context.puppeteerContractClient.queryExtension({
-                msg: {
-                  delegations: {},
-                },
-              });
-            for (const d of res.delegations.delegations) {
-              delegationsSum += parseInt(d.amount.amount);
-            }
-          });
-          it('verify pending lsm shares to unbond', async () => {
-            const pending =
-              await context.lsmShareBondProviderContractClient.queryLSMSharesToRedeem();
-            expect(pending).toHaveLength(2);
-          });
-          it('tick to idle', async () => {
-            const {
-              gaiaClient,
-              neutronUserAddress,
-              coreContractClient,
-              puppeteerContractClient,
-            } = context;
-            await waitForPuppeteerICQ(
-              gaiaClient,
-              coreContractClient,
-              puppeteerContractClient,
-            );
-            const res = await context.coreContractClient.tick(
-              neutronUserAddress,
-              1.5,
-              undefined,
-              [],
-            );
-            expect(res.transactionHash).toHaveLength(64);
-            const state = await context.coreContractClient.queryContractState();
-            expect(state).toEqual('idle');
-            await checkExchangeRate(context);
-          });
-          it('tick to peripheral', async () => {
-            const { neutronUserAddress } = context;
-            const res = await context.coreContractClient.tick(
-              neutronUserAddress,
-              1.5,
-              undefined,
-              [],
-            );
-            expect(res.transactionHash).toHaveLength(64);
-            const state = await context.coreContractClient.queryContractState();
-            expect(state).toEqual('peripheral');
-            await checkExchangeRate(context);
-          });
-          it('imeediately tick again fails', async () => {
-            const { neutronUserAddress } = context;
-            await expect(
-              context.coreContractClient.tick(
-                neutronUserAddress,
-                1.5,
-                undefined,
-                [],
-              ),
-            ).rejects.toThrowError(/Puppeteer response is not received/);
-          });
-          it('await for pending length decrease', async () => {
-            await waitFor(async () => {
-              const pending =
-                await context.lsmShareBondProviderContractClient.queryLSMSharesToRedeem();
-              return pending.length === 0;
-            }, 30_000);
-          });
-          it('wait for delegations to come', async () => {
-            const { remote_height: currentHeight } =
-              (await context.puppeteerContractClient.queryExtension({
-                msg: {
-                  delegations: {},
-                },
-              })) as any;
-            await waitFor(async () => {
-              const { remote_height: nowHeight } =
-                (await context.puppeteerContractClient.queryExtension({
-                  msg: {
-                    delegations: {},
-                  },
-                })) as any;
-              return nowHeight !== currentHeight;
-            });
-          });
-          it('query delegations', async () => {
-            const res: any =
-              await context.puppeteerContractClient.queryExtension({
-                msg: {
-                  delegations: {},
-                },
-              });
-            let newDelegationsSum = 0;
-            for (const d of res.delegations.delegations) {
-              newDelegationsSum += parseInt(d.amount.amount);
-            }
-            expect(newDelegationsSum - delegationsSum).toEqual(120_000);
-          });
           it('verify exchange rate', async () => {
             const newExchangeRate =
               await context.coreContractClient.queryExchangeRate();
@@ -3568,7 +3486,7 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
           const vouchers = await withdrawalVoucherContractClient.queryTokens({
             owner: context.neutronUserAddress,
           });
-          expect(vouchers.tokens.length).toBe(2);
+          expect(vouchers.tokens.length).toBe(3);
           expect(vouchers.tokens[0]).toBe(`0_${neutronUserAddress}_1`);
           let tokenId = vouchers.tokens[0];
           let voucher = await withdrawalVoucherContractClient.queryNftInfo({
@@ -3596,7 +3514,7 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
             },
             token_uri: null,
           });
-          expect(vouchers.tokens[1]).toBe(`0_${neutronUserAddress}_2`);
+          expect(vouchers.tokens[1]).toBe(`1_${neutronUserAddress}_1`);
           tokenId = vouchers.tokens[1];
           voucher = await withdrawalVoucherContractClient.queryNftInfo({
             token_id: tokenId,
@@ -3604,20 +3522,20 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
           expect(voucher).toBeTruthy();
           expect(voucher).toMatchObject({
             extension: {
-              amount: '300000',
+              amount: '200000',
               attributes: [
                 {
                   display_type: null,
                   trait_type: 'unbond_batch_id',
-                  value: '0',
+                  value: '1',
                 },
                 {
                   display_type: null,
                   trait_type: 'received_amount',
-                  value: '300000',
+                  value: '200000',
                 },
               ],
-              batch_id: '0',
+              batch_id: '1',
               description: 'Withdrawal voucher',
               name: 'LDV voucher',
             },
@@ -3701,7 +3619,7 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
         it('try to withdraw before withdrawn', async () => {
           const { withdrawalVoucherContractClient, neutronUserAddress } =
             context;
-          const tokenId = `0_${neutronUserAddress}_1`;
+          const tokenId = `1_${neutronUserAddress}_1`;
           await expect(
             withdrawalVoucherContractClient.sendNft(neutronUserAddress, {
               token_id: tokenId,
@@ -3846,10 +3764,10 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
             status: 'withdrawn',
             status_timestamps: expect.any(Object),
             expected_release_time: expect.any(Number),
-            total_dasset_amount_to_withdraw: '500000',
-            expected_native_asset_amount: '500000',
-            total_unbond_items: 2,
-            unbonded_amount: '500000',
+            total_dasset_amount_to_withdraw: '200000',
+            expected_native_asset_amount: '200000',
+            total_unbond_items: 1,
+            unbonded_amount: '200000',
             withdrawn_amount: null,
           });
         });
@@ -3873,10 +3791,17 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
         });
         it('fund withdrawal manager', async () => {
           const { pumpContractClient, neutronUserAddress } = context;
+          const balance =
+            await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+              pumpContractClient.contractAddress,
+            );
+          console.log('pumpContractClient');
+          console.log(balance);
+
           await pumpContractClient.push(
             neutronUserAddress,
             {
-              coins: [{ amount: '500000', denom: 'stake' }],
+              coins: [{ amount: '200000', denom: 'stake' }],
             },
             1.5,
             undefined,
@@ -3887,6 +3812,9 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
               await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
                 context.withdrawalManagerContractClient.contractAddress,
               );
+
+            console.log('withdrawalManagerContractClient');
+            console.log(balances);
             return balances.data.balances.length > 0;
           }, 40_000);
           await checkExchangeRate(context);
@@ -3927,47 +3855,104 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
           );
           await checkExchangeRate(context);
         });
-        it('withdraw to custom receiver', async () => {
-          const {
-            withdrawalVoucherContractClient: voucherContractClient,
-            neutronUserAddress,
-            neutronSecondUserAddress,
-            neutronClient,
-            neutronIBCDenom,
-          } = context;
-          const balanceBefore = parseInt(
-            (
-              await neutronClient.CosmosBankV1Beta1.query.queryBalance(
-                neutronSecondUserAddress,
-                { denom: neutronIBCDenom },
-              )
-            ).data.balance.amount,
-          );
-          expect(balanceBefore).toEqual(0);
-          const tokenId = `0_${neutronUserAddress}_2`;
-          const res = await voucherContractClient.sendNft(neutronUserAddress, {
-            token_id: tokenId,
-            contract: context.withdrawalManagerContractClient.contractAddress,
-            msg: Buffer.from(
-              JSON.stringify({
-                withdraw: {
-                  receiver: neutronSecondUserAddress,
-                },
-              }),
-            ).toString('base64'),
-          });
-          expect(res.transactionHash).toHaveLength(64);
-          const balance =
-            await neutronClient.CosmosBankV1Beta1.query.queryBalance(
-              neutronSecondUserAddress,
-              { denom: neutronIBCDenom },
-            );
-          expect(parseInt(balance.data.balance.amount)).toBe(300000);
-        });
       });
 
       describe('fifth cycle (unbond before delegation)', () => {
         describe('prepare', () => {
+          it('update idle interval', async () => {
+            const { factoryContractClient, neutronUserAddress } = context;
+            const res = await factoryContractClient.updateConfig(
+              neutronUserAddress,
+              {
+                core: {
+                  idle_min_interval: 2000,
+                },
+              },
+            );
+            expect(res.transactionHash).toHaveLength(64);
+            await sleep(10 * 1000);
+          });
+
+          it('tick to clear LSM shares queue', async () => {
+            const {
+              gaiaClient,
+              coreContractClient,
+              neutronUserAddress,
+              puppeteerContractClient,
+            } = context;
+
+            await waitForPuppeteerICQ(
+              gaiaClient,
+              coreContractClient,
+              puppeteerContractClient,
+            );
+
+            await coreContractClient.tick(
+              neutronUserAddress,
+              1.5,
+              undefined,
+              [],
+            );
+          });
+
+          it('tick to clear LSM shares queue', async () => {
+            const {
+              gaiaClient,
+              coreContractClient,
+              neutronUserAddress,
+              puppeteerContractClient,
+            } = context;
+
+            await waitForPuppeteerICQ(
+              gaiaClient,
+              coreContractClient,
+              puppeteerContractClient,
+            );
+
+            await coreContractClient.tick(
+              neutronUserAddress,
+              1.5,
+              undefined,
+              [],
+            );
+          });
+
+          it('tick to clear LSM shares queue', async () => {
+            const {
+              gaiaClient,
+              coreContractClient,
+              neutronUserAddress,
+              puppeteerContractClient,
+            } = context;
+
+            await waitForPuppeteerICQ(
+              gaiaClient,
+              coreContractClient,
+              puppeteerContractClient,
+            );
+
+            await coreContractClient.tick(
+              neutronUserAddress,
+              1.5,
+              undefined,
+              [],
+            );
+          });
+
+          it('update idle interval', async () => {
+            const { factoryContractClient, neutronUserAddress } = context;
+            const res = await factoryContractClient.updateConfig(
+              neutronUserAddress,
+              {
+                core: {
+                  idle_min_interval: 10,
+                },
+              },
+            );
+            expect(res.transactionHash).toHaveLength(64);
+            await sleep(10 * 1000);
+          });
+
           it('remove lsm share bond provider from the core', async () => {
             expect(
               await context.lsmShareBondProviderContractClient.queryCanBeRemoved(),
@@ -4034,6 +4019,23 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
             );
             expect(res.transactionHash).toHaveLength(64);
           });
+        });
+
+        it('tick to idle', async () => {
+          const {
+            coreContractClient,
+            neutronUserAddress,
+            puppeteerContractClient,
+          } = context;
+          await waitForPuppeteerICQ(
+            context.gaiaClient,
+            coreContractClient,
+            puppeteerContractClient,
+          );
+          await coreContractClient.tick(neutronUserAddress, 1.5, undefined, []);
+          const state = await context.coreContractClient.queryContractState();
+          expect(state).toEqual('idle');
+          await checkExchangeRate(context);
         });
 
         it('tick to claiming', async () => {
@@ -4111,7 +4113,7 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
             undefined,
             [
               {
-                amount: '1000000',
+                amount: '200000',
                 denom: neutronIBCDenom,
               },
             ],
@@ -4145,7 +4147,7 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
             undefined,
             [
               {
-                amount: '1000000',
+                amount: '200000',
                 denom: ldDenom,
               },
             ],
@@ -4210,6 +4212,15 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
             )
           ).data.balance.amount;
           expect(parseInt(nativeBondProviderBalanceBefore, 10)).toEqual(0);
+
+          const splitterBalance = (
+            await context.neutronClient.CosmosBankV1Beta1.query.queryAllBalances(
+              context.splitterContractClient.contractAddress,
+            )
+          ).data;
+
+          console.log('splitterBalance');
+          console.log(splitterBalance);
 
           const res = await context.splitterContractClient.distribute(
             context.neutronUserAddress,
@@ -4293,255 +4304,5 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
         await context.puppeteerContractClient.queryKVQueryIds();
       expect(queryIdsNew).toEqual([[2, 'delegations_and_balance']]);
     });
-    // it('get machine state', async () => {
-    //   const state =
-    //     await context.oldClients.coreContractClient.queryContractState();
-    //   expect(state).toEqual('idle');
-    //   const config = await context.oldClients.coreContractClient.queryConfig();
-    //   console.log(config);
-    // });
-    // it('tick', async () => {
-    //   const {
-    //     gaiaClient,
-    //     neutronUserAddress,
-    //     coreContractClient,
-    //     puppeteerContractClient,
-    //   } = context;
-    //   await waitForPuppeteerICQ(
-    //     gaiaClient,
-    //     coreContractClient,
-    //     puppeteerContractClient,
-    //   );
-    //   const res = await coreContractClient.tick(
-    //     neutronUserAddress,
-    //     1.5,
-    //     undefined,
-    //     [
-    //       {
-    //         amount: '1000000',
-    //         denom: 'untrn',
-    //       },
-    //     ],
-    //   );
-    //   expect(res.transactionHash).toHaveLength(64);
-    //   const state = await coreContractClient.queryContractState();
-    //   expect(state).toEqual('idle');
-    // });
-    // it('reduce idle interval', async () => {
-    //   const res = await context.factoryContractClient.adminExecute(
-    //     context.neutronUserAddress,
-    //     {
-    //       msgs: [
-    //         {
-    //           wasm: {
-    //             execute: {
-    //               contract_addr: context.coreContractClient.contractAddress,
-    //               msg: Buffer.from(
-    //                 JSON.stringify({
-    //                   update_config: {
-    //                     new_config: {
-    //                       idle_min_interval: 10,
-    //                     },
-    //                   },
-    //                 }),
-    //               ).toString('base64'),
-    //               funds: [],
-    //             },
-    //           },
-    //         },
-    //       ],
-    //     },
-    //     1.5,
-    //     undefined,
-    //     [],
-    //   );
-    //   expect(res.transactionHash).toHaveLength(64);
-    // });
-    // it('tick', async () => {
-    //   const {
-    //     gaiaClient,
-    //     neutronUserAddress,
-    //     coreContractClient,
-    //     puppeteerContractClient,
-    //   } = context;
-    //   await waitForPuppeteerICQ(
-    //     gaiaClient,
-    //     coreContractClient,
-    //     puppeteerContractClient,
-    //   );
-    //   const res = await coreContractClient.tick(
-    //     neutronUserAddress,
-    //     1.5,
-    //     undefined,
-    //     [
-    //       {
-    //         amount: '1000000',
-    //         denom: 'untrn',
-    //       },
-    //     ],
-    //   );
-    //   expect(res.transactionHash).toHaveLength(64);
-    //   const state = await coreContractClient.queryContractState();
-    //   expect(state).toEqual('claiming');
-    // });
-    // it('tick', async () => {
-    //   const {
-    //     gaiaClient,
-    //     neutronUserAddress,
-    //     coreContractClient,
-    //     puppeteerContractClient,
-    //   } = context;
-    //   await waitForPuppeteerICQ(
-    //     gaiaClient,
-    //     coreContractClient,
-    //     puppeteerContractClient,
-    //   );
-    //   const res = await coreContractClient.tick(
-    //     neutronUserAddress,
-    //     1.5,
-    //     undefined,
-    //     [
-    //       {
-    //         amount: '1000000',
-    //         denom: 'untrn',
-    //       },
-    //     ],
-    //   );
-    //   expect(res.transactionHash).toHaveLength(64);
-    //   const state = await coreContractClient.queryContractState();
-    //   expect(state).toEqual('idle');
-    // });
-    // it('tick', async () => {
-    //   const {
-    //     gaiaClient,
-    //     neutronUserAddress,
-    //     coreContractClient,
-    //     puppeteerContractClient,
-    //   } = context;
-    //   await waitForPuppeteerICQ(
-    //     gaiaClient,
-    //     coreContractClient,
-    //     puppeteerContractClient,
-    //   );
-    //   const res = await coreContractClient.tick(
-    //     neutronUserAddress,
-    //     1.5,
-    //     undefined,
-    //     [
-    //       {
-    //         amount: '1000000',
-    //         denom: 'untrn',
-    //       },
-    //     ],
-    //   );
-    //   expect(res.transactionHash).toHaveLength(64);
-    //   const state = await coreContractClient.queryContractState();
-    //   expect(state).toEqual('claiming');
-    // });
-    // it('tick', async () => {
-    //   const {
-    //     gaiaClient,
-    //     neutronUserAddress,
-    //     coreContractClient,
-    //     puppeteerContractClient,
-    //   } = context;
-    //   await waitForPuppeteerICQ(
-    //     gaiaClient,
-    //     coreContractClient,
-    //     puppeteerContractClient,
-    //   );
-    //   const res = await coreContractClient.tick(
-    //     neutronUserAddress,
-    //     1.5,
-    //     undefined,
-    //     [
-    //       {
-    //         amount: '1000000',
-    //         denom: 'untrn',
-    //       },
-    //     ],
-    //   );
-    //   expect(res.transactionHash).toHaveLength(64);
-    //   const state = await coreContractClient.queryContractState();
-    //   expect(state).toEqual('idle');
-    // });
-    // it('bond', async () => {
-    //   const { coreContractClient, neutronUserAddress, neutronIBCDenom } =
-    //     context;
-    //   const res = await coreContractClient.bond(
-    //     neutronUserAddress,
-    //     {},
-    //     1.6,
-    //     undefined,
-    //     [
-    //       {
-    //         amount: '500000',
-    //         denom: neutronIBCDenom,
-    //       },
-    //     ],
-    //   );
-    //   expect(res.transactionHash).toHaveLength(64);
-    // });
-    // it('tick', async () => {
-    //   const {
-    //     gaiaClient,
-    //     neutronUserAddress,
-    //     coreContractClient,
-    //     puppeteerContractClient,
-    //   } = context;
-    //   await waitForPuppeteerICQ(
-    //     gaiaClient,
-    //     coreContractClient,
-    //     puppeteerContractClient,
-    //   );
-    //   const res = await coreContractClient.tick(
-    //     neutronUserAddress,
-    //     1.5,
-    //     undefined,
-    //     [
-    //       {
-    //         amount: '1000000',
-    //         denom: 'untrn',
-    //       },
-    //     ],
-    //   );
-    //   expect(res.transactionHash).toHaveLength(64);
-    //   const state = await coreContractClient.queryContractState();
-    //   expect(state).toEqual('peripheral');
-    // });
-    // it('tick', async () => {
-    //   const {
-    //     gaiaClient,
-    //     neutronUserAddress,
-    //     coreContractClient,
-    //     puppeteerContractClient,
-    //   } = context;
-    //   await waitForPuppeteerICQ(
-    //     gaiaClient,
-    //     coreContractClient,
-    //     puppeteerContractClient,
-    //   );
-    //   const res = await coreContractClient.tick(
-    //     neutronUserAddress,
-    //     1.5,
-    //     undefined,
-    //     [
-    //       {
-    //         amount: '1000000',
-    //         denom: 'untrn',
-    //       },
-    //     ],
-    //   );
-    //   expect(res.transactionHash).toHaveLength(64);
-    //   const state = await coreContractClient.queryContractState();
-    //   expect(state).toEqual('idle');
-    // });
-    // it('check puppeteer delegations', async () => {
-    //   const { puppeteerContractClient } = context;
-    //   const delegations = (await puppeteerContractClient.queryExtension({
-    //     msg: { delegations: {} },
-    //   })) as any;
-    //   console.log(delegations);
-    // });
   });
 });

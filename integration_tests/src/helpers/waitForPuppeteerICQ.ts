@@ -39,12 +39,6 @@ export const waitForPuppeteerICQ = async (
         },
       })) as any;
 
-    console.log(
-      'balances. remoteHeight',
-      remoteHeight,
-      'controlHeight',
-      controlHeight,
-    );
     return remoteHeight > controlHeight;
   }, 50_000);
 
@@ -56,12 +50,6 @@ export const waitForPuppeteerICQ = async (
         },
       })) as any;
 
-    console.log(
-      'delegations. remoteHeight',
-      remoteHeight,
-      'controlHeight',
-      controlHeight,
-    );
     return remoteHeight > controlHeight;
   }, 50_000);
 
