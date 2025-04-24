@@ -78,7 +78,7 @@ main() {
     "'"$core_contract_address"'",
     "'"$factory_contract_address"'"
   ]'
-  deployed_puppeteer_contract_address=$(deploy_puppeteer "$factory_contract_address" "$native_bond_provider_contract_address" "$allowed_senders")
+  deployed_puppeteer_contract_address=$(deploy_puppeteer "$factory_contract_address" "$allowed_senders")
   echo "[OK] Deployed puppeteer address: $deployed_puppeteer_contract_address"
 
   unbonding_pump_contract_address=$(deploy_pump "drop-unbonding-pump" "$factory_contract_address" "$withdrawal_manager_contract_address")
