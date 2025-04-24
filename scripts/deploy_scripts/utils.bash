@@ -376,8 +376,7 @@ deploy_lsm_share_bond_provider() {
 
 deploy_puppeteer() {
   local factory_address="$1"
-  local native_bond_provider_address="$2"
-  local allowed_senders="$3"
+  local allowed_senders="$2"
 
 
   msg='{
@@ -390,7 +389,7 @@ deploy_puppeteer() {
     "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
     "sdk_version":"'"$TARGET_SDK_VERSION"'",
     "timeout":'$TIMEOUT_REMOTE',
-    "native_bond_provider":"'"$native_bond_provider_address"'"
+    "factory_address":"'"$factory_address"'"
   }'
 
   local salt_hex="$(echo -n "$SALT" | xxd -p)"
