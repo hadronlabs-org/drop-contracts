@@ -219,8 +219,8 @@ register_ica() {
   ica_port="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "port_id")")"
   ica_channel="$(echo "$register_ica_result" | jq -r "$(select_attr "channel_open_init" "channel_id")")"
 
-  declare -g "${name}_ica_port=$ica_address"
-  declare -g "${name}_ica_channel=$ica_address"
+  declare -g "${name}_ica_port=$ica_port"
+  declare -g "${name}_ica_channel=$ica_channel"
 
   echo "[OK] $name ICA configuration: $ica_port/$ica_channel"
 }
