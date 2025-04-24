@@ -389,7 +389,7 @@ deploy_puppeteer() {
     "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
     "sdk_version":"'"$TARGET_SDK_VERSION"'",
     "timeout":'$TIMEOUT_REMOTE',
-    "factory_address":"'"$factory_address"'"
+    "factory_contract":"'"$factory_address"'"
   }'
 
   local salt_hex="$(echo -n "$SALT" | xxd -p)"
