@@ -10,7 +10,6 @@ DEPLOY_WALLET="${DEPLOY_WALLET:-demowallet1}"
 MIN_NTRN_REQUIRED="${MIN_NTRN_REQUIRED:-10}"
 
 PUPPETEER_TYPE="${PUPPETEER_TYPE:-puppeteer}"
-LSM_SHARE_PROVIDER_ENABLED="${LSM_SHARE_PROVIDER_ENABLED:-true}"
 
 TARGET_SDK_VERSION="${TARGET_SDK_VERSION:?Variable should be explicitly specified}"
 TARGET_BASE_DENOM="${TARGET_BASE_DENOM:?Variable should be explicitly specified}"
@@ -32,9 +31,6 @@ TOKEN_METADATA_EXPONENT="${TOKEN_METADATA_EXPONENT:?Variable should explicitly s
 TOKEN_METADATA_NAME="${TOKEN_METADATA_NAME:?Variable should explicitly specified}"
 TOKEN_METADATA_SYMBOL="${TOKEN_METADATA_SYMBOL:?Variable should explicitly specified}"
 CORE_PARAMS_IDLE_MIN_INTERVAL="${CORE_PARAMS_IDLE_MIN_INTERVAL:?Variable should explicitly specified}"
-CORE_PARAMS_LSM_REDEEM_THRESHOLD="${CORE_PARAMS_LSM_REDEEM_THRESHOLD:?Variable should explicitly specified}"
-CORE_PARAMS_LSM_MIN_BOND_AMOUNT="${CORE_PARAMS_LSM_MIN_BOND_AMOUNT:?Variable should explicitly specified}"
-CORE_PARAMS_LSM_REDEEM_MAX_INTERVAL="${CORE_PARAMS_LSM_REDEEM_MAX_INTERVAL:?Variable should explicitly specified}"
 CORE_PARAMS_MIN_STAKE_AMOUNT="${CORE_PARAMS_MIN_STAKE_AMOUNT:?Variable should explicitly specified}"
 CORE_PARAMS_ICQ_UPDATE_DELAY="${CORE_PARAMS_ICQ_UPDATE_DELAY:?Variable should explicitly specified}"
 STAKER_PARAMS_MIN_STAKE_AMOUNT="${STAKER_PARAMS_MIN_STAKE_AMOUNT:?Variable should explicitly specified}"
@@ -64,8 +60,6 @@ main() {
   echo "Strategy address: $strategy_contract_address"
   validators_set_contract_address=$(get_contract_address "$validators_set_code_id" "$factory_contract_address" "$SALT")
   echo "Validators set address: $validators_set_contract_address"
-  lsm_share_bond_provider_contract_address=$(get_contract_address "$lsm_share_bond_provider_code_id" "$deploy_wallet" "$SALT")
-  echo "LSM share bond provider address: $lsm_share_bond_provider_contract_address"
   withdrawal_manager_contract_address=$(get_contract_address "$withdrawal_manager_code_id" "$factory_contract_address" "$SALT")
   echo "Withdrawal manager address: $withdrawal_manager_contract_address"
   splitter_contract_address=$(get_contract_address "$splitter_code_id" "$factory_contract_address" "$SALT")
@@ -79,11 +73,7 @@ main() {
   native_bond_provider_contract_address=$(deploy_native_bond_provider "$factory_contract_address")
   echo "[OK] Native bond provider address: $native_bond_provider_contract_address"
 
-  deployed_lsm_share_bond_provider_contract_address=$(deploy_lsm_share_bond_provider "$factory_contract_address")
-  echo "[OK] Deployed lsm share bond provider address: $deployed_lsm_share_bond_provider_contract_address"
-
   allowed_senders='[
-    "'"$lsm_share_bond_provider_contract_address"'",
     "'"$native_bond_provider_contract_address"'",
     "'"$core_contract_address"'",
     "'"$factory_contract_address"'"
@@ -100,7 +90,6 @@ main() {
   pre_instantiated_contracts='{
     "native_bond_provider_address":"'"$native_bond_provider_contract_address"'",
     "puppeteer_address":"'"$puppeteer_contract_address"'",
-    "lsm_share_bond_provider_address":"'"$lsm_share_bond_provider_contract_address"'",
     "unbonding_pump_address":"'"$unbonding_pump_contract_address"'",
     "rewards_pump_address":"'"$rewards_pump_contract_address"'"
   }'
@@ -137,26 +126,6 @@ main() {
 
   factory_admin_execute "$factory_address" "$msg" 250000untrn
   echo "[OK] Add Native bond provider to the Core contract"
-
-  if [ "$LSM_SHARE_PROVIDER_ENABLED" == "true" ]; then
-    update_msg='{
-      "add_bond_provider":{
-        "bond_provider_address": "'"$lsm_share_bond_provider_contract_address"'"
-      }
-    }'
-
-    msg='{
-      "wasm":{
-        "execute":{
-          "contract_addr":"'"$core_address"'",
-          "msg":"'"$(echo -n "$update_msg" | jq -c '.' | base64 | tr -d "\n")"'",
-          "funds": []
-        }
-      }'
-
-    factory_admin_execute "$factory_address" "$msg" 250000untrn
-    echo "[OK] Add LSM share bond provider to the Core contract"
-  fi
 
   REWARDS_ADDRESS=${REWARDS_ADDRESS:-$rewards_pump_ica_address}
   update_msg='{

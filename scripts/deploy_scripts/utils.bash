@@ -316,7 +316,7 @@ deploy_native_bond_provider() {
   msg='{
     "owner":"'"$factory_address"'",
     "base_denom":"'"$uatom_on_neutron_denom"'",
-    "factory_contract":"'"$factory_contract"'",
+    "factory_contract":"'"$factory_address"'",
     "min_stake_amount":"'"$STAKER_PARAMS_MIN_STAKE_AMOUNT"'",
     "min_ibc_transfer":"'"$STAKER_PARAMS_MIN_IBC_TRANSFER"'",
     "port_id":"'"$NEUTRON_SIDE_PORT_ID"'",
