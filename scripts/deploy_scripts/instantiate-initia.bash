@@ -100,7 +100,7 @@ main() {
   
   register_ica "rewards_pump" "$rewards_pump_contract_address"
   print_hermes_command "$rewards_pump_ica_port" "$rewards_pump_ica_channel"
-  wait_ica_address "rewards_pump" "$unbonding_pump_contract_address"
+  wait_ica_address "rewards_pump" "$rewards_pump_contract_address"
   rewards_pump_counterparty_channel_id=$(get_counterparty_channel_id "$rewards_pump_ica_port" "$rewards_pump_ica_channel")
 
   register_ica "puppeteer" "$puppeteer_contract_address"
