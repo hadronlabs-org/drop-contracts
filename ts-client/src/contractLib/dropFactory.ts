@@ -1226,8 +1226,8 @@ export interface CodeIds {
   core_code_id: number;
   distribution_code_id: number;
   lsm_share_bond_provider_code_id?: number | null;
-  native_bond_provider_code_id?: number | null;
-  puppeteer_code_id?: number | null;
+  native_bond_provider_code_id: number;
+  puppeteer_code_id: number;
   rewards_manager_code_id: number;
   rewards_pump_code_id?: number | null;
   splitter_code_id: number;

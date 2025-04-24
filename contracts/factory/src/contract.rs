@@ -585,7 +585,7 @@ fn validate_pre_instantiated_contracts(
             drop_native_bond_provider::contract::CONTRACT_NAME,
             drop_native_sync_bond_provider::contract::CONTRACT_NAME,
         ],
-        code_ids.native_bond_provider_code_id.unwrap_or_default(),
+        code_ids.native_bond_provider_code_id,
     )?;
 
     // Validate val ref address
@@ -622,7 +622,7 @@ fn validate_pre_instantiated_contracts(
             drop_puppeteer_initia::contract::CONTRACT_NAME,
             drop_puppeteer_native::contract::CONTRACT_NAME,
         ],
-        code_ids.puppeteer_code_id.unwrap_or_default(),
+        code_ids.puppeteer_code_id,
     )?;
 
     // Validate unbonding and rewards pump contracts

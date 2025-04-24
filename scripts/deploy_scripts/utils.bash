@@ -193,10 +193,10 @@ deploy_factory() {
           distribution_code_id: $distribution_code_id,
           validators_set_code_id: $validators_set_code_id,
           rewards_manager_code_id: $rewards_manager_code_id,
-          splitter_code_id: $splitter_code_id
+          splitter_code_id: $splitter_code_id,
+          native_bond_provider_code_id: $native_bond_provider_code_id,
+          puppeteer_code_id: $puppeteer_code_id
         }
-        + (if $native_bond_provider_code_id != "" then {native_bond_provider_code_id: $native_bond_provider_code_id} else {} end)
-        + (if $puppeteer_code_id != "" then {puppeteer_code_id: $puppeteer_code_id} else {} end)
         + (if $lsm_share_bond_provider_code_id != "" then {lsm_share_bond_provider_code_id: $lsm_share_bond_provider_code_id} else {} end)
         + (if $unbonding_pump_code_id != "" then {unbonding_pump_code_id: $unbonding_pump_code_id} else {} end)
         + (if $rewards_pump_code_id != "" then {rewards_pump_code_id: $rewards_pump_code_id} else {} end)
