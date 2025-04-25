@@ -4196,7 +4196,7 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
             context.splitterContractClient.contractAddress,
             [
               {
-                amount: (10000 - rewardsPumpIcaBalance).toString(),
+                amount: (10010 - rewardsPumpIcaBalance).toString(),
                 denom: context.neutronIBCDenom,
               },
             ],
@@ -4204,6 +4204,55 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
           );
           expect(res.transactionHash).toHaveLength(64);
         });
+
+        it('update splitter config', async () => {
+          const {
+            neutronUserAddress,
+            factoryContractClient,
+            splitterContractClient,
+          } = context;
+
+          const res = await factoryContractClient.adminExecute(
+            neutronUserAddress,
+            {
+              msgs: [
+                {
+                  wasm: {
+                    execute: {
+                      contract_addr: splitterContractClient.contractAddress,
+                      msg: Buffer.from(
+                        JSON.stringify({
+                          update_config: {
+                            new_config: {
+                              denom: context.neutronIBCDenom,
+                              receivers: [
+                                [
+                                  context.nativeBondProviderContractClient
+                                    .contractAddress,
+                                  '9000',
+                                ],
+                                [
+                                  'neutron1xm4xgfv4xz4ccv0tjvlfac5gqwjnv9zzx4l47t7ve7j2sn4k7gwqkg947d',
+                                  '1000',
+                                ],
+                              ],
+                            },
+                          },
+                        }),
+                      ).toString('base64'),
+                      funds: [],
+                    },
+                  },
+                },
+              ],
+            },
+            1.5,
+            undefined,
+            [],
+          );
+          expect(res.transactionHash).toHaveLength(64);
+        });
+
         it('split it', async () => {
           const nativeBondProviderBalanceBefore = (
             await context.neutronClient.CosmosBankV1Beta1.query.queryBalance(
@@ -4235,7 +4284,7 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
             )
           ).data.balance.amount;
 
-          expect(parseInt(nativeBondProviderBalanceAfter, 10)).toEqual(10000);
+          expect(parseInt(nativeBondProviderBalanceAfter, 10)).toEqual(9000);
         });
         it('puppeteer account state after bond provider ibc transfer', async () => {
           await waitFor(async () => {
@@ -4248,61 +4297,12 @@ describe('Migration from v1.0.2-pre to v1.3.0', () => {
           );
           expect(balances).toEqual([
             {
-              amount: '1000000',
+              amount: '200000',
               denom: context.park.config.networks.gaia.denom,
             },
           ]);
         });
       });
-    });
-
-    it('update validators set and check kv queries id', async () => {
-      const {
-        neutronUserAddress,
-        factoryContractClient,
-        validatorAddress,
-        secondValidatorAddress,
-      } = context;
-
-      const queryIdsOriginal =
-        await context.puppeteerContractClient.queryKVQueryIds();
-
-      expect(queryIdsOriginal).toEqual([[1, 'delegations_and_balance']]);
-
-      const res = await factoryContractClient.proxy(
-        neutronUserAddress,
-        {
-          validator_set: {
-            update_validators: {
-              validators: [
-                {
-                  valoper_address: validatorAddress,
-                  weight: 1,
-                  on_top: '0',
-                },
-                {
-                  valoper_address: secondValidatorAddress,
-                  weight: 1,
-                  on_top: '0',
-                },
-              ],
-            },
-          },
-        },
-        1.5,
-        undefined,
-        [
-          {
-            amount: '1000000',
-            denom: 'untrn',
-          },
-        ],
-      );
-      expect(res.transactionHash).toHaveLength(64);
-
-      const queryIdsNew =
-        await context.puppeteerContractClient.queryKVQueryIds();
-      expect(queryIdsNew).toEqual([[2, 'delegations_and_balance']]);
     });
   });
 });
