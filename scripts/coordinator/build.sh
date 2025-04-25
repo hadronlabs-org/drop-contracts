@@ -33,7 +33,7 @@ rsync -av --exclude=${DOCKER_DATA_DIR} --exclude=node_modules ./ ./$DOCKER_DATA_
 
 BUILDING_ARCHS="linux/arm64"
 if [ "$(uname -m)" = "x86_64" ]; then
-  BUILDING_ARCHS="$BUILDING_ARCH,linux/amd64"
+  BUILDING_ARCHS="$BUILDING_ARCHS,linux/amd64"
 fi
 # --platform linux/amd64,linux/arm64
 docker build --platform $BUILDING_ARCHS -t dropprotocol/coordinator .
