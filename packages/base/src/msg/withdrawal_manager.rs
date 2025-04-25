@@ -39,4 +39,6 @@ pub enum ReceiveNftMsg {
 }
 
 #[cw_serde]
-pub struct MigrateMsg {}
+pub struct MigrateMsg {
+    pub factory_contract: String,
+}

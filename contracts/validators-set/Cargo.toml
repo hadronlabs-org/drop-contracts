@@ -3,7 +3,7 @@ authors = ["Albert Andrejev <albert.andrejev@gmail.com>"]
 description = "Contract to provide validators set"
 edition = "2021"
 name = "drop-validators-set"
-version = "1.0.0"
+version = "1.3.0"
 
 exclude = [
     # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
@@ -27,6 +27,7 @@ cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }
 cw-ownable = { workspace = true }
 cw2 = { workspace = true }
+cw-storage-plus = { workspace = true }
 neutron-sdk = { workspace = true }
 drop-staking-base = { workspace = true }
 drop-helpers = { workspace = true }

@@ -208,7 +208,7 @@ fn exec_config_update(
 pub fn migrate(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
-    _msg: MigrateMsg,
+    msg: MigrateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
     let storage_contract_name = contract_version_metadata.contract.as_str();
@@ -224,6 +224,9 @@ pub fn migrate(
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+        let factory_contract = deps.api.addr_validate(&msg.factory_contract)?;
+        FACTORY_CONTRACT.save(deps.storage, &factory_contract)?;
     }
 
     Ok(Response::new())

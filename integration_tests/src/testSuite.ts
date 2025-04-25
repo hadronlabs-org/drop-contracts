@@ -494,9 +494,14 @@ export const setupPark = async (
     ),
   );
   if (relayers.hermes) {
+    const neutronPorts =
+      'neutron' in instance.ports
+        ? instance.ports.neutron
+        : instance.ports['neutronv2'];
+
     await awaitNeutronChannels(
-      `127.0.0.1:${instance.ports['neutron'].rest}`,
-      `127.0.0.1:${instance.ports['neutron'].rpc}`,
+      `127.0.0.1:${neutronPorts.rest}`,
+      `127.0.0.1:${neutronPorts.rpc}`,
     ).catch((e) => {
       console.log(`Failed to await neutron channels: ${e}`);
       throw e;

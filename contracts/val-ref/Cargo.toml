@@ -3,7 +3,7 @@ authors = ["Murad Karammaev <muradkarammaev@gmail.com>"]
 description = "Contract module which stores validator's referral codes and their on_top stake"
 edition = "2021"
 name = "drop-val-ref"
-version = "1.0.0"
+version = "1.3.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

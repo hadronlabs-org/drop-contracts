@@ -420,8 +420,8 @@ fn test_execute_update_config() {
     assert_eq!(
         res,
         Response::new().add_event(
-            Event::new("crates.io:drop-staking__drop-puppeteer-config_update").add_attributes(
-                vec![
+            Event::new("crates.io:drop-neutron-contracts__drop-puppeteer-config_update")
+                .add_attributes(vec![
                     ("remote_denom", "new_remote_denom"),
                     ("connection_id", "new_connection_id"),
                     ("port_id", "new_port_id"),
@@ -431,8 +431,7 @@ fn test_execute_update_config() {
                     ("sdk_version", "0.47.0"),
                     ("timeout", "101"),
                     ("factory_contract", "factory_contract"),
-                ]
-            )
+                ])
         )
     );
 
@@ -3688,7 +3687,11 @@ fn test_migrate_wrong_contract() {
     let res = crate::contract::migrate(
         deps.as_mut(),
         mock_env(),
-        drop_staking_base::msg::puppeteer::MigrateMsg {},
+        drop_staking_base::msg::puppeteer::MigrateMsg {
+            native_bond_provider: "native_bond_provider".to_string(),
+            allowed_senders: vec!["allowed_sender".to_string()],
+            factory_contract: "factory_contract".to_string(),
+        },
     )
     .unwrap_err();
     assert_eq!(

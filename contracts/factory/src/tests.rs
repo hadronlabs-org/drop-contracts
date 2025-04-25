@@ -181,7 +181,7 @@ fn test_instantiate() {
     setup_contract_metadata(
         &mut deps.querier,
         "puppeteer_address",
-        "crates.io:drop-staking__drop-puppeteer".to_string(),
+        "crates.io:drop-neutron-contracts__drop-puppeteer".to_string(),
         mocked_env.contract.address.to_string(),
         Some(contract_admin),
     );
@@ -967,7 +967,24 @@ fn test_migrate_wrong_contract() {
     let res = crate::contract::migrate(
         deps.as_mut(),
         mock_env(),
-        drop_staking_base::msg::factory::MigrateMsg {},
+        drop_staking_base::msg::factory::MigrateMsg {
+            core_code_id: 1,
+            lsm_share_bond_provider_code_id: 2,
+            native_bond_provider_code_id: 3,
+            distribution_code_id: 4,
+            pump_code_id: 5,
+            unbonding_pump_contract: "unbonding_pump_contract".to_string(),
+            puppeteer_code_id: 6,
+            validators_set_code_id: 7,
+            strategy_code_id: 8,
+            rewards_manager_code_id: 9,
+            withdrawal_manager_code_id: 10,
+            token_code_id: 11,
+            salt: "salt".to_string(),
+            port_id: "port_id".to_string(),
+            timeout: 100,
+            min_ibc_transfer: Uint128::from(100u128),
+        },
     )
     .unwrap_err();
     assert_eq!(

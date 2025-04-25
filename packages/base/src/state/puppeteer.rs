@@ -35,6 +35,19 @@ pub struct ConfigOptional {
 }
 
 #[cw_serde]
+pub struct ConfigDeprecated {
+    pub connection_id: String,
+    pub port_id: String,
+    pub update_period: u64, // update period in seconds for ICQ queries
+    pub remote_denom: String,
+    pub allowed_senders: Vec<Addr>,
+    pub transfer_channel_id: String,
+    pub sdk_version: String,
+    pub timeout: u64, // timeout for interchain transactions in seconds
+    pub delegations_queries_chunk_size: u32,
+}
+
+#[cw_serde]
 pub struct Config {
     pub connection_id: String,
     pub port_id: String,

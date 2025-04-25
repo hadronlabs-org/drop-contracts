@@ -639,7 +639,7 @@ dependencies = [
 
 [[package]]
 name = "drop-core"
-version = "1.0.0"
+version = "1.3.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -656,7 +656,7 @@ dependencies = [
 
 [[package]]
 name = "drop-distribution"
-version = "1.0.0"
+version = "1.3.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -669,7 +669,7 @@ dependencies = [
 
 [[package]]
 name = "drop-factory"
-version = "1.0.0"
+version = "1.3.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -729,7 +729,7 @@ dependencies = [
 
 [[package]]
 name = "drop-lsm-share-bond-provider"
-version = "1.0.0"
+version = "1.3.0"
 dependencies = [
  "cosmos-sdk-proto",
  "cosmwasm-schema",
@@ -780,7 +780,7 @@ dependencies = [
 
 [[package]]
 name = "drop-native-bond-provider"
-version = "1.0.0"
+version = "1.3.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -898,7 +898,7 @@ dependencies = [
 
 [[package]]
 name = "drop-pump"
-version = "1.0.0"
+version = "1.3.0"
 dependencies = [
  "cosmos-sdk-proto",
  "cosmwasm-schema",
@@ -916,12 +916,13 @@ dependencies = [
 
 [[package]]
 name = "drop-puppeteer"
-version = "1.0.0"
+version = "1.3.0"
 dependencies = [
  "cosmos-sdk-proto",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-ownable",
+ "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
  "drop-helpers",
  "drop-proto",
@@ -1008,7 +1009,7 @@ dependencies = [
 
 [[package]]
 name = "drop-rewards-manager"
-version = "1.0.0"
+version = "1.3.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -1067,7 +1068,7 @@ dependencies = [
 
 [[package]]
 name = "drop-strategy"
-version = "1.0.0"
+version = "1.3.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -1086,7 +1087,7 @@ dependencies = [
 
 [[package]]
 name = "drop-token"
-version = "1.0.0"
+version = "1.3.0"
 dependencies = [
  "cosmos-sdk-proto",
  "cosmwasm-schema",
@@ -1123,7 +1124,7 @@ dependencies = [
 
 [[package]]
 name = "drop-val-ref"
-version = "1.0.0"
+version = "1.3.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -1139,11 +1140,12 @@ dependencies = [
 
 [[package]]
 name = "drop-validators-set"
-version = "1.0.0"
+version = "1.3.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-ownable",
+ "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
  "drop-helpers",
  "drop-staking-base",
@@ -1170,11 +1172,12 @@ dependencies = [
 
 [[package]]
 name = "drop-withdrawal-manager"
-version = "1.0.0"
+version = "1.3.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-ownable",
+ "cw-storage-plus 1.2.0",
  "cw2 1.1.2",
  "cw721 0.18.0",
  "drop-helpers",

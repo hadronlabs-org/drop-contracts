@@ -49,6 +49,7 @@ export const waitForPuppeteerICQ = async (
           delegations: {},
         },
       })) as any;
+
     return remoteHeight > controlHeight;
   }, 50_000);
 

@@ -7,6 +7,7 @@ use cosmwasm_std::{
     StdError, SubMsg, Timestamp, Uint128, WasmMsg,
 };
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
+use cw_storage_plus::Item;
 use drop_helpers::{
     answer::response,
     get_contracts,
@@ -47,7 +48,7 @@ use drop_staking_base::{
         BalancesResponse, DelegationsResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryExtMsg,
     },
     state::puppeteer::{
-        BalancesAndDelegations, Config, ConfigOptional, Delegations, KVQueryType,
+        BalancesAndDelegations, Config, ConfigOptional, Delegations, KVQueryType, CONFIG,
         NON_NATIVE_REWARD_BALANCES,
     },
 };
@@ -64,7 +65,8 @@ use std::vec;
 
 pub type Puppeteer<'a> = PuppeteerBase<'a, Config, KVQueryType, BalancesAndDelegations>;
 
-pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
+pub const CONTRACT_NAME: &str =
+    concat!("crates.io:drop-neutron-contracts__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_DELEGATIONS_QUERIES_CHUNK_SIZE: u32 = 15;
 
@@ -1238,31 +1240,6 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> StdResult<Response> {
     }
 }
 
-#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
-pub fn migrate(
-    deps: DepsMut<NeutronQuery>,
-    _env: Env,
-    _msg: MigrateMsg,
-) -> ContractResult<Response<NeutronMsg>> {
-    let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
-    let storage_contract_name = contract_version_metadata.contract.as_str();
-    if storage_contract_name != CONTRACT_NAME {
-        return Err(ContractError::MigrationError {
-            storage_contract_name: storage_contract_name.to_string(),
-            contract_name: CONTRACT_NAME.to_string(),
-        });
-    }
-
-    let storage_version: semver::Version = contract_version_metadata.version.parse()?;
-    let version: semver::Version = CONTRACT_VERSION.parse()?;
-
-    if storage_version < version {
-        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    }
-
-    Ok(Response::new())
-}
-
 fn sudo_delegations_and_balance_kv_query_result(
     deps: DepsMut<NeutronQuery>,
     env: Env,
@@ -1346,4 +1323,67 @@ fn validate_timeout(timeout: u64) -> StdResult<()> {
     } else {
         Ok(())
     }
+}
+
+#[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
+pub fn migrate(
+    deps: DepsMut<NeutronQuery>,
+    _env: Env,
+    msg: MigrateMsg,
+) -> ContractResult<Response<NeutronMsg>> {
+    let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
+    let storage_contract_name = contract_version_metadata.contract.as_str();
+    if storage_contract_name != CONTRACT_NAME {
+        return Err(ContractError::MigrationError {
+            storage_contract_name: storage_contract_name.to_string(),
+            contract_name: CONTRACT_NAME.to_string(),
+        });
+    }
+
+    let storage_version: semver::Version = contract_version_metadata.version.parse()?;
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
+
+    if storage_version < version {
+        cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+        #[cosmwasm_schema::cw_serde]
+        pub struct OldConfig {
+            pub connection_id: String,
+            pub port_id: String,
+            pub update_period: u64, // update period in seconds for ICQ queries
+            pub remote_denom: String,
+            pub allowed_senders: Vec<Addr>,
+            pub transfer_channel_id: String,
+            pub sdk_version: String,
+            pub timeout: u64, // timeout for interchain transactions in seconds
+            pub delegations_queries_chunk_size: u32,
+        }
+
+        let config = Item::<OldConfig>::new("config").load(deps.storage)?;
+
+        let factory_contract = deps.api.addr_validate(&msg.factory_contract)?;
+
+        let allowed_senders = validate_addresses(
+            deps.as_ref().into_empty(),
+            msg.allowed_senders.as_ref(),
+            None,
+        )?;
+
+        CONFIG.save(
+            deps.storage,
+            &Config {
+                delegations_queries_chunk_size: config.delegations_queries_chunk_size,
+                port_id: config.port_id,
+                connection_id: config.connection_id,
+                update_period: config.update_period,
+                remote_denom: config.remote_denom,
+                allowed_senders,
+                transfer_channel_id: config.transfer_channel_id,
+                sdk_version: config.sdk_version,
+                timeout: config.timeout,
+                factory_contract,
+            },
+        )?;
+    }
+
+    Ok(Response::new())
 }

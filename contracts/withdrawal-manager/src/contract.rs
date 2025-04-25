@@ -1,9 +1,12 @@
+use cosmwasm_schema::cw_serde;
+use cosmwasm_std::Addr;
 use cosmwasm_std::{
     attr, ensure_eq, from_json, to_json_binary, Attribute, BankMsg, Binary, Coin, CosmosMsg,
     Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
 use cw721::NftInfoResponse;
 use cw_ownable::{get_ownership, update_ownership};
+use cw_storage_plus::Item;
 use drop_helpers::answer::response;
 use drop_helpers::get_contracts;
 use drop_helpers::is_paused;
@@ -218,7 +221,7 @@ fn execute_receive_nft_withdraw(
 pub fn migrate(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
-    _msg: MigrateMsg,
+    msg: MigrateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
     let storage_contract_name = contract_version_metadata.contract.as_str();
@@ -235,6 +238,24 @@ pub fn migrate(
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
         deps.storage.remove("paused".as_bytes());
+
+        #[cw_serde]
+        pub struct ConfigDeprecated {
+            pub core_contract: Addr,
+            pub withdrawal_voucher_contract: Addr,
+            pub base_denom: String,
+        }
+
+        let old_config = Item::<ConfigDeprecated>::new("config").load(deps.storage)?;
+
+        let factory_contract = deps.api.addr_validate(&msg.factory_contract)?;
+
+        let new_config = Config {
+            factory_contract,
+            base_denom: old_config.base_denom,
+        };
+        CONFIG.save(deps.storage, &new_config)?;
+
         PAUSE.save(deps.storage, &Pause::default())?;
     }
 

@@ -22,6 +22,32 @@ pub struct ConfigOptional {
 }
 
 #[cw_serde]
+pub struct OldConfig {
+    pub token_contract: Addr,
+    pub puppeteer_contract: Addr,
+    pub strategy_contract: Addr,
+    pub staker_contract: Addr,
+    pub withdrawal_voucher_contract: Addr,
+    pub withdrawal_manager_contract: Addr,
+    pub validators_set_contract: Addr,
+    pub base_denom: String,
+    pub remote_denom: String,
+    pub idle_min_interval: u64,        //seconds
+    pub unbonding_period: u64,         //seconds
+    pub unbonding_safe_period: u64,    //seconds
+    pub unbond_batch_switch_time: u64, //seconds
+    pub pump_ica_address: Option<String>,
+    pub transfer_channel_id: String,
+    pub lsm_min_bond_amount: Uint128,
+    pub lsm_redeem_threshold: u64,        //amount of lsm denoms
+    pub lsm_redeem_maximum_interval: u64, //seconds
+    pub bond_limit: Option<Uint128>,
+    pub emergency_address: Option<String>,
+    pub min_stake_amount: Uint128,
+    pub icq_update_delay: u64, // blocks
+}
+
+#[cw_serde]
 pub struct Config {
     pub factory_contract: Addr,
     pub base_denom: String,
