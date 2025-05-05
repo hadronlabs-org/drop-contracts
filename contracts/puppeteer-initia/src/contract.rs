@@ -665,11 +665,20 @@ fn execute_redelegate(
     amount: Uint128,
     reply_to: String,
 ) -> ContractResult<Response<NeutronMsg>> {
+    if amount.is_zero() {
+        return Err(ContractError::InvalidFunds {
+            reason: "amount must be greater than 0".to_string(),
+        });
+    }
+
     let puppeteer_base = Puppeteer::default();
     deps.api.addr_validate(&reply_to)?;
+
     let config: Config = puppeteer_base.config.load(deps.storage)?;
     validate_sender(&config, &info.sender)?;
+
     puppeteer_base.validate_tx_idle_state(deps.as_ref())?;
+
     let delegator = puppeteer_base.ica.get_address(deps.storage)?;
     let redelegate_msg = MsgBeginRedelegate {
         delegator_address: delegator,
