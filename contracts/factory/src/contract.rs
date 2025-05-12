@@ -28,7 +28,7 @@ use drop_staking_base::msg::{
     withdrawal_manager::InstantiateMsg as WithdrawalManagerInstantiateMsg,
     withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
 };
-use drop_staking_base::state::factory::{PreInstantiatedContracts, STATE};
+use drop_staking_base::state::factory::{CodeIds, PreInstantiatedContracts, STATE};
 use drop_staking_base::state::splitter::Config as SplitterConfig;
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
@@ -49,7 +49,12 @@ pub fn instantiate(
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(info.sender.as_str()))?;
 
-    validate_pre_instantiated_contracts(deps.as_ref(), &env, &msg.pre_instantiated_contracts)?;
+    validate_pre_instantiated_contracts(
+        deps.as_ref(),
+        &env,
+        &msg.pre_instantiated_contracts,
+        &msg.code_ids,
+    )?;
 
     let attrs = vec![
         attr("base_denom", &msg.base_denom),
@@ -516,6 +521,7 @@ pub fn validate_contract_metadata(
     env: &Env,
     contract_addr: &Addr,
     valid_names: &[&str],
+    code_id: u64,
 ) -> ContractResult<()> {
     let contract_version = get_contract_version(deps, contract_addr)?;
 
@@ -553,6 +559,14 @@ pub fn validate_contract_metadata(
         });
     }
 
+    if contract_info.code_id != code_id {
+        return Err(ContractError::InvalidContractCodeId {
+            contract: contract_addr.to_string(),
+            expected: code_id.to_string(),
+            actual: contract_info.code_id.to_string(),
+        });
+    }
+
     Ok(())
 }
 
@@ -560,6 +574,7 @@ fn validate_pre_instantiated_contracts(
     deps: Deps,
     env: &Env,
     pre_instantiated_contracts: &PreInstantiatedContracts,
+    code_ids: &CodeIds,
 ) -> Result<(), ContractError> {
     // Validate native bond provider contract
     validate_contract_metadata(
@@ -570,6 +585,7 @@ fn validate_pre_instantiated_contracts(
             drop_native_bond_provider::contract::CONTRACT_NAME,
             drop_native_sync_bond_provider::contract::CONTRACT_NAME,
         ],
+        code_ids.native_bond_provider_code_id,
     )?;
 
     // Validate val ref address
@@ -579,6 +595,7 @@ fn validate_pre_instantiated_contracts(
             env,
             val_ref_address,
             &[drop_val_ref::contract::CONTRACT_NAME],
+            code_ids.val_ref_code_id.unwrap_or_default(),
         )?;
     }
 
@@ -591,6 +608,7 @@ fn validate_pre_instantiated_contracts(
             env,
             lsm_share_bond_provider_address,
             &[drop_lsm_share_bond_provider::contract::CONTRACT_NAME],
+            code_ids.lsm_share_bond_provider_code_id.unwrap_or_default(),
         )?;
     }
 
@@ -604,6 +622,7 @@ fn validate_pre_instantiated_contracts(
             drop_puppeteer_initia::contract::CONTRACT_NAME,
             drop_puppeteer_native::contract::CONTRACT_NAME,
         ],
+        code_ids.puppeteer_code_id,
     )?;
 
     // Validate unbonding and rewards pump contracts
@@ -613,6 +632,7 @@ fn validate_pre_instantiated_contracts(
             env,
             unbonding_pump_address,
             &[drop_pump::contract::CONTRACT_NAME],
+            code_ids.unbonding_pump_code_id.unwrap_or_default(),
         )?;
     }
     if let Some(rewards_pump_address) = &pre_instantiated_contracts.rewards_pump_address {
@@ -621,6 +641,7 @@ fn validate_pre_instantiated_contracts(
             env,
             rewards_pump_address,
             &[drop_pump::contract::CONTRACT_NAME],
+            code_ids.rewards_pump_code_id.unwrap_or_default(),
         )?;
     }
 

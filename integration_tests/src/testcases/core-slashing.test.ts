@@ -690,6 +690,10 @@ describe('Core Slashing', () => {
           validators_set_code_id: context.codeIds.validatorsSet,
           rewards_manager_code_id: context.codeIds.rewardsManager,
           splitter_code_id: context.codeIds.splitter,
+          native_bond_provider_code_id: context.codeIds.nativeBondProvider,
+          puppeteer_code_id: context.codeIds.puppeteer,
+          unbonding_pump_code_id: context.codeIds.pump,
+          rewards_pump_code_id: context.codeIds.pump,
         },
         pre_instantiated_contracts: {
           native_bond_provider_address:

@@ -1225,10 +1225,16 @@ export interface InstantiateMsg {
 export interface CodeIds {
   core_code_id: number;
   distribution_code_id: number;
+  lsm_share_bond_provider_code_id?: number | null;
+  native_bond_provider_code_id: number;
+  puppeteer_code_id: number;
   rewards_manager_code_id: number;
+  rewards_pump_code_id?: number | null;
   splitter_code_id: number;
   strategy_code_id: number;
   token_code_id: number;
+  unbonding_pump_code_id?: number | null;
+  val_ref_code_id?: number | null;
   validators_set_code_id: number;
   withdrawal_manager_code_id: number;
   withdrawal_voucher_code_id: number;

@@ -146,47 +146,89 @@ deploy_factory() {
   local pre_instantiated_contracts="$1"
 
   # TODO: calculate unbond batch switch time and unbonding period using params queried from the network
-  msg='{
-    "local_denom":"untrn",
-    "code_ids": {
-      "core_code_id":'"$core_code_id"',
-      "token_code_id":'"$token_code_id"',
-      "withdrawal_voucher_code_id":'"$withdrawal_voucher_code_id"',
-      "withdrawal_manager_code_id":'"$withdrawal_manager_code_id"',
-      "strategy_code_id":'"$strategy_code_id"',
-      "distribution_code_id":'"$distribution_code_id"',
-      "validators_set_code_id":'"$validators_set_code_id"',
-      "rewards_manager_code_id":'"$rewards_manager_code_id"',
-      "splitter_code_id": '"$splitter_code_id"'
-    },
-    "pre_instantiated_contracts": '"$pre_instantiated_contracts"',
-    "remote_opts":{
-      "connection_id":"'"$neutron_side_connection_id"'",
-      "transfer_channel_id":"'"$NEUTRON_SIDE_TRANSFER_CHANNEL_ID"'",
-      "denom":"'"$TARGET_BASE_DENOM"'",
-      "timeout":{
-        "local":'$TIMEOUT_LOCAL',
-        "remote":'$TIMEOUT_REMOTE'
+  msg=$(jq -n \
+    --arg local_denom "untrn" \
+    --arg core_code_id "$core_code_id" \
+    --arg token_code_id "$token_code_id" \
+    --arg withdrawal_voucher_code_id "$withdrawal_voucher_code_id" \
+    --arg withdrawal_manager_code_id "$withdrawal_manager_code_id" \
+    --arg strategy_code_id "$strategy_code_id" \
+    --arg distribution_code_id "$distribution_code_id" \
+    --arg validators_set_code_id "$validators_set_code_id" \
+    --arg rewards_manager_code_id "$rewards_manager_code_id" \
+    --arg splitter_code_id "$splitter_code_id" \
+    --arg native_bond_provider_code_id "$native_bond_provider_code_id" \
+    --arg puppeteer_code_id "$puppeteer_code_id" \
+    --arg lsm_share_bond_provider_code_id "$lsm_share_bond_provider_code_id" \
+    --arg unbonding_pump_code_id "$pump_code_id" \
+    --arg rewards_pump_code_id "$pump_code_id" \
+    --arg pre_instantiated_contracts "$pre_instantiated_contracts" \
+    --arg connection_id "$neutron_side_connection_id" \
+    --arg transfer_channel_id "$NEUTRON_SIDE_TRANSFER_CHANNEL_ID" \
+    --arg denom "$TARGET_BASE_DENOM" \
+    --argjson timeout_local "$TIMEOUT_LOCAL" \
+    --argjson timeout_remote "$TIMEOUT_REMOTE" \
+    --arg salt "$SALT" \
+    --arg subdenom "$SUBDENOM" \
+    --arg description "$TOKEN_METADATA_DESCRIPTION" \
+    --arg display "$TOKEN_METADATA_DISPLAY" \
+    --argjson exponent "$TOKEN_METADATA_EXPONENT" \
+    --arg name "$TOKEN_METADATA_NAME" \
+    --arg symbol "$TOKEN_METADATA_SYMBOL" \
+    --arg base_denom "$uatom_on_neutron_denom" \
+    --argjson idle_min_interval "$CORE_PARAMS_IDLE_MIN_INTERVAL" \
+    --arg unbond_batch_switch_time "$UNBOND_BATCH_SWITCH_TIME" \
+    --arg unbonding_safe_period "$UNBONDING_SAFE_PERIOD" \
+    --arg unbonding_period "$UNBONDING_PERIOD" \
+    --argjson icq_update_delay "$CORE_PARAMS_ICQ_UPDATE_DELAY" \
+    '{
+      local_denom: $local_denom,
+      code_ids: (
+        {
+          core_code_id: $core_code_id,
+          token_code_id: $token_code_id,
+          withdrawal_voucher_code_id: $withdrawal_voucher_code_id,
+          withdrawal_manager_code_id: $withdrawal_manager_code_id,
+          strategy_code_id: $strategy_code_id,
+          distribution_code_id: $distribution_code_id,
+          validators_set_code_id: $validators_set_code_id,
+          rewards_manager_code_id: $rewards_manager_code_id,
+          splitter_code_id: $splitter_code_id,
+          native_bond_provider_code_id: $native_bond_provider_code_id,
+          puppeteer_code_id: $puppeteer_code_id
+        }
+        + (if $lsm_share_bond_provider_code_id != "" then {lsm_share_bond_provider_code_id: $lsm_share_bond_provider_code_id} else {} end)
+        + (if $unbonding_pump_code_id != "" then {unbonding_pump_code_id: $unbonding_pump_code_id} else {} end)
+        + (if $rewards_pump_code_id != "" then {rewards_pump_code_id: $rewards_pump_code_id} else {} end)
+      ),
+      pre_instantiated_contracts: $pre_instantiated_contracts,
+      remote_opts: {
+        connection_id: $connection_id,
+        transfer_channel_id: $transfer_channel_id,
+        denom: $denom,
+        timeout: {
+          local: $timeout_local,
+          remote: $timeout_remote
+        }
+      },
+      salt: $salt,
+      subdenom: $subdenom,
+      token_metadata: {
+        description: $description,
+        display: $display,
+        exponent: $exponent,
+        name: $name,
+        symbol: $symbol
+      },
+      base_denom: $base_denom,
+      core_params: {
+        idle_min_interval: $idle_min_interval,
+        unbond_batch_switch_time: $unbond_batch_switch_time,
+        unbonding_safe_period: $unbonding_safe_period,
+        unbonding_period: $unbonding_period,
+        icq_update_delay: $icq_update_delay
       }
-    },
-    "salt":"'"$SALT"'",
-    "subdenom":"'"$SUBDENOM"'",
-    "token_metadata":{
-      "description":"'"$TOKEN_METADATA_DESCRIPTION"'",
-      "display":"'"$TOKEN_METADATA_DISPLAY"'",
-      "exponent":'$TOKEN_METADATA_EXPONENT',
-      "name":"'"$TOKEN_METADATA_NAME"'",
-      "symbol":"'"$TOKEN_METADATA_SYMBOL"'"
-    },
-    "base_denom":"'"$uatom_on_neutron_denom"'",
-    "core_params":{
-      "idle_min_interval":'$CORE_PARAMS_IDLE_MIN_INTERVAL',
-      "unbond_batch_switch_time":'"$UNBOND_BATCH_SWITCH_TIME"',
-      "unbonding_safe_period":'"$UNBONDING_SAFE_PERIOD"',
-      "unbonding_period":'"$UNBONDING_PERIOD"',
-      "icq_update_delay": '$CORE_PARAMS_ICQ_UPDATE_DELAY'
-    }
-  }'
+    }')
 
   local salt_hex="$(echo -n "$SALT" | xxd -p)"
 

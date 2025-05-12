@@ -542,6 +542,8 @@ describe('Core', () => {
           validators_set_code_id: context.codeIds.validatorsSet,
           rewards_manager_code_id: context.codeIds.rewardsManager,
           splitter_code_id: context.codeIds.splitter,
+          native_bond_provider_code_id: context.codeIds.nativeBondProvider,
+          puppeteer_code_id: context.codeIds.puppeteer,
         },
         pre_instantiated_contracts: {
           native_bond_provider_address:
