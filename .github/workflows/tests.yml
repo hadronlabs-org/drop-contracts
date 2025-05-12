@@ -36,7 +36,7 @@ jobs:
           profile: minimal
           override: true
       - name: Install cargo-tarpaulin
-        run: cargo install cargo-tarpaulin --version 0.29.1
+        run: cargo install cargo-tarpaulin --version 0.29.1 --locked
       - run: cargo tarpaulin --verbose --exclude-files "packages/*" --exclude-files
           "*/proto/*" --exclude-files "contracts/price-provider/*"
           --exclude-files "contracts/auto-withdrawer/*" --exclude-files
