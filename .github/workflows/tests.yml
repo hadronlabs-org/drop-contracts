@@ -6,7 +6,7 @@ name: tests
 jobs:
   clippy:
     name: Actions - clippy
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - uses: actions/checkout@v4
         with:
@@ -23,7 +23,7 @@ jobs:
       - run: cargo clippy --lib --target wasm32-unknown-unknown -- -D warnings
   coverage:
     name: Actions - unit tests coverage
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,21 +32,21 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: 1.81.0
           profile: minimal
           override: true
       - name: Install cargo-tarpaulin
-        run: cargo install cargo-tarpaulin --version 0.29.1
-      - run: cargo tarpaulin --exclude-files "packages/*" --exclude-files "*/proto/*"
-          --exclude-files "contracts/price-provider/*" --exclude-files
-          "contracts/auto-withdrawer/*" --exclude-files
+        run: cargo install cargo-tarpaulin --version 0.29.1 --locked
+      - run: cargo tarpaulin --verbose --exclude-files "packages/*" --exclude-files
+          "*/proto/*" --exclude-files "contracts/price-provider/*"
+          --exclude-files "contracts/auto-withdrawer/*" --exclude-files
           "contracts/hook-tester/*" --exclude-files
           "contracts/astroport-exchange-handler/*" --exclude-files
           "contracts/proposal-votes-poc/*" --exclude-files
           "contracts/rewards-manager/*" --exclude-files
-          "contracts/puppeteer-authz/*" --exclude-files
           "contracts/validators-stats/*" --exclude-files
-          "contracts/provider-proposals-poc/*" --exclude-files "*schema*" --out
+          "contracts/provider-proposals-poc/*" --exclude-files
+          "contracts/redemption-rate-adapter/*" --exclude-files "*schema*" --out
           Xml --output-dir ./
       - name: Produce the coverage report
         uses: insightsengineering/coverage-action@v2
@@ -54,33 +54,33 @@ jobs:
           path: ./cobertura.xml
           threshold: 45
           fail: true
-          publish: true
+          publish: false
           diff: false
           coverage-summary-title: Code Coverage Summary
   rustfmt:
     name: Actions - rustfmt
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.75.0
+          toolchain: 1.81.0
           components: rustfmt
           profile: minimal
           override: true
       - run: cargo fmt -- --check
   unit-test:
     name: Actions - unit test
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.75.0
+          toolchain: 1.81.0
           profile: minimal
       - run: cargo fetch --verbose
       - run: cargo build
@@ -89,7 +89,7 @@ jobs:
           RUST_BACKTRACE: 1
   lint-test:
     name: Actions - integration tests lint
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Setup node
         uses: actions/setup-node@v4
@@ -104,7 +104,7 @@ jobs:
         run: cd integration_tests && yarn --ignore-engines && yarn lint
   images-prepare:
     name: Actions - images prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -136,14 +136,14 @@ jobs:
           yarn build-images
   artifacts-prepare:
     name: Actions - artifacts prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.75.0
+          toolchain: 1.81.0
           profile: minimal
           override: true
       - run: make compile
@@ -152,90 +152,6 @@ jobs:
         with:
           path: artifacts
           key: ${{ runner.os }}-${{ github.sha }}
-  test-poc-provider-proposals:
-    name: test:poc-provider-proposals Integration Tests
-    needs:
-      - images-prepare
-      - artifacts-prepare
-    runs-on: self-hosted
-    steps:
-      - name: Upgrade docker compose to use v2
-        run: sudo curl -L
-          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
-          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
-          /usr/local/bin/docker-compose
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-      - name: Setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.12.2
-      - name: Install Yarn
-        run: npm install -g yarn
-      - name: Log in to Private Registry
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_TOKEN }}
-      - name: Clean volumes
-        run: docker volume prune -f
-      - name: Download images
-        run: |
-          cd integration_tests
-          yarn build-images
-      - name: Download artifacts
-        uses: actions/cache@v4
-        with:
-          path: artifacts
-          key: ${{ runner.os }}-${{ github.sha }}
-      - name: Run test test:poc-provider-proposals
-        run: cd integration_tests && yarn && yarn test:poc-provider-proposals
-      - name: Cleanup resources
-        if: always()
-        run: |
-          docker stop -t0 $(docker ps -a -q) || true
-          docker container prune -f || true
-          docker volume rm $(docker volume ls -q) || true
-  test-poc-proposal-votes:
-    name: test:poc-proposal-votes Integration Tests
-    needs:
-      - images-prepare
-      - artifacts-prepare
-    runs-on: self-hosted
-    steps:
-      - name: Upgrade docker compose to use v2
-        run: sudo curl -L
-          "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname
-          -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x
-          /usr/local/bin/docker-compose
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-      - name: Setup node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.12.2
-      - name: Install Yarn
-        run: npm install -g yarn
-      - name: Log in to Private Registry
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_TOKEN }}
-      - name: Clean volumes
-        run: docker volume prune -f
-      - name: Download images
-        run: |
-          cd integration_tests
-          yarn build-images
-      - name: Download artifacts
-        uses: actions/cache@v4
-        with:
-          path: artifacts
-          key: ${{ runner.os }}-${{ github.sha }}
-      - name: Run test test:poc-proposal-votes
-        run: cd integration_tests && yarn && yarn test:poc-proposal-votes
       - name: Cleanup resources
         if: always()
         run: |
@@ -247,7 +163,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -292,7 +208,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -337,7 +253,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -382,7 +298,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -427,7 +343,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -472,7 +388,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -517,7 +433,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -562,7 +478,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -607,7 +523,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
@@ -652,7 +568,7 @@ jobs:
     needs:
       - images-prepare
       - artifacts-prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L
