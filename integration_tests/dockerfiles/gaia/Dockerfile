@@ -1,21 +1,28 @@
-ARG IMG_TAG=latest
-
-FROM golang:1.20-alpine AS builder
+FROM golang:1.23-alpine AS builder
 WORKDIR /src/app/
+ENV PACKAGES="curl build-base make git libc-dev bash file gcc linux-headers eudev-dev"
+RUN apk add --no-cache $PACKAGES
+
+ARG WASMVM_VERSION=v2.2.3
+ADD https://github.com/CosmWasm/wasmvm/releases/download/${WASMVM_VERSION}/libwasmvm_muslc.aarch64.a /lib/libwasmvm_muslc.aarch64.a
+ADD https://github.com/CosmWasm/wasmvm/releases/download/${WASMVM_VERSION}/libwasmvm_muslc.x86_64.a /lib/libwasmvm_muslc.x86_64.a
+RUN sha256sum /lib/libwasmvm_muslc.aarch64.a | grep 6641730781bb1adc4bdf04a1e0f822b9ad4fb8ed57dcbbf575527e63b791ae41
+RUN sha256sum /lib/libwasmvm_muslc.x86_64.a | grep 32503fe35a7be202c5f7c3051497d6e4b3cd83079a61f5a0bf72a2a455b6d820
+RUN cp "/lib/libwasmvm_muslc.$(uname -m).a" /lib/libwasmvm_muslc.a
+
+
 COPY go.mod go.sum* ./
 RUN go mod download
+
 COPY . .
-ENV PACKAGES curl make git libc-dev bash gcc linux-headers eudev-dev python3
-RUN apk add --no-cache $PACKAGES
-RUN CGO_ENABLED=0 make install
+RUN LEDGER_ENABLED=false LINK_STATICALLY=true BUILD_TAGS=muslc make build
+RUN echo "Ensuring binary is statically linked ..."  \
+    && file /src/app/build/gaiad | grep "statically linked"
 
-
-FROM golang:1.20-alpine
-ARG IMG_TAG
-RUN apk add --no-cache bash jq
-COPY --from=builder /go/bin/gaiad /usr/local/bin/
+FROM alpine:latest
+RUN apk add --no-cache build-base jq bash
+COPY --from=builder /src/app/build/gaiad /usr/local/bin/
 EXPOSE 26656 26657 1317 9090
 USER 0
 
 ENTRYPOINT ["gaiad"]
-

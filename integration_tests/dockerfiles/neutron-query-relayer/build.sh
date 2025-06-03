@@ -1,7 +1,7 @@
 #!/bin/bash
 DIR="$(dirname $0)"
 cd $DIR
-git clone -b foxpy/low-submission-margin-period https://github.com/neutron-org/neutron-query-relayer
+git clone -b feat/low-submission-margin-period-updated https://github.com/neutron-org/neutron-query-relayer
 VERSION=$(cat ../../package.json | jq -r '.version')
 if [[ "$CI" == "true" ]]; then
     VERSION="_$VERSION"
