@@ -157,6 +157,9 @@ describe('Core', () => {
         gaia: {
           genesis_opts: {
             'app_state.staking.params.unbonding_time': `${UNBONDING_TIME}s`,
+            'app_state.staking.params.validator_bond_factor': '250000',
+            'app_state.staking.params.global_liquid_staking_cap': '1',
+            'app_state.staking.params.validator_liquid_staking_cap': '1',
           },
         },
       },
@@ -231,7 +234,7 @@ describe('Core', () => {
   });
 
   afterAll(async () => {
-    await context.park.stop();
+    // await context.park.stop();
   });
 
   it('transfer tokens to neutron', async () => {
@@ -1166,7 +1169,7 @@ describe('Core', () => {
   it('tokenize share on gaia side', async () => {
     const res = await context.park.executeInNetwork(
       'gaia',
-      `gaiad tx staking tokenize-share ${context.validatorAddress} 600000stake ${context.gaiaUserAddress} --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --gas-prices 0.025stake --output json`,
+      `gaiad tx liquid tokenize-share ${context.validatorAddress} 600000stake ${context.gaiaUserAddress} --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --gas-prices 0.025stake --output json`,
     );
     expect(res.exitCode).toBe(0);
     const out = JSON.parse(res.out);
@@ -1744,6 +1747,11 @@ describe('Core', () => {
           coreContractClient,
           puppeteerContractClient,
         } = context;
+
+        await context.park.executeInNetwork(
+          'gaia',
+          `${context.park.config.networks['gaia'].binary} tx bank send demo1 ${context.puppeteerIcaAddress} 10000stake --keyring-backend=test --home=/opt --fees 10000stake -y`,
+        );
 
         await waitForPuppeteerICQ(
           gaiaClient,
@@ -2420,7 +2428,7 @@ describe('Core', () => {
             {
               const res = await context.park.executeInNetwork(
                 'gaia',
-                `gaiad tx staking tokenize-share ${context.validatorAddress} 60000stake ${context.gaiaUserAddress} --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --gas-prices 0.025stake --output json`,
+                `gaiad tx liquid tokenize-share ${context.validatorAddress} 60000stake ${context.gaiaUserAddress} --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --gas-prices 0.025stake --output json`,
               );
               expect(res.exitCode).toBe(0);
               const out = JSON.parse(res.out);
@@ -2442,7 +2450,7 @@ describe('Core', () => {
             {
               const res = await context.park.executeInNetwork(
                 'gaia',
-                `gaiad tx staking tokenize-share ${context.secondValidatorAddress} 60000stake ${context.gaiaUserAddress} --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --gas-prices 0.025stake --output json`,
+                `gaiad tx liquid tokenize-share ${context.secondValidatorAddress} 60000stake ${context.gaiaUserAddress} --from ${context.gaiaUserAddress} --yes --chain-id testgaia --home=/opt --keyring-backend=test --gas auto --gas-adjustment 2 --gas-prices 0.025stake --output json`,
               );
               expect(res.exitCode).toBe(0);
               const out = JSON.parse(res.out);
@@ -3464,7 +3472,7 @@ describe('Core', () => {
         );
         expect(balances).toEqual([
           {
-            amount: '1000000',
+            amount: '1010000',
             denom: context.park.config.networks.gaia.denom,
           },
         ]);

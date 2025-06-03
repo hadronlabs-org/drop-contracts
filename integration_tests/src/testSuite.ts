@@ -272,6 +272,11 @@ const relayersConfig = {
     image: `${ORG}neutron-query-relayer-test${VERSION}`,
     log_level: 'debug',
     type: 'neutron',
+    environment: {
+      RELAYER_NEUTRON_CHAIN_DENOM: 'untrn',
+      RELAYER_NEUTRON_CHAIN_MAX_GAS_PRICE: 1000,
+      RELAYER_NEUTRON_CHAIN_GAS_PRICE_MULTIPLIER: 1.1,
+    },
   },
 };
 

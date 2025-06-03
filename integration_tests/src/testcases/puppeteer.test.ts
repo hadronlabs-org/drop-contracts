@@ -25,6 +25,7 @@ describe('Puppeteer', () => {
     gaiaClient?: SigningStargateClient;
     gaiaUserAddress?: string;
     neutronUserAddress?: string;
+    hookContract?: string;
   } = {};
 
   beforeAll(async (t) => {
@@ -152,7 +153,7 @@ describe('Puppeteer', () => {
       (
         await context.park.executeInNetwork(
           'gaia',
-          `${context.park.config.networks['gaia'].binary} query staking tokenize-share-lock-info ${context.icaAddress} --output json`,
+          `${context.park.config.networks['gaia'].binary} query liquid tokenize-share-lock-info ${context.icaAddress} --output json`,
         )
       ).out,
     ).status;
@@ -161,6 +162,10 @@ describe('Puppeteer', () => {
 
   it('disable tokenize shares', async () => {
     const { contractClient, neutronUserAddress } = context;
+    await context.park.executeInNetwork(
+      'gaia',
+      `${context.park.config.networks['gaia'].binary} tx bank send demo1 ${context.icaAddress} 1000000stake --keyring-backend=test --home=/opt --fees 10000stake -y`,
+    );
 
     const res = await contractClient.disableTokenizeShares(
       neutronUserAddress,
@@ -185,7 +190,7 @@ describe('Puppeteer', () => {
       (
         await context.park.executeInNetwork(
           'gaia',
-          `${context.park.config.networks['gaia'].binary} query staking tokenize-share-lock-info ${context.icaAddress} --output json`,
+          `${context.park.config.networks['gaia'].binary} query liquid tokenize-share-lock-info ${context.icaAddress} --output json`,
         )
       ).out,
     ).status;
@@ -218,7 +223,7 @@ describe('Puppeteer', () => {
       (
         await context.park.executeInNetwork(
           'gaia',
-          `${context.park.config.networks['gaia'].binary} query staking tokenize-share-lock-info ${context.icaAddress} --output json`,
+          `${context.park.config.networks['gaia'].binary} query liquid tokenize-share-lock-info ${context.icaAddress} --output json`,
         )
       ).out,
     ).status;
