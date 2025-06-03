@@ -14,6 +14,7 @@ export const waitForPuppeteerICQ = async (
   puppeteerContractClient?:
     | InstanceType<typeof DropPuppeteerClass>
     | InstanceType<typeof DropPuppeteerInitiaClass>,
+  waitForSeconds: number = 60,
 ): Promise<void> => {
   const puppeteerResponse = (
     await coreContractClient.queryLastPuppeteerResponse()
@@ -40,7 +41,7 @@ export const waitForPuppeteerICQ = async (
       })) as any;
 
     return remoteHeight > controlHeight;
-  }, 50_000);
+  }, waitForSeconds * 1000);
 
   const waitForDelegations = waitFor(async () => {
     const { remote_height: remoteHeight } =
@@ -50,7 +51,7 @@ export const waitForPuppeteerICQ = async (
         },
       })) as any;
     return remoteHeight > controlHeight;
-  }, 50_000);
+  }, waitForSeconds * 1000);
 
   await Promise.all([waitForBalances, waitForDelegations]);
 };

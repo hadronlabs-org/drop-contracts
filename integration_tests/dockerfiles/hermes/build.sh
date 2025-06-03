@@ -8,5 +8,13 @@ if [[ "$CI" == "true" ]]; then
 else
     VERSION=":$VERSION"
 fi
-docker build . -t ${ORG}hermes-test${VERSION}
+ARCH=$(uname -m)
+
+if [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
+  DOCKERFILE="Dockerfile.aarch64"
+else
+  DOCKERFILE="Dockerfile.x86_64"
+fi
+docker build -f $DOCKERFILE -t ${ORG}hermes-test${VERSION} .
+
 

@@ -16,6 +16,17 @@ pub mod cosmos {
     }
 }
 
+pub mod gaia {
+    pub mod liquid {
+        pub mod module {
+            include!("./gaia.liquid.module.v1.rs");
+        }
+        pub mod v1beta1 {
+            include!("./gaia.liquid.v1beta1.rs");
+        }
+    }
+}
+
 pub mod liquidstaking {
     pub mod distribution {
         pub mod v1beta1 {

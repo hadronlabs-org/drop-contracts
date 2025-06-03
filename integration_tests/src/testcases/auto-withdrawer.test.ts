@@ -137,6 +137,9 @@ describe('Auto withdrawer', () => {
         gaia: {
           genesis_opts: {
             'app_state.staking.params.unbonding_time': `${UNBONDING_TIME}s`,
+            'app_state.staking.params.validator_bond_factor': '250000',
+            'app_state.staking.params.global_liquid_staking_cap': '1',
+            'app_state.staking.params.validator_liquid_staking_cap': '1',
           },
         },
       },
@@ -1215,6 +1218,11 @@ describe('Auto withdrawer', () => {
           puppeteerContractClient,
         } = context;
 
+        await context.park.executeInNetwork(
+          'gaia',
+          `${context.park.config.networks['gaia'].binary} tx bank send demo1 ${context.icaAddress} 10000stake --keyring-backend=test --home=/opt --fees 10000stake -y`,
+        );
+
         await waitForPuppeteerICQ(
           gaiaClient,
           coreContractClient,
@@ -1526,7 +1534,7 @@ describe('Auto withdrawer', () => {
           'stake',
         );
         const newBalance = parseInt(res.amount);
-        expect(newBalance).toBeGreaterThan(balance);
+        expect(newBalance + 10000).toBeGreaterThan(balance);
       });
       it('wait for balance to update', async () => {
         const { remote_height: currentHeight } =

@@ -19,14 +19,14 @@ use drop_helpers::{
     interchain::prepare_any_msg,
     validation::validate_addresses,
 };
+use drop_proto::proto::gaia::liquid::v1beta1::{
+    MsgDisableTokenizeShares, MsgEnableTokenizeShares, MsgRedeemTokensForShares,
+};
 use drop_proto::proto::{
-    cosmos::{
-        base::v1beta1::Coin as ProtoCoin,
-        staking::v1beta1::{MsgDisableTokenizeShares, MsgEnableTokenizeShares},
-    },
+    cosmos::base::v1beta1::Coin as ProtoCoin,
     liquidstaking::{
         distribution::v1beta1::MsgWithdrawDelegatorReward,
-        staking::v1beta1::{MsgBeginRedelegate, MsgRedeemTokensforShares, MsgTokenizeShares},
+        staking::v1beta1::{MsgBeginRedelegate, MsgTokenizeShares},
     },
 };
 use drop_puppeteer_base::{
@@ -354,7 +354,7 @@ fn execute_delegate(
         }
     );
 
-    let amount_to_stake = items.iter().map(|(_, amount)| *amount).sum();
+    let amount_to_stake: Uint128 = items.iter().map(|(_, amount)| *amount).sum();
 
     ensure!(
         non_staked_balance >= amount_to_stake,
@@ -607,7 +607,7 @@ fn execute_enable_tokenize_shares(
 
     any_msgs.push(prepare_any_msg(
         enable_tokenize_shares_msg,
-        "/cosmos.staking.v1beta1.MsgEnableTokenizeShares",
+        "/gaia.liquid.v1beta1.MsgEnableTokenizeShares",
     )?);
     let submsg = compose_submsg(
         deps.branch(),
@@ -638,8 +638,9 @@ fn execute_disable_tokenize_shares(
 
     any_msgs.push(prepare_any_msg(
         disable_tokenize_shares_msg,
-        "/cosmos.staking.v1beta1.MsgDisableTokenizeShares",
+        "/gaia.liquid.v1beta1.MsgDisableTokenizeShares",
     )?);
+
     let submsg = compose_submsg(
         deps.branch(),
         config,
@@ -909,14 +910,14 @@ fn execute_redeem_shares(
     let delegator = puppeteer_base.ica.get_address(deps.storage)?;
     let any_msgs = items
         .iter()
-        .map(|one| MsgRedeemTokensforShares {
+        .map(|one| MsgRedeemTokensForShares {
             delegator_address: delegator.to_string(),
             amount: Some(ProtoCoin {
                 denom: one.remote_denom.to_string(),
                 amount: one.amount.to_string(),
             }),
         })
-        .map(|msg| prepare_any_msg(msg, "/cosmos.staking.v1beta1.MsgRedeemTokensForShares"))
+        .map(|msg| prepare_any_msg(msg, "/gaia.liquid.v1beta1.MsgRedeemTokensForShares"))
         .collect::<NeutronResult<Vec<ProtobufAny>>>()?;
     let submsg = compose_submsg(
         deps.branch(),

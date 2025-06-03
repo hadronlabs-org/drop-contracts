@@ -751,6 +751,7 @@ export interface ConfigOptional {
     base_denom?: string | null;
     emergency_address?: string | null;
     factory_contract?: string | null;
+    icq_update_delay?: number | null;
     idle_min_interval?: number | null;
     pump_ica_address?: string | null;
     remote_denom?: string | null;
