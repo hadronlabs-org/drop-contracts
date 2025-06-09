@@ -23,3 +23,14 @@ pub mod liquidstaking {
         }
     }
 }
+
+pub mod gaia {
+    pub mod liquid {
+        pub mod module {
+            include!("./proto/gaia.liquid.module.v1.rs");
+        }
+        pub mod v1beta1 {
+            include!("./proto/gaia.liquid.v1beta1.rs");
+        }
+    }
+}

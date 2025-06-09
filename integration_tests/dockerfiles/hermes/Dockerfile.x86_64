@@ -1,0 +1,29 @@
+FROM ubuntu:24.04
+ARG HERMES_VERSION=v1.12.0
+ENV DEBIAN_FRONTEND=noninteractive
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y wget ca-certificates && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get clean && \
+    ARCH=$(uname -m) && \
+    case "$ARCH" in \
+      x86_64) PLATFORM="x86_64" ;; \
+      aarch64) PLATFORM="aarch64" ;; \
+      *) echo "Unsupported architecture: $ARCH" && exit 1 ;; \
+    esac && \
+    TARNAME="hermes-${HERMES_VERSION}-${PLATFORM}-unknown-linux-gnu.tar.gz" && \
+    wget "https://github.com/informalsystems/hermes/releases/download/${HERMES_VERSION}/${TARNAME}" && \
+    tar -xf "$TARNAME" && \
+    # определить имя файла
+    if [ -f "hermes" ]; then \
+        mv hermes /bin/hermes ; \
+    elif [ -f "hermes-${HERMES_VERSION}-${PLATFORM}-unknown-linux-gnu" ]; then \
+        mv "hermes-${HERMES_VERSION}-${PLATFORM}-unknown-linux-gnu" /bin/hermes ; \
+    else \
+        echo "Hermes binary not found after extraction!" && exit 1 ; \
+    fi && \
+    chmod +x /bin/hermes && \
+    rm -rf "$TARNAME"
+
+ENTRYPOINT ["hermes", "start"]

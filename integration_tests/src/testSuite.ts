@@ -1,6 +1,10 @@
 import cosmopark, { CosmoparkConfig } from '@neutron-org/cosmopark';
 import { DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
-import { StargateClient } from '@cosmjs/stargate';
+import {
+  QueryClient,
+  setupIbcExtension,
+  StargateClient,
+} from '@cosmjs/stargate';
 import { Client as NeutronClient } from '@neutron-org/client-ts';
 import { waitFor } from './helpers/waitFor';
 import { sleep } from './helpers/sleep';
@@ -10,6 +14,8 @@ import {
   CosmoparkRelayer,
 } from '@neutron-org/cosmopark/lib/types';
 import { Suite } from 'vitest';
+import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
+
 const packageJSON = require(`${__dirname}/../package.json`);
 const VERSION = (process.env.CI ? '_' : ':') + packageJSON.version;
 const ORG = process.env.CI ? 'neutronorg/lionco-contracts:' : '';
@@ -31,7 +37,13 @@ const TIMEOUT = 10_000;
 const redefinedParams =
   process.env.REMOTE_CHAIN_OPTS && fs.existsSync(process.env.REMOTE_CHAIN_OPTS)
     ? JSON.parse(fs.readFileSync(process.env.REMOTE_CHAIN_OPTS).toString())
-    : {};
+    : {
+        commands: {
+          addGenesisAccount: 'genesis add-genesis-account',
+          gentx: 'genesis gentx',
+          collectGenTx: 'genesis collect-gentxs',
+        },
+      };
 
 const networkConfigs = {
   lsm: {
@@ -51,6 +63,11 @@ const networkConfigs = {
       'app_state.slashing.params.slash_fraction_downtime': '0.1',
       'app_state.staking.params.validator_bond_factor': '10',
       'app_state.staking.params.unbonding_time': '1814400s',
+      'app_state.feemarket.params.beta': '0.0',
+      'app_state.feemarket.params.max_learning_rate': '0.0',
+      'app_state.feemarket.params.min_learning_rate': '0.0',
+      'app_state.feemarket.params.min_base_gas_price': '0.001',
+      'app_state.feemarket.state.base_gas_price': '0.001',
       'app_state.mint.minter.inflation': '0.9',
       'app_state.mint.params.inflation_max': '0.95',
       'app_state.mint.params.inflation_min': '0.5',
@@ -86,13 +103,7 @@ const networkConfigs = {
     trace: true,
     validators: 2,
     commands: redefinedParams.commands,
-    validators_balance: [
-      '1900000000',
-      '100000000',
-      '100000000',
-      '100000000',
-      '100000000',
-    ],
+    validators_balance: ['1900000000', '100000000'],
     genesis_opts: redefinedParams.genesisOpts || {
       'app_state.slashing.params.downtime_jail_duration': '10s',
       'app_state.slashing.params.signed_blocks_window': '10',
@@ -100,6 +111,11 @@ const networkConfigs = {
       'app_state.slashing.params.slash_fraction_downtime': '0.1',
       'app_state.staking.params.validator_bond_factor': '10',
       'app_state.staking.params.unbonding_time': '1814400s',
+      'app_state.feemarket.params.beta': '0.0',
+      'app_state.feemarket.params.max_learning_rate': '0.0',
+      'app_state.feemarket.params.min_learning_rate': '0.0',
+      'app_state.feemarket.params.min_base_gas_price': '0.001',
+      'app_state.feemarket.state.base_gas_price': '0.001',
       'app_state.mint.minter.inflation': '0.9',
       'app_state.mint.params.inflation_max': '0.95',
       'app_state.mint.params.inflation_min': '0.5',
@@ -125,6 +141,80 @@ const networkConfigs = {
     post_start: redefinedParams.postUpload || [
       `/opt/init-gaia.sh > /opt/init-gaia.log 2>&1`,
     ],
+  },
+  neutronv2: {
+    binary: 'neutrond',
+    chain_id: 'ntrntest',
+    denom: 'untrn',
+    image: `${ORG}neutronv2-test${VERSION}`,
+    prefix: 'neutron',
+    loglevel: 'debug',
+    trace: true,
+    public: true,
+    validators: 2,
+    validators_balance: ['1900000000', '100000000', '100000000'],
+    upload: [
+      './artifacts/contracts',
+      './artifacts/contracts_thirdparty',
+      './artifacts/scripts/init-neutrond.sh',
+    ],
+    post_init: ['CHAINID=ntrntest CHAIN_DIR=/opt /opt/init-neutrond.sh'],
+    genesis_opts: {
+      'app_state.crisis.constant_fee.denom': 'untrn',
+    },
+    config_opts: {
+      'consensus.timeout_commit': '500ms',
+      'consensus.timeout_propose': '500ms',
+    },
+    app_opts: {
+      'api.enable': 'true',
+      'api.address': 'tcp://0.0.0.0:1317',
+      'api.swagger': 'true',
+      'grpc.enable': 'true',
+      'grpc.address': '0.0.0.0:9090',
+      'minimum-gas-prices': '0.0025untrn',
+      'rosetta.enable': 'true',
+      'telemetry.prometheus-retention-time': 1000,
+    },
+  },
+  initia: {
+    binary: redefinedParams.binary || 'initiad',
+    chain_id: 'testinitia',
+    denom: redefinedParams.denom || 'uinit',
+    image: `${ORG}${process.env.REMOTE_CHAIN ?? 'initia-test'}${VERSION}`,
+    prefix: redefinedParams.prefix || 'init',
+    trace: true,
+    validators: 2,
+    commands: redefinedParams.commands,
+    validators_balance: ['100000000', '100000000'],
+    genesis_opts: redefinedParams.genesisOpts || {
+      'app_state.slashing.params.downtime_jail_duration': '10s',
+      'app_state.slashing.params.signed_blocks_window': '10',
+      'app_state.slashing.params.min_signed_per_window': '0.9',
+      'app_state.slashing.params.slash_fraction_downtime': '0.1',
+      'app_state.staking.params.validator_bond_factor': '10',
+      'app_state.staking.params.unbonding_time': '1814400s',
+      'app_state.mint.minter.inflation': '0.9',
+      'app_state.mint.params.inflation_max': '0.95',
+      'app_state.mint.params.inflation_min': '0.5',
+      'app_state.interchainaccounts.host_genesis_state.params.allow_messages': [
+        '*',
+      ],
+    },
+    config_opts: {
+      'rpc.laddr': 'tcp://0.0.0.0:26657',
+    },
+    app_opts: {
+      'api.enable': true,
+      'api.address': 'tcp://0.0.0.0:1317',
+      'api.swagger': true,
+      'grpc.enable': true,
+      'grpc.address': '0.0.0.0:9090',
+      'minimum-gas-prices': redefinedParams.denom
+        ? `0${redefinedParams.denom}`
+        : '0uinit',
+      'rosetta.enable': true,
+    },
   },
   neutron: {
     binary: 'neutrond',
@@ -167,9 +257,9 @@ const relayersConfig = {
     balance: '1000000000',
     binary: 'hermes',
     config: {
-      'chains.0.gas_multiplier': 1.2,
+      'chains.0.gas_multiplier': 1.8,
       'chains.0.trusting_period': '112h0m0s',
-      'chains.1.gas_multiplier': 1.2,
+      'chains.1.gas_multiplier': 1.8,
       'chains.1.trusting_period': '168h0m0s',
     },
     image: `${ORG}hermes-test${VERSION}`,
@@ -182,6 +272,11 @@ const relayersConfig = {
     image: `${ORG}neutron-query-relayer-test${VERSION}`,
     log_level: 'debug',
     type: 'neutron',
+    environment: {
+      RELAYER_NEUTRON_CHAIN_DENOM: 'untrn',
+      RELAYER_NEUTRON_CHAIN_MAX_GAS_PRICE: 1000,
+      RELAYER_NEUTRON_CHAIN_GAS_PRICE_MULTIPLIER: 1.1,
+    },
   },
 };
 
@@ -252,7 +347,23 @@ const awaitNeutronChannels = (rest: string, rpc: string): Promise<void> =>
       await sleep(10000);
       return false;
     }
-  }, 100_000);
+  }, 500_000);
+
+export const awaitTargetChannels = (rpc: string): Promise<void> =>
+  waitFor(async () => {
+    try {
+      const tmClient = await Tendermint34Client.connect(rpc);
+      const client = QueryClient.withExtensions(tmClient, setupIbcExtension);
+      const res = await client.ibc.channel.allChannels();
+      if (res.channels.length > 0 && res.channels[0].state === 3) {
+        return true;
+      }
+      await sleep(10000);
+    } catch (e) {
+      await sleep(10000);
+      return false;
+    }
+  }, 500_000);
 
 export const generateWallets = (): Promise<Record<Keys, string>> =>
   keys.reduce(
@@ -377,6 +488,7 @@ export const setupPark = async (
       mnemonic: wallets.neutronqueryrelayer,
     } as any);
   }
+
   const instance = await cosmopark.create(config);
   await Promise.all(
     Object.entries(instance.ports).map(([network, ports]) =>

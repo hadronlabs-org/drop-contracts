@@ -1,11 +1,14 @@
 use crate::proto::{
     cosmos::base::v1beta1::Coin as ProtoCoin,
+    gaia::liquid::v1beta1::{
+        MsgRedeemTokensForShares, MsgRedeemTokensForSharesResponse, MsgTokenizeShares,
+        MsgTokenizeSharesResponse,
+    },
     liquidstaking::{
         distribution::v1beta1::MsgWithdrawDelegatorReward,
         staking::v1beta1::{
             MsgBeginRedelegate, MsgBeginRedelegateResponse, MsgDelegateResponse,
-            MsgRedeemTokensforShares, MsgRedeemTokensforSharesResponse, MsgTokenizeShares,
-            MsgTokenizeSharesResponse, MsgUndelegateResponse,
+            MsgUndelegateResponse,
         },
     },
 };
@@ -875,14 +878,14 @@ fn execute_redeem_shares(
     let delegator = puppeteer_base.ica.get_address(deps.storage)?;
     let any_msgs = items
         .iter()
-        .map(|one| MsgRedeemTokensforShares {
+        .map(|one| MsgRedeemTokensForShares {
             delegator_address: delegator.to_string(),
             amount: Some(ProtoCoin {
                 denom: one.remote_denom.to_string(),
                 amount: one.amount.to_string(),
             }),
         })
-        .map(|msg| prepare_any_msg(msg, "/cosmos.staking.v1beta1.MsgRedeemTokensForShares"))
+        .map(|msg| prepare_any_msg(msg, "/gaia.liquid.v1beta1.MsgRedeemTokensForShares"))
         .collect::<NeutronResult<Vec<ProtobufAny>>>()?;
     let submsg = compose_submsg(
         deps.branch(),
@@ -1104,7 +1107,7 @@ fn get_answers_from_msg_data(
                     },
                 )
             }
-            "/cosmos.staking.v1beta1.MsgTokenizeShares" => {
+            "/gaia.liquid.v1beta1.MsgTokenizeShares" => {
                 let out: MsgTokenizeSharesResponse = decode_message_response(&item.data)?;
                 ResponseAnswer::TokenizeSharesResponse(
                     drop_puppeteer_base::proto::MsgTokenizeSharesResponse {
@@ -1126,8 +1129,8 @@ fn get_answers_from_msg_data(
                     drop_puppeteer_base::proto::MsgGrantResponse {},
                 )
             }
-            "/cosmos.staking.v1beta1.MsgRedeemTokensForShares" => {
-                let out: MsgRedeemTokensforSharesResponse = decode_message_response(&item.data)?;
+            "/gaia.liquid.v1beta1.MsgRedeemTokensForShares" => {
+                let out: MsgRedeemTokensForSharesResponse = decode_message_response(&item.data)?;
                 ResponseAnswer::RedeemTokensforSharesResponse(
                     drop_puppeteer_base::proto::MsgRedeemTokensforSharesResponse {
                         amount: out.amount.map(convert_coin).transpose()?,

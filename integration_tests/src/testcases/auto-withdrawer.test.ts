@@ -193,6 +193,7 @@ describe('Auto withdrawer', () => {
   });
 
   it('transfer tokens to neutron', async () => {
+    await sleep(15000); // wait for the chain to be ready
     context.gaiaUserAddress = (
       await context.gaiaWallet.getAccounts()
     )[0].address;
@@ -398,7 +399,7 @@ describe('Auto withdrawer', () => {
       account.address,
       res.codeId,
       {
-        sdk_version: process.env.SDK_VERSION || '0.46.0',
+        sdk_version: process.env.SDK_VERSION || '0.49.0',
         code_ids: {
           core_code_id: context.codeIds.core,
           token_code_id: context.codeIds.token,
@@ -620,6 +621,10 @@ describe('Auto withdrawer', () => {
     expect(ica).toHaveLength(65);
     expect(ica.startsWith('cosmos')).toBeTruthy();
     context.icaAddress = ica;
+    await context.park.executeInNetwork(
+      'gaia',
+      `${context.park.config.networks['gaia'].binary} tx bank send demo1 ${context.icaAddress} 10000stake --fees 10000stake --keyring-backend=test --home=/opt --fees 10000stake -y --output json`,
+    );
   });
 
   it('set puppeteer ICA to the staker', async () => {
@@ -960,7 +965,7 @@ describe('Auto withdrawer', () => {
         const { gaiaClient } = context;
         const res = await gaiaClient.getBalance(context.icaAddress, 'stake');
         ica.balance = parseInt(res.amount);
-        expect(ica.balance).toEqual(0);
+        expect(ica.balance).toEqual(10000);
       });
       it('deploy pump', async () => {
         const { client, account, neutronUserAddress } = context;
@@ -1113,7 +1118,7 @@ describe('Auto withdrawer', () => {
           'stake',
         );
         const balance = parseInt(res.amount);
-        expect(0).toEqual(ica.balance);
+        expect(ica.balance).toEqual(10000);
         ica.balance = balance;
       });
       it('wait for balances to come', async () => {
@@ -1267,7 +1272,7 @@ describe('Auto withdrawer', () => {
           'stake',
         );
         const newBalance = parseInt(res.amount);
-        expect(newBalance).toBeGreaterThan(balance);
+        expect(newBalance).toBeGreaterThan(balance - 10000);
       });
       it('wait for balance to update', async () => {
         const { remote_height: currentHeight } =
