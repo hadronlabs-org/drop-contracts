@@ -493,7 +493,7 @@ fn test_execute_redeem_share() {
     let mut buf = Vec::with_capacity(msg.encoded_len());
     msg.encode(&mut buf).unwrap();
     let any_msg = neutron_sdk::bindings::types::ProtobufAny {
-        type_url: "/cosmos.staking.v1beta1.MsgRedeemTokensForShares".to_string(),
+        type_url: "/gaia.liquid.v1beta1.MsgRedeemTokensForShares".to_string(),
         value: Binary::from(buf),
     };
     assert_eq!(

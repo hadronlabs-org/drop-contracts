@@ -196,6 +196,7 @@ describe('Core Slashing', () => {
   });
 
   it('transfer tokens to neutron', async () => {
+    await sleep(15000); // wait for the chain to be ready
     context.gaiaUserAddress = (
       await context.gaiaWallet.getAccounts()
     )[0].address;
@@ -402,7 +403,7 @@ describe('Core Slashing', () => {
       account.address,
       res.codeId,
       {
-        sdk_version: process.env.SDK_VERSION || '0.46.0',
+        sdk_version: process.env.SDK_VERSION || '0.49.0',
         local_denom: 'untrn',
         code_ids: {
           core_code_id: context.codeIds.core,
@@ -586,6 +587,10 @@ describe('Core Slashing', () => {
     expect(ica).toHaveLength(65);
     expect(ica.startsWith('cosmos')).toBeTruthy();
     context.icaAddress = ica;
+    await context.park.executeInNetwork(
+      'gaia',
+      `${context.park.config.networks['gaia'].binary} tx bank send demo1 ${context.icaAddress} 10000stake --fees 10000stake --keyring-backend=test --home=/opt --fees 10000stake -y --output json`,
+    );
   });
   it('set puppeteer ICA to the staker', async () => {
     const res = await context.factoryContractClient.adminExecute(
