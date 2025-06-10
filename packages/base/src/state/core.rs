@@ -19,6 +19,7 @@ pub struct ConfigOptional {
     pub pump_ica_address: Option<String>,
     pub rewards_receiver: Option<String>,
     pub emergency_address: Option<String>,
+    pub icq_update_delay: Option<u64>,
 }
 
 #[cw_serde]
