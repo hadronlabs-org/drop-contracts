@@ -59,6 +59,13 @@ class Client {
         return this.client.execute(sender, this.contractAddress, this.undelegateMsg(args), fee || "auto", memo, funds);
     };
     undelegateMsg = (args) => { return { undelegate: args }; };
+    redelegate = async (sender, args, fee, memo, funds) => {
+        if (!isSigningCosmWasmClient(this.client)) {
+            throw this.mustBeSigningClient();
+        }
+        return this.client.execute(sender, this.contractAddress, this.redelegateMsg(args), fee || "auto", memo, funds);
+    };
+    redelegateMsg = (args) => { return { redelegate: args }; };
     claimRewardsAndOptionalyTransfer = async (sender, args, fee, memo, funds) => {
         if (!isSigningCosmWasmClient(this.client)) {
             throw this.mustBeSigningClient();

@@ -752,7 +752,7 @@ fn test_execute_redelegate_sender_is_not_allowed() {
         drop_staking_base::msg::puppeteer::ExecuteMsg::Redelegate {
             validator_from: "validator_from".to_string(),
             validator_to: "validator_to".to_string(),
-            amount: Uint128::from(0u64),
+            amount: Uint128::from(10u64),
             reply_to: "some_reply_to".to_string(),
         },
     )
@@ -799,7 +799,7 @@ fn test_execute_redelegate_sender_not_idle() {
         drop_staking_base::msg::puppeteer::ExecuteMsg::Redelegate {
             validator_from: "validator_from".to_string(),
             validator_to: "validator_to".to_string(),
-            amount: Uint128::from(0u64),
+            amount: Uint128::from(10u64),
             reply_to: "some_reply_to".to_string(),
         },
     )
@@ -807,11 +807,37 @@ fn test_execute_redelegate_sender_not_idle() {
     assert_eq!(
         res,
         drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
-            cosmwasm_std::StdError::generic_err(
-                "Transaction txState is not equal to expected: Idle".to_string()
-            )
+            StdError::generic_err("Transaction txState is not equal to expected: Idle".to_string())
         ))
     );
+}
+
+#[test]
+fn test_execute_redelegate_zero_amount() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(&mut deps.as_mut(), "0.47.10".to_string());
+
+    let env: cosmwasm_std::Env = mock_env();
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::Redelegate {
+            amount: Uint128::zero(),
+            validator_from: "validator_from".to_string(),
+            validator_to: "validator_to".to_string(),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::InvalidFunds {
+            reason: "amount must be greater than 0".to_string()
+        }
+    )
 }
 
 #[test]
@@ -832,14 +858,14 @@ fn test_execute_redelegate() {
         drop_staking_base::msg::puppeteer::ExecuteMsg::Redelegate {
             validator_from: "validator_from".to_string(),
             validator_to: "validator_to".to_string(),
-            amount: Uint128::from(0u64),
+            amount: Uint128::from(10u64),
             reply_to: "some_reply_to".to_string(),
         },
     )
     .unwrap();
     assert_eq!(
         res,
-        cosmwasm_std::Response::new().add_submessage(cosmwasm_std::SubMsg {
+        Response::new().add_submessage(cosmwasm_std::SubMsg {
             id: 65536u64,
             msg: cosmwasm_std::CosmosMsg::Custom(NeutronMsg::submit_tx(
                 "connection_id".to_string(),
@@ -858,7 +884,7 @@ fn test_execute_redelegate() {
                                 .load(deps.as_mut().storage)
                                 .unwrap()
                                 .remote_denom,
-                            amount: "0".to_string(),
+                            amount: "10".to_string(),
                         }),
                     },
                     "/cosmos.staking.v1beta1.MsgBeginRedelegate",

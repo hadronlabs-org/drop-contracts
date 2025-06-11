@@ -150,7 +150,7 @@ export type UpdateOwnershipArgs = {
 export interface DropPuppeteerNativeSchema {
     responses: Config | Binary | OwnershipForString | ArrayOfTransaction;
     query: ExtensionArgs;
-    execute: SetupProtocolArgs | DelegateArgs | UndelegateArgs | ClaimRewardsAndOptionalyTransferArgs | UpdateConfigArgs | RegisterBalanceAndDelegatorDelegationsQueryArgs | UpdateOwnershipArgs;
+    execute: SetupProtocolArgs | DelegateArgs | UndelegateArgs | RedelegateArgs | ClaimRewardsAndOptionalyTransferArgs | UpdateConfigArgs | RegisterBalanceAndDelegatorDelegationsQueryArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
@@ -206,6 +206,11 @@ export interface UndelegateArgs {
     items: [string, Uint128][];
     reply_to: string;
 }
+export interface RedelegateArgs {
+    amount?: Uint128 | null;
+    dst_validator: string;
+    src_validator: string;
+}
 export interface ClaimRewardsAndOptionalyTransferArgs {
     reply_to: string;
     transfer?: TransferReadyBatchesMsg | null;
@@ -248,6 +253,10 @@ export declare class Client {
     undelegate: (sender: string, args: UndelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     undelegateMsg: (args: UndelegateArgs) => {
         undelegate: UndelegateArgs;
+    };
+    redelegate: (sender: string, args: RedelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    redelegateMsg: (args: RedelegateArgs) => {
+        redelegate: RedelegateArgs;
     };
     claimRewardsAndOptionalyTransfer: (sender: string, args: ClaimRewardsAndOptionalyTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
     claimRewardsAndOptionalyTransferMsg: (args: ClaimRewardsAndOptionalyTransferArgs) => {

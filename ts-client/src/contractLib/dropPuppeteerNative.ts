@@ -176,6 +176,7 @@ export interface DropPuppeteerNativeSchema {
     | SetupProtocolArgs
     | DelegateArgs
     | UndelegateArgs
+    | RedelegateArgs
     | ClaimRewardsAndOptionalyTransferArgs
     | UpdateConfigArgs
     | RegisterBalanceAndDelegatorDelegationsQueryArgs
@@ -234,6 +235,11 @@ export interface UndelegateArgs {
   batch_id: number;
   items: [string, Uint128][];
   reply_to: string;
+}
+export interface RedelegateArgs {
+  amount?: Uint128 | null;
+  dst_validator: string;
+  src_validator: string;
 }
 export interface ClaimRewardsAndOptionalyTransferArgs {
   reply_to: string;
@@ -331,6 +337,11 @@ export class Client {
     return this.client.execute(sender, this.contractAddress, this.undelegateMsg(args), fee || "auto", memo, funds);
   }
   undelegateMsg = (args: UndelegateArgs): { undelegate: UndelegateArgs } => { return { undelegate: args }; }
+  redelegate = async(sender:string, args: RedelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
+          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
+    return this.client.execute(sender, this.contractAddress, this.redelegateMsg(args), fee || "auto", memo, funds);
+  }
+  redelegateMsg = (args: RedelegateArgs): { redelegate: RedelegateArgs } => { return { redelegate: args }; }
   claimRewardsAndOptionalyTransfer = async(sender:string, args: ClaimRewardsAndOptionalyTransferArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
     return this.client.execute(sender, this.contractAddress, this.claimRewardsAndOptionalyTransferMsg(args), fee || "auto", memo, funds);

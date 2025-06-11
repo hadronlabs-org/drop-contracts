@@ -1,6 +1,6 @@
 {
   "name": "drop-cosmos-integration-tests",
-  "version": "1.0.34",
+  "version": "1.0.35",
   "main": "vitest",
   "license": "MIT",
   "scripts": {
@@ -11,7 +11,7 @@
     "test:core": "REMOTE_CHAIN_OPTS=./dockerfiles/gaia/options.json vitest --run core.test.ts --bail 1",
     "test:core:slashing": "vitest --run core-slashing.test.ts --bail 1",
     "test:core:native": "REMOTE_CHAIN_OPTS=./dockerfiles/neutronv2/options.json vitest --run core-native.test.ts --bail 1",
-    "test:core:native:long": "REMOTE_CHAIN_OPTS=./dockerfiles/neutronv2/options.json vitest --run core-native-long-idle.test.ts --bail 1",
+    "test:core:native:redelegate": "REMOTE_CHAIN_OPTS=./dockerfiles/neutronv2/options.json vitest --run core-native-redelegate.test.ts --bail 1",
     "test:pump": "vitest --run pump.test.ts --bail 1",
     "test:bond-mirror": "vitest --run bond-mirror.test.ts --bail 1",
     "test:pump-multi": "vitest --run pump-multi.test.ts --bail 1",
@@ -22,7 +22,8 @@
     "test:auto-withdrawer": "vitest --run auto-withdrawer.test.ts --bail 1",
     "test:gv": "vitest --run gv.test.ts --bail 1",
     "test:splitter": "vitest --run splitter.test.ts --bail 1",
-    "test:puppeteer": "vitest --run puppeteer.test.ts --bail 1",
+    "test:puppeteer:tokenize-shares": "vitest --run puppeteer-tokenize-shares.test.ts --bail 1",
+    "test:puppeteer:redelegate": "vitest --run puppeteer-redelegate.test.ts --bail 1",
     "debug": "vitest --inspect-brk --bail 1 --threads false --run core.test.ts",
     "watch": "vitest",
     "build-ts-client": "ts-node ./src/rebuild-client.ts",

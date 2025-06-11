@@ -1,4 +1,4 @@
-use crate::contract::{CLAIM_REWARDS_REPLY_ID, CONTRACT_NAME};
+use crate::contract::{get_delegator_delegation, CLAIM_REWARDS_REPLY_ID, CONTRACT_NAME};
 
 use cosmwasm_std::{
     coin, from_json,
@@ -19,8 +19,8 @@ use drop_staking_base::state::{
             QueryDelegatorUnbondingDelegationsResponse, UnbondingDelegationEntry,
             UnbondingDelegationNative,
         },
-        Config, ConfigOptional, Delegation, DelegationResponseNative, PageResponse, CONFIG,
-        REWARDS_WITHDRAW_ADDR,
+        Config, ConfigOptional, Delegation, DelegationResponseNative, PageResponse,
+        QueryDelegationResponse, CONFIG, REWARDS_WITHDRAW_ADDR,
     },
 };
 use drop_staking_base::{
@@ -387,6 +387,211 @@ fn test_execute_delegate() {
                     .add_attributes(vec![("action", "stake"), ("amount_to_stake", "1000")])
             )
     );
+}
+
+#[test]
+fn test_execute_redelegate_unauthorized() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(&mut deps.as_mut());
+
+    let env: cosmwasm_std::Env = mock_env();
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("not_an_owner", &[]),
+        drop_staking_base::msg::puppeteer_native::ExecuteMsg::Redelegate {
+            amount: Some(Uint128::from(1000u128)),
+            src_validator: "src_validator".to_string(),
+            dst_validator: "dst_validator".to_string(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::OwnershipError(
+            cw_ownable::OwnershipError::NotOwner
+        )
+    )
+}
+
+#[test]
+fn test_execute_redelegate() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(&mut deps.as_mut());
+
+    let env: cosmwasm_std::Env = mock_env();
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("owner", &[Coin::new(1000u128, DEFAULT_DENOM.to_string())]),
+        drop_staking_base::msg::puppeteer_native::ExecuteMsg::Redelegate {
+            amount: Some(Uint128::from(1000u128)),
+            src_validator: "src_validator".to_string(),
+            dst_validator: "dst_validator".to_string(),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        res,
+        Response::new()
+            .add_messages(vec![CosmosMsg::Staking(StakingMsg::Redelegate {
+                src_validator: "src_validator".to_string(),
+                dst_validator: "dst_validator".to_string(),
+                amount: cosmwasm_std::Coin::new(1000u128, DEFAULT_DENOM.to_string()),
+            }),])
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-puppeteer-native-redelegate")
+                    .add_attributes(vec![
+                        ("action", "redelegate"),
+                        ("amount", "1000"),
+                        ("src_validator", "src_validator"),
+                        ("dst_validator", "dst_validator")
+                    ])
+            )
+    );
+}
+
+#[test]
+fn test_execute_redelegate_no_amount() {
+    let mut deps = mock_dependencies(&[]);
+
+    base_init(&mut deps.as_mut());
+
+    let env: cosmwasm_std::Env = mock_env();
+
+    deps.querier.add_stargate_query_response(
+        "/cosmos.staking.v1beta1.Query/Delegation",
+        move |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&QueryDelegationResponse {
+                    delegation_response: Some(DelegationResponseNative {
+                        delegation: Delegation {
+                            delegator_address: Addr::unchecked("delegator_address"),
+                            validator_address: "src_validator".to_string(),
+                            shares: Decimal256::from_ratio(
+                                cosmwasm_std::Uint256::from(0u64),
+                                cosmwasm_std::Uint256::from(1u64),
+                            ),
+                        },
+                        balance: cosmwasm_std::Coin::new(1000u128, "untrn"),
+                    }),
+                })
+                .unwrap(),
+            )
+        },
+    );
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env,
+        mock_info("owner", &[Coin::new(1000u128, DEFAULT_DENOM.to_string())]),
+        drop_staking_base::msg::puppeteer_native::ExecuteMsg::Redelegate {
+            amount: None,
+            src_validator: "src_validator".to_string(),
+            dst_validator: "dst_validator".to_string(),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        res,
+        Response::new()
+            .add_messages(vec![CosmosMsg::Staking(StakingMsg::Redelegate {
+                src_validator: "src_validator".to_string(),
+                dst_validator: "dst_validator".to_string(),
+                amount: cosmwasm_std::Coin::new(1000u128, DEFAULT_DENOM.to_string()),
+            }),])
+            .add_event(
+                Event::new("crates.io:drop-staking__drop-puppeteer-native-redelegate")
+                    .add_attributes(vec![
+                        ("action", "redelegate"),
+                        ("amount", "1000"),
+                        ("src_validator", "src_validator"),
+                        ("dst_validator", "dst_validator")
+                    ])
+            )
+    );
+}
+
+#[test]
+fn test_execute_redelegate_no_amount_zero_amount() {
+    let mut deps = mock_dependencies(&[]);
+
+    base_init(&mut deps.as_mut());
+
+    let env: cosmwasm_std::Env = mock_env();
+
+    deps.querier.add_stargate_query_response(
+        "/cosmos.staking.v1beta1.Query/Delegation",
+        move |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&QueryDelegationResponse {
+                    delegation_response: Some(DelegationResponseNative {
+                        delegation: Delegation {
+                            delegator_address: Addr::unchecked("delegator_address"),
+                            validator_address: "src_validator".to_string(),
+                            shares: Decimal256::from_ratio(
+                                cosmwasm_std::Uint256::from(0u64),
+                                cosmwasm_std::Uint256::from(1u64),
+                            ),
+                        },
+                        balance: cosmwasm_std::Coin::new(0u128, "untrn"),
+                    }),
+                })
+                .unwrap(),
+            )
+        },
+    );
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("owner", &[Coin::new(1000u128, DEFAULT_DENOM.to_string())]),
+        drop_staking_base::msg::puppeteer_native::ExecuteMsg::Redelegate {
+            amount: None,
+            src_validator: "src_validator".to_string(),
+            dst_validator: "dst_validator".to_string(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::InvalidFunds {
+            reason: "amount must be greater than 0".to_string()
+        }
+    );
+}
+
+#[test]
+fn test_execute_redelegate_zero_amount() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(&mut deps.as_mut());
+
+    let env: cosmwasm_std::Env = mock_env();
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("owner", &[Coin::new(1000u128, DEFAULT_DENOM.to_string())]),
+        drop_staking_base::msg::puppeteer_native::ExecuteMsg::Redelegate {
+            amount: Some(Uint128::zero()),
+            src_validator: "src_validator".to_string(),
+            dst_validator: "dst_validator".to_string(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::InvalidFunds {
+            reason: "amount must be greater than 0".to_string()
+        }
+    )
 }
 
 #[test]
@@ -855,53 +1060,92 @@ fn test_query_extension_balances_some() {
     );
 }
 
-// #[test]
-// fn test_query_non_native_rewards_balances() {
-//     let coins = vec![
-//         cosmwasm_std::Coin::new(123u128, "denom1".to_string()),
-//         cosmwasm_std::Coin::new(123u128, "denom2".to_string()),
-//     ];
+#[test]
+fn test_get_delegator_delegation() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(&mut deps.as_mut());
 
-//     let mut deps = mock_dependencies(&coins);
-//     base_init(&mut deps.as_mut());
+    deps.querier
+        .add_stargate_query_response("/cosmos.staking.v1beta1.Query/Delegation", |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&QueryDelegationResponse {
+                    delegation_response: Some(DelegationResponseNative {
+                        delegation: Delegation {
+                            delegator_address: Addr::unchecked("delegator1"),
+                            validator_address: "validator1".to_string(),
+                            shares: Decimal256::from_ratio(
+                                cosmwasm_std::Uint256::from(0u64),
+                                cosmwasm_std::Uint256::from(1u64),
+                            ),
+                        },
+                        balance: cosmwasm_std::Coin::new(100, "denom1"),
+                    }),
+                })
+                .unwrap(),
+            )
+        });
 
-//     NON_NATIVE_REWARD_BALANCES
-//         .save(
-//             deps.as_mut().storage,
-//             &BalancesAndDelegationsState {
-//                 data: drop_staking_base::msg::puppeteer::MultiBalances {
-//                     coins: coins.clone(),
-//                 },
-//                 remote_height: 1u64,
-//                 local_height: 2u64,
-//                 timestamp: Timestamp::default(),
-//                 collected_chunks: vec![],
-//             },
-//         )
-//         .unwrap();
-//     let env = mock_env();
+    let env = mock_env();
+    let delegation =
+        get_delegator_delegation(env.clone(), deps.as_ref(), "validator1".to_string()).unwrap();
 
-//     let query_res: drop_staking_base::msg::puppeteer::BalancesResponse = from_json(
-//         crate::contract::query(
-//             deps.as_ref(),
-//             env.clone(),
-//             drop_staking_base::msg::puppeteer_native::QueryMsg::Extension {
-//                 msg: drop_staking_base::msg::puppeteer_native::QueryExtMsg::NonNativeRewardsBalances {},
-//             },
-//         )
-//         .unwrap(),
-//     )
-//     .unwrap();
-//     assert_eq!(
-//         query_res,
-//         drop_staking_base::msg::puppeteer::BalancesResponse {
-//             balances: Balances { coins },
-//             remote_height: env.block.height,
-//             local_height: env.block.height,
-//             timestamp: env.block.time,
-//         }
-//     );
-// }
+    assert_eq!(
+        delegation,
+        Some(DropDelegation {
+            delegator: Addr::unchecked("delegator1"),
+            validator: "validator1".to_string(),
+            amount: cosmwasm_std::Coin::new(100, "denom1"),
+            share_ratio: Decimal256::from_ratio(
+                cosmwasm_std::Uint256::from(0u64),
+                cosmwasm_std::Uint256::from(1u64),
+            ),
+        })
+    );
+}
+
+#[test]
+fn test_get_delegator_delegation_no_data() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(&mut deps.as_mut());
+
+    deps.querier
+        .add_stargate_query_response("/cosmos.staking.v1beta1.Query/Delegation", |_| {
+            cosmwasm_std::ContractResult::Err("No data".to_string())
+        });
+
+    let env = mock_env();
+    let delegation =
+        get_delegator_delegation(env.clone(), deps.as_ref(), "validator1".to_string()).unwrap_err();
+
+    assert_eq!(
+        delegation,
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Querier contract error: No data"
+        ))
+    );
+}
+
+#[test]
+fn test_get_delegator_delegation_no_delegation() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(&mut deps.as_mut());
+
+    deps.querier
+        .add_stargate_query_response("/cosmos.staking.v1beta1.Query/Delegation", |_| {
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&QueryDelegationResponse {
+                    delegation_response: None,
+                })
+                .unwrap(),
+            )
+        });
+
+    let env = mock_env();
+    let delegation =
+        get_delegator_delegation(env.clone(), deps.as_ref(), "validator1".to_string()).unwrap();
+
+    assert_eq!(delegation, None);
+}
 
 #[test]
 fn test_unbonding_delegations_one_page() {

@@ -332,6 +332,181 @@ fn test_execute_undelegate() {
 }
 
 #[test]
+fn test_execute_redelegate_sender_is_not_allowed() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    base_init(&mut deps.as_mut());
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("not_allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::Redelegate {
+            validator_from: "validator_from".to_string(),
+            validator_to: "validator_to".to_string(),
+            amount: Uint128::from(10u64),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::Std(StdError::generic_err(
+            "Sender is not allowed"
+        ))
+    );
+}
+
+#[test]
+fn test_execute_redelegate_sender_not_idle() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let puppeteer_base = base_init(&mut deps.as_mut());
+    puppeteer_base
+        .tx_state
+        .save(
+            deps.as_mut().storage,
+            &drop_puppeteer_base::state::TxState {
+                seq_id: None,
+                status: drop_puppeteer_base::state::TxStateStatus::InProgress,
+                reply_to: Some("".to_string()),
+                transaction: Some(
+                    drop_puppeteer_base::peripheral_hook::Transaction::SetupProtocol {
+                        interchain_account_id: "ica_address".to_string(),
+                        rewards_withdraw_address: "rewards_withdraw_address".to_string(),
+                    },
+                ),
+            },
+        )
+        .unwrap();
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::Redelegate {
+            validator_from: "validator_from".to_string(),
+            validator_to: "validator_to".to_string(),
+            amount: Uint128::from(10u64),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::NeutronError(NeutronError::Std(
+            StdError::generic_err("Transaction txState is not equal to expected: Idle".to_string())
+        ))
+    );
+}
+
+#[test]
+fn test_execute_redelegate_zero_amount() {
+    let mut deps = mock_dependencies(&[]);
+    base_init(&mut deps.as_mut());
+
+    let env: cosmwasm_std::Env = mock_env();
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        env.clone(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::Redelegate {
+            amount: Uint128::zero(),
+            validator_from: "validator_from".to_string(),
+            validator_to: "validator_to".to_string(),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap_err();
+
+    assert_eq!(
+        res,
+        drop_puppeteer_base::error::ContractError::InvalidFunds {
+            reason: "amount must be greater than 0".to_string()
+        }
+    )
+}
+
+#[test]
+fn test_execute_redelegate() {
+    let mut deps = mock_dependencies(&[]);
+    deps.querier.add_custom_query_response(|_| {
+        to_json_binary(&MinIbcFeeResponse {
+            min_fee: get_standard_fees(),
+        })
+        .unwrap()
+    });
+    let puppeteer_base = base_init(&mut deps.as_mut());
+
+    let res = crate::contract::execute(
+        deps.as_mut(),
+        mock_env(),
+        mock_info("allowed_sender", &[]),
+        drop_staking_base::msg::puppeteer::ExecuteMsg::Redelegate {
+            validator_from: "validator_from".to_string(),
+            validator_to: "validator_to".to_string(),
+            amount: Uint128::from(10u64),
+            reply_to: "some_reply_to".to_string(),
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        res,
+        Response::new().add_submessage(cosmwasm_std::SubMsg {
+            id: 65536u64,
+            msg: CosmosMsg::Custom(NeutronMsg::submit_tx(
+                "connection_id".to_string(),
+                "DROP".to_string(),
+                vec![drop_helpers::interchain::prepare_any_msg(
+                    drop_proto::proto::liquidstaking::staking::v1beta1::MsgBeginRedelegate {
+                        delegator_address: puppeteer_base
+                            .ica
+                            .get_address(deps.as_mut().storage)
+                            .unwrap(),
+                        validator_src_address: "validator_from".to_string(),
+                        validator_dst_address: "validator_to".to_string(),
+                        amount: Some(drop_proto::proto::cosmos::base::v1beta1::Coin {
+                            denom: puppeteer_base
+                                .config
+                                .load(deps.as_mut().storage)
+                                .unwrap()
+                                .remote_denom,
+                            amount: "10".to_string(),
+                        }),
+                    },
+                    "/initia.mstaking.v1.MsgBeginRedelegate",
+                )
+                .unwrap()],
+                "".to_string(),
+                100u64,
+                IbcFee {
+                    recv_fee: vec![],
+                    ack_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(100u64),
+                    }],
+                    timeout_fee: vec![cosmwasm_std::Coin {
+                        denom: "untrn".to_string(),
+                        amount: Uint128::from(200u64),
+                    }],
+                },
+            )),
+            gas_limit: None,
+            reply_on: cosmwasm_std::ReplyOn::Success
+        }),
+    );
+}
+
+#[test]
 fn test_sudo_response_tx_state_wrong() {
     // Test that the contract returns an error if the tx state is not in progress
     let mut deps = mock_dependencies(&[]);

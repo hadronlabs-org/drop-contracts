@@ -3,7 +3,7 @@ use cosmwasm_std::{
     attr, ensure, to_json_binary, Addr, Attribute, BankMsg, Coin as StdCoin, CosmosMsg, Deps,
     QueryRequest, Reply, StakingMsg, StdError, SubMsg, Uint128, WasmMsg,
 };
-use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{Binary, Coin, DepsMut, Env, MessageInfo, Response, StdResult};
 use drop_helpers::{answer::response, validation::validate_addresses};
 
 use drop_puppeteer_base::{
@@ -11,7 +11,7 @@ use drop_puppeteer_base::{
     msg::TransferReadyBatchesMsg,
     peripheral_hook::{ReceiverExecuteMsg, ResponseHookMsg, ResponseHookSuccessMsg, Transaction},
 };
-use drop_staking_base::state::puppeteer_native::REWARDS_WITHDRAW_ADDR;
+use drop_staking_base::state::puppeteer_native::{QueryDelegationResponse, REWARDS_WITHDRAW_ADDR};
 use drop_staking_base::{
     msg::puppeteer_native::{
         BalancesResponse, DelegationsResponse, ExecuteMsg, InstantiateMsg, MigrateMsg, QueryExtMsg,
@@ -229,6 +229,11 @@ pub fn execute(
             batch_id,
             reply_to,
         } => execute_undelegate(deps, env, info, items, batch_id, reply_to),
+        ExecuteMsg::Redelegate {
+            amount,
+            src_validator,
+            dst_validator,
+        } => execute_redelegate(deps, env, info, amount, src_validator, dst_validator),
         ExecuteMsg::ClaimRewardsAndOptionalyTransfer {
             validators,
             transfer,
@@ -248,6 +253,87 @@ pub fn execute(
         ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: _ } => {
             Ok(Response::default())
         }
+    }
+}
+
+fn execute_redelegate(
+    deps: DepsMut<NeutronQuery>,
+    env: Env,
+    info: MessageInfo,
+    amount: Option<Uint128>,
+    src_validator: String,
+    dst_validator: String,
+) -> ContractResult<Response<NeutronMsg>> {
+    cw_ownable::assert_owner(deps.storage, &info.sender)?;
+
+    let amount = match amount {
+        Some(amount) => Some(amount),
+        None => {
+            let delegation =
+                get_delegator_delegation(env.clone(), deps.as_ref(), src_validator.clone())?;
+
+            if let Some(delegation) = delegation {
+                if delegation.amount.denom != DEFAULT_DENOM {
+                    return Err(ContractError::InvalidFunds {
+                        reason: format!(
+                            "delegation denom must be {}, got {}",
+                            DEFAULT_DENOM, delegation.amount.denom
+                        ),
+                    });
+                }
+                Some(delegation.amount.amount)
+            } else {
+                None
+            }
+        }
+    }
+    .ok_or(ContractError::InvalidFunds {
+        reason: "amount should be provided".to_string(),
+    })?;
+
+    if amount.is_zero() {
+        return Err(ContractError::InvalidFunds {
+            reason: "amount must be greater than 0".to_string(),
+        });
+    }
+
+    let msg = CosmosMsg::Staking(StakingMsg::Redelegate {
+        src_validator: src_validator.to_string(),
+        dst_validator: dst_validator.to_string(),
+        amount: Coin {
+            denom: DEFAULT_DENOM.to_string(),
+            amount,
+        },
+    });
+
+    let attrs = vec![
+        attr("action", "redelegate"),
+        attr("amount", amount.to_string()),
+        attr("src_validator", src_validator),
+        attr("dst_validator", dst_validator),
+    ];
+
+    Ok(response("redelegate", CONTRACT_NAME, attrs).add_message(msg))
+}
+
+pub fn get_delegator_delegation(
+    env: Env,
+    deps: Deps<NeutronQuery>,
+    src_validator: String,
+) -> ContractResult<Option<DropDelegation>> {
+    let res: StdResult<QueryDelegationResponse> = deps.querier.query(&QueryRequest::Stargate {
+        path: "/cosmos.staking.v1beta1.Query/Delegation".to_string(),
+        data: cosmos_sdk_proto::cosmos::staking::v1beta1::QueryDelegationRequest {
+            delegator_addr: env.contract.address.to_string(),
+            validator_addr: src_validator.to_string(),
+        }
+        .encode_to_vec()
+        .into(),
+    });
+
+    match res {
+        Ok(delegation_response) => Ok(delegation_response.delegation_response.map(|d| d.into())),
+        Err(e) => Err(ContractError::Std(e)),
     }
 }
 
