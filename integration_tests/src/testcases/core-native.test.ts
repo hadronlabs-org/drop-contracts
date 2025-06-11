@@ -1256,6 +1256,30 @@ describe('Core', () => {
         expect(state).toEqual('idle');
       });
 
+      it('tick to claiming', async () => {
+        const res = await context.coreContractClient.tick(
+          context.neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('claiming');
+      });
+
+      it('tick to idle', async () => {
+        const res = await context.coreContractClient.tick(
+          context.neutronUserAddress,
+          1.5,
+          undefined,
+          [],
+        );
+        expect(res.transactionHash).toHaveLength(64);
+        const state = await context.coreContractClient.queryContractState();
+        expect(state).toEqual('idle');
+      });
+
       describe('withdraw unbonded coins', () => {
         let tokenId = '';
         it('validate NFT', async () => {
@@ -1305,6 +1329,7 @@ describe('Core', () => {
             secondUserAddress,
             neutronClient,
           } = context;
+
           const balanceBefore = parseInt(
             (
               await neutronClient.CosmosBankV1Beta1.query.queryBalance(
@@ -1338,29 +1363,6 @@ describe('Core', () => {
       });
     });
     describe('fifth cycle (claiming with empty distribution)', () => {
-      it('tick to claiming with empty rewards balance', async () => {
-        const res = await context.coreContractClient.tick(
-          context.neutronUserAddress,
-          1.5,
-          undefined,
-          [],
-        );
-        expect(res.transactionHash).toHaveLength(64);
-        const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('claiming');
-      });
-
-      it('tick to idle', async () => {
-        const res = await context.coreContractClient.tick(
-          context.neutronUserAddress,
-          1.5,
-          undefined,
-          [],
-        );
-        expect(res.transactionHash).toHaveLength(64);
-        const state = await context.coreContractClient.queryContractState();
-        expect(state).toEqual('idle');
-      });
       it('tick to idle', async () => {
         const res = await context.coreContractClient.tick(
           context.neutronUserAddress,
@@ -1376,7 +1378,7 @@ describe('Core', () => {
       it('tick to claiming with empty rewards balance', async () => {
         const res = await context.coreContractClient.tick(
           context.neutronUserAddress,
-          1.5,
+          2,
           undefined,
           [],
         );
