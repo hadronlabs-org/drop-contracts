@@ -36,5 +36,5 @@ if [ "$(uname -m)" = "x86_64" ]; then
   BUILDING_ARCHS="$BUILDING_ARCHS,linux/amd64"
 fi
 # --platform linux/amd64,linux/arm64
-docker build --platform $BUILDING_ARCHS -t dropprotocol/coordinator .
+docker buildx build --platform $BUILDING_ARCHS --push -t dropprotocol/coordinator:0.90.0 .
 rm -rf $DOCKER_DATA_DIR
