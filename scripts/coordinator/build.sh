@@ -31,10 +31,10 @@ rsync -av --exclude=${DOCKER_DATA_DIR} --exclude=node_modules ./ ./$DOCKER_DATA_
 
 # LD_FLAGS="-X github.com/hadronlabs-org/neutron-query-relayer-cli/internal/app.Version=$QR_VERSION -X github.com/hadronlabs-org/neutron-query-relayer-cli/internal/app.Commit=$QR_COMMIT"
 
-BUILDING_ARCH="linux/arm64"
+BUILDING_ARCHS="linux/arm64"
 if [ "$(uname -m)" = "x86_64" ]; then
-  BUILDING_ARCHS="$BUILDING_ARCH,linux/amd64"
+  BUILDING_ARCHS="$BUILDING_ARCHS,linux/amd64"
 fi
 # --platform linux/amd64,linux/arm64
-docker build --platform $BUILDING_ARCH -t dropprotocol/coordinator .
+docker build --platform $BUILDING_ARCHS -t dropprotocol/coordinator .
 rm -rf $DOCKER_DATA_DIR
