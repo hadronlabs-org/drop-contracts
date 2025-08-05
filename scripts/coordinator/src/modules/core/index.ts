@@ -65,11 +65,29 @@ export class CoreModule extends ManagerModule {
       );
     const lastTick = Number.parseInt(fromAscii(lastTickRaw), 10);
     const config = await this.coreContractClient.queryConfig();
+    const lsmSharesToRedeem =
+      await this.coreContractClient.queryLSMSharesToRedeem();
+    const pendingLSMShares =
+      await this.coreContractClient.queryPendingLSMShares();
+
+    const lastLsmRedeemRaw =
+      await this.context.neutronSigningClient.queryContractRaw(
+        this.config.coreContractAddress,
+        toAscii('last_lsm_redeem'),
+      );
+    const lastLsmRedeem = Number.parseInt(fromAscii(lastLsmRedeemRaw), 10);
+
+    const processLsmShares =
+      (lsmSharesToRedeem.length > 0 &&
+        lsmSharesToRedeem.length >= config.lsm_redeem_threshold) ||
+      lastLsmRedeem + config.lsm_redeem_maximum_interval < Date.now() / 1000 ||
+      pendingLSMShares.length > 0;
 
     if (
       this.lastRun / 1000 <
         lastTick + config.idle_min_interval + IDLE_ADDITIONAL_INTERVAL &&
-      coreContractState === 'idle'
+      coreContractState === 'idle' &&
+      !processLsmShares
     ) {
       this.log.info(
         'Skipping idle tick because idle min interval is not reached',
