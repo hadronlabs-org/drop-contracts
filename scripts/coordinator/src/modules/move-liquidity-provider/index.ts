@@ -31,7 +31,6 @@ export class MoveLiquidityProviderModule extends ManagerModule {
     });
     const wallet = new Wallet(this.lcd, key);
     this._config = {
-      lcd: this.lcd,
       wallet,
       moduleAddress: lpModuleAddress,
       moduleObject: lpModuleObject,
@@ -49,7 +48,7 @@ export class MoveLiquidityProviderModule extends ManagerModule {
 
     this.log.info('Running liquidity provider module');
 
-    const coins = await this.lcd.bank.balance(this.config.moduleAddress);
+    const coins = await this.lcd.bank.balance(this.config.moduleObject);
     this.log.info(`coins: ${JSON.stringify(coins)}`);
 
     const coin = await this.lcd.bank.balanceByDenom(
@@ -81,7 +80,7 @@ export class MoveLiquidityProviderModule extends ManagerModule {
       msgs: [msg],
       memo: 'sample memo',
     });
-    const broadcastResult = await this.config.lcd.tx.broadcast(signedTx);
+    const broadcastResult = await this.lcd.tx.broadcast(signedTx);
     this.log.info(
       `Move LP module tx broadcast result: ${JSON.stringify(broadcastResult)}`,
     );
