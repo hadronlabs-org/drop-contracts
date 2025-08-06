@@ -47,6 +47,11 @@ export class MoveLiquidityProviderModule extends ManagerModule {
   async run(): Promise<void> {
     this._lastRun = Date.now();
 
+    this.log.info('Running liquidity provider module');
+
+    const coins = await this.lcd.bank.balance(this.config.moduleAddress);
+    this.log.info(`coins: ${JSON.stringify(coins)}`);
+
     const coin = await this.lcd.bank.balanceByDenom(
       this.config.moduleObject,
       'uinit',
