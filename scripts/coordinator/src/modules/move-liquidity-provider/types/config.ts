@@ -5,4 +5,5 @@ export type MoveLiquidityProviderConfig = {
   wallet: Wallet;
   moduleAddress: string;
   moduleObject: string;
+  minAmountToProvide: bigint;
 };

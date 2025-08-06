@@ -237,6 +237,7 @@ class Service {
           logger.child({ context: 'MoveLiquidityProviderModule' }),
           process.env.INITIA_LP_MODULE_ADDRESS,
           process.env.INITIA_LP_MODULE_OBJECT,
+          BigInt(process.env.INITIA_LP_MIN_AMOUNT_TO_PROVIDE || '20000000'),
         ),
       );
     }
