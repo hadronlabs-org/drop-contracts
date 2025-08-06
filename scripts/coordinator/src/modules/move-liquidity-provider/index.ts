@@ -9,6 +9,7 @@ import {
 import { MoveLiquidityProviderConfig } from './types/config';
 import { Context } from '../../types/Context';
 import pino from 'pino';
+import { fromHex, toBech32 } from '@cosmjs/encoding';
 
 export class MoveLiquidityProviderModule extends ManagerModule {
   lcd: LCDClient;
@@ -46,17 +47,12 @@ export class MoveLiquidityProviderModule extends ManagerModule {
   async run(): Promise<void> {
     this._lastRun = Date.now();
 
-    this.log.info('Running liquidity provider module');
-
-    const coins = await this.lcd.bank.balance(this.config.moduleObject);
-    this.log.info(`coins: ${JSON.stringify(coins)}`);
-
-    const coin = await this.lcd.bank.balanceByDenom(
-      this.config.moduleObject,
-      'uinit',
+    const bech32Address = toBech32(
+      'init',
+      fromHex(this.config.moduleObject.substring(2)),
     );
 
-    this.log.info(`coin: ${JSON.stringify(coin)}`);
+    const coin = await this.lcd.bank.balanceByDenom(bech32Address, 'uinit');
 
     const amount = BigInt(coin?.amount || '0');
 
