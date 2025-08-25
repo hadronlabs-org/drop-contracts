@@ -1,11 +1,10 @@
-use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{
     attr, ensure, ensure_eq, ensure_ne, to_json_binary, Addr, Attribute, BankQuery, Binary, Coin,
     CosmosMsg, CustomQuery, Decimal, Deps, DepsMut, Env, MessageInfo, Order, QueryRequest,
     Response, StdError, StdResult, Uint128, Uint64, WasmMsg,
 };
-use cw_storage_plus::Bound;
-use drop_helpers::answer::response;
+use cw_storage_plus::{Bound, Item};
+use drop_helpers::{answer::response, is_paused};
 use drop_puppeteer_base::{msg::TransferReadyBatchesMsg, peripheral_hook::IBCTransferReason};
 use drop_staking_base::{
     error::core::{ContractError, ContractResult},
@@ -33,14 +32,12 @@ use drop_staking_base::{
     },
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
-use prost::Message;
 
 pub type MessageWithFeeResponse<T> = (CosmosMsg<T>, Option<CosmosMsg<T>>);
 
-const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
+pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const UNBOND_BATCHES_PAGINATION_DEFAULT_LIMIT: Uint64 = Uint64::new(100u64);
-
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut<NeutronQuery>,
@@ -84,12 +81,7 @@ pub fn instantiate(
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     Ok(match msg {
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?)?,
-        QueryMsg::Owner {} => to_json_binary(
-            &cw_ownable::get_ownership(deps.storage)?
-                .owner
-                .unwrap_or(Addr::unchecked(""))
-                .to_string(),
-        )?,
+        QueryMsg::Ownership {} => to_json_binary(&cw_ownable::get_ownership(deps.storage)?)?,
         QueryMsg::TotalBonded {} => {
             let config = CONFIG.load(deps.storage)?;
             to_json_binary(&query_total_bonded(deps, &config)?)?
@@ -283,8 +275,8 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
-        ExecuteMsg::Bond { receiver, r#ref } => execute_bond(deps, info, receiver, r#ref),
-        ExecuteMsg::Unbond {} => execute_unbond(deps, info),
+        ExecuteMsg::Bond { receiver, r#ref } => execute_bond(deps, info, env, receiver, r#ref),
+        ExecuteMsg::Unbond {} => execute_unbond(deps, info, env),
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::UpdateConfig { new_config } => execute_update_config(deps, info, *new_config),
         ExecuteMsg::UpdateOwnership(action) => {
@@ -397,17 +389,19 @@ fn execute_set_pause(
 ) -> ContractResult<Response<NeutronMsg>> {
     cw_ownable::assert_owner(deps.storage, &info.sender)?;
 
+    pause.bond.validate()?;
+    pause.unbond.validate()?;
+    pause.tick.validate()?;
+
     PAUSE.save(deps.storage, &pause)?;
 
-    Ok(response(
-        "execute-set-pause",
-        CONTRACT_NAME,
-        [
-            ("bond", pause.bond.to_string()),
-            ("unbond", pause.unbond.to_string()),
-            ("tick", pause.tick.to_string()),
-        ],
-    ))
+    let attrs = vec![
+        ("bond", pause.bond.to_string()),
+        ("unbond", pause.unbond.to_string()),
+        ("tick", pause.tick.to_string()),
+    ];
+
+    Ok(response("execute-set-pause", CONTRACT_NAME, attrs))
 }
 
 fn execute_process_emergency_batch(
@@ -538,7 +532,7 @@ fn execute_tick(
     env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
-    if PAUSE.load(deps.storage)?.tick {
+    if is_paused!(PAUSE, deps, env, tick) {
         return Err(drop_helpers::pause::PauseError::Paused {}.into());
     }
 
@@ -965,10 +959,11 @@ fn execute_tick_unbonding(
 fn execute_bond(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
+    env: Env,
     receiver: Option<String>,
     r#ref: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
-    if PAUSE.load(deps.storage)?.bond {
+    if is_paused!(PAUSE, deps, env, bond) {
         return Err(drop_helpers::pause::PauseError::Paused {}.into());
     }
 
@@ -1081,10 +1076,6 @@ fn execute_update_config(
         attrs.push(attr("pump_address", &pump_ica_address));
         config.pump_ica_address = Some(pump_ica_address);
     }
-    if let Some(transfer_channel_id) = new_config.transfer_channel_id {
-        attrs.push(attr("transfer_channel_id", &transfer_channel_id));
-        config.transfer_channel_id = transfer_channel_id;
-    }
     if let Some(remote_denom) = new_config.remote_denom {
         attrs.push(attr("remote_denom", &remote_denom));
         config.remote_denom = remote_denom;
@@ -1120,6 +1111,10 @@ fn execute_update_config(
         attrs.push(attr("emergency_address", &emergency_address));
         config.emergency_address = Some(emergency_address);
     }
+    if let Some(icq_update_delay) = new_config.icq_update_delay {
+        attrs.push(attr("icq_update_delay", icq_update_delay.to_string()));
+        config.icq_update_delay = icq_update_delay;
+    }
 
     CONFIG.save(deps.storage, &config)?;
 
@@ -1129,8 +1124,9 @@ fn execute_update_config(
 fn execute_unbond(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
+    env: Env,
 ) -> ContractResult<Response<NeutronMsg>> {
-    if PAUSE.load(deps.storage)?.unbond {
+    if is_paused!(PAUSE, deps, env, unbond) {
         return Err(drop_helpers::pause::PauseError::Paused {}.into());
     }
 
@@ -1402,118 +1398,59 @@ fn new_unbond(now: u64) -> UnbondBatch {
     }
 }
 
-pub mod check_denom {
-    use super::*;
-
-    #[derive(PartialEq, Debug)]
-    pub enum DenomType {
-        Base,
-        LsmShare(String, String),
-    }
-
-    // XXX: cosmos_sdk_proto defines these structures for me,
-    // yet they don't derive serde::de::DeserializeOwned,
-    // so I have to redefine them here manually >:(
-
-    #[cw_serde]
-    pub struct QueryDenomTraceResponse {
-        pub denom_trace: DenomTrace,
-    }
-
-    #[cw_serde]
-    pub struct DenomTrace {
-        pub path: String,
-        pub base_denom: String,
-    }
-
-    fn query_denom_trace(
-        deps: &Deps<NeutronQuery>,
-        denom: impl Into<String>,
-    ) -> StdResult<QueryDenomTraceResponse> {
-        let denom = denom.into();
-        deps.querier
-            .query(&QueryRequest::Stargate {
-                path: "/ibc.applications.transfer.v1.Query/DenomTrace".to_string(),
-                data: cosmos_sdk_proto::ibc::applications::transfer::v1::QueryDenomTraceRequest {
-                    hash: denom.clone(),
-                }
-                    .encode_to_vec()
-                    .into(),
-            })
-            .map_err(|e| {
-                StdError::generic_err(format!(
-                    "Query denom trace for denom {denom} failed: {e}, perhaps, this is not an IBC denom?"
-                ))
-            })
-    }
-
-    pub fn check_denom(
-        deps: &Deps<NeutronQuery>,
-        denom: &str,
-        config: &Config,
-    ) -> ContractResult<DenomType> {
-        if denom == config.base_denom {
-            return Ok(DenomType::Base);
-        }
-        let addrs =
-            drop_helpers::get_contracts!(deps, config.factory_contract, validators_set_contract);
-
-        let trace = query_denom_trace(deps, denom)?.denom_trace;
-        let (port, channel) = trace
-            .path
-            .split_once('/')
-            .ok_or(ContractError::InvalidDenom {})?;
-        if port != "transfer" || channel != config.transfer_channel_id {
-            return Err(ContractError::InvalidDenom {});
-        }
-
-        let (validator, unbonding_index) = trace
-            .base_denom
-            .split_once('/')
-            .ok_or(ContractError::InvalidDenom {})?;
-        unbonding_index
-            .parse::<u64>()
-            .map_err(|_| ContractError::InvalidDenom {})?;
-
-        let validator_info = deps
-            .querier
-            .query_wasm_smart::<drop_staking_base::msg::validatorset::ValidatorResponse>(
-                &addrs.validators_set_contract,
-                &drop_staking_base::msg::validatorset::QueryMsg::Validator {
-                    valoper: validator.to_string(),
-                },
-            )?
-            .validator;
-        if validator_info.is_none() {
-            return Err(ContractError::InvalidDenom {});
-        }
-
-        Ok(DenomType::LsmShare(
-            trace.base_denom.to_string(),
-            validator.to_string(),
-        ))
-    }
-}
-
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn migrate(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     _msg: MigrateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
+    let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
+    let storage_contract_name = contract_version_metadata.contract.as_str();
+    if storage_contract_name != CONTRACT_NAME {
+        return Err(ContractError::MigrationError {
+            storage_contract_name: storage_contract_name.to_string(),
+            contract_name: CONTRACT_NAME.to_string(),
+        });
+    }
+
+    let storage_version: semver::Version = contract_version_metadata.version.parse()?;
     let version: semver::Version = CONTRACT_VERSION.parse()?;
-    let storage_version: semver::Version =
-        cw2::get_contract_version(deps.storage)?.version.parse()?;
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
-        let mut new_pause_state = Pause::default();
-        if drop_helpers::pause::is_paused(deps.storage)? {
-            drop_helpers::pause::unpause(deps.storage);
-            new_pause_state.tick = true;
+        deps.storage.remove("pause".as_bytes());
+        PAUSE.save(deps.storage, &Pause::default())?;
+
+        #[cosmwasm_schema::cw_serde]
+        pub struct OldConfig {
+            pub factory_contract: Addr,
+            pub base_denom: String,
+            pub remote_denom: String,
+            pub idle_min_interval: u64,
+            pub unbonding_period: u64,
+            pub unbonding_safe_period: u64,
+            pub unbond_batch_switch_time: u64,
+            pub pump_ica_address: Option<String>,
+            pub transfer_channel_id: String,
+            pub emergency_address: Option<String>,
+            pub icq_update_delay: u64,
         }
-        PAUSE.save(deps.storage, &new_pause_state)?;
+
+        let old_config = Item::<OldConfig>::new("config").load(deps.storage)?;
+        let new_config = Config {
+            factory_contract: old_config.factory_contract,
+            remote_denom: old_config.remote_denom,
+            base_denom: old_config.base_denom,
+            emergency_address: old_config.emergency_address,
+            pump_ica_address: old_config.pump_ica_address,
+            idle_min_interval: old_config.idle_min_interval,
+            unbonding_period: old_config.unbonding_period,
+            icq_update_delay: old_config.icq_update_delay,
+            unbond_batch_switch_time: old_config.unbond_batch_switch_time,
+            unbonding_safe_period: old_config.unbonding_safe_period,
+        };
+        CONFIG.save(deps.storage, &new_config)?;
 
         BOND_HOOKS.save(deps.storage, &vec![])?;
     }

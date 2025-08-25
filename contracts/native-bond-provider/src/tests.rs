@@ -349,14 +349,14 @@ fn query_can_process_on_idle_false_if_no_funds_to_process() {
             min_stake_amount: Uint128::from(100u128),
             non_staked_balance: Uint128::from(0u128),
             min_ibc_transfer: Uint128::from(100u128),
-            pending_coins: Uint128::zero()
+            pending_coins: Uint128::from(0u128),
         }
     );
 }
 
 #[test]
 fn query_can_process_on_idle_enough_non_staked_balance() {
-    let mut deps = mock_dependencies(&[]);
+    let mut deps = mock_dependencies(&[Coin::new(1000u128, "base_denom")]);
 
     CONFIG
         .save(deps.as_mut().storage, &get_default_config())
@@ -649,11 +649,13 @@ fn process_on_idle_delegation() {
 
     deps.querier
         .add_wasm_query_response("strategy_contract", |_| {
-            to_json_binary(&vec![(
-                "valoper_address".to_string(),
-                Uint128::from(1000u128),
-            )])
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&vec![(
+                    "valoper_address".to_string(),
+                    Uint128::from(1000u128),
+                )])
+                .unwrap(),
+            )
         });
 
     let res = crate::contract::execute(
@@ -723,12 +725,14 @@ fn process_on_idle_ibc_transfer() {
 
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&IcaState::Registered {
-                ica_address: "ica_address".to_string(),
-                port_id: "port_id".to_string(),
-                channel_id: "channel_id".to_string(),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&IcaState::Registered {
+                    ica_address: "ica_address".to_string(),
+                    port_id: "port_id".to_string(),
+                    channel_id: "channel_id".to_string(),
+                })
+                .unwrap(),
+            )
         });
 
     let mocked_env = mock_env();
@@ -810,7 +814,7 @@ fn process_on_idle_not_allowed_if_no_funds() {
             min_stake_amount: Uint128::from(100u128),
             non_staked_balance: Uint128::zero(),
             min_ibc_transfer: Uint128::from(100u128),
-            pending_coins: Uint128::zero()
+            pending_coins: Uint128::zero(),
         }
     );
 }
@@ -915,4 +919,27 @@ fn execute_bond_multiple_denoms() {
             PaymentError::MultipleDenoms {}
         )
     );
+}
+
+#[test]
+fn test_migrate_wrong_contract() {
+    let mut deps = mock_dependencies(&[]);
+
+    let deps_mut = deps.as_mut();
+
+    cw2::set_contract_version(deps_mut.storage, "wrong_contract_name", "0.0.1").unwrap();
+
+    let res = crate::contract::migrate(
+        deps.as_mut(),
+        mock_env(),
+        drop_staking_base::msg::native_bond_provider::MigrateMsg {},
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        drop_staking_base::error::native_bond_provider::ContractError::MigrationError {
+            storage_contract_name: "wrong_contract_name".to_string(),
+            contract_name: crate::contract::CONTRACT_NAME.to_string()
+        }
+    )
 }

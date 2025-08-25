@@ -1,54 +1,41 @@
 use std::collections::HashMap;
 
 use cosmwasm_std::{
-    attr, instantiate2_address, to_json_binary, Binary, CodeInfoResponse, CosmosMsg, Deps, DepsMut,
-    Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
+    attr, from_json, instantiate2_address, to_json_binary, Addr, Binary, CodeInfoResponse,
+    CosmosMsg, Deps, DepsMut, Env, HexBinary, MessageInfo, Response, StdResult, Uint128, WasmMsg,
 };
+use cw2::ContractVersion;
 use drop_helpers::answer::response;
 use drop_helpers::phonebook::{
     CORE_CONTRACT, DISTRIBUTION_CONTRACT, LSM_SHARE_BOND_PROVIDER_CONTRACT,
     NATIVE_BOND_PROVIDER_CONTRACT, PUPPETEER_CONTRACT, REWARDS_MANAGER_CONTRACT,
     REWARDS_PUMP_CONTRACT, SPLITTER_CONTRACT, STRATEGY_CONTRACT, TOKEN_CONTRACT,
-    VALIDATORS_SET_CONTRACT, WITHDRAWAL_MANAGER_CONTRACT, WITHDRAWAL_VOUCHER_CONTRACT,
+    UNBONDING_PUMP_CONTRACT, VALIDATORS_SET_CONTRACT, WITHDRAWAL_MANAGER_CONTRACT,
+    WITHDRAWAL_VOUCHER_CONTRACT,
 };
-use drop_staking_base::error::factory::ContractResult;
+use drop_staking_base::error::factory::{ContractError, ContractResult};
+use drop_staking_base::msg::factory::{
+    ExecuteMsg, MigrateMsg, OwnerQueryMsg, ProxyMsg, QueryMsg, UpdateConfigMsg, ValidatorSetMsg,
+};
+use drop_staking_base::msg::{
+    core::InstantiateMsg as CoreInstantiateMsg,
+    distribution::InstantiateMsg as DistributionInstantiateMsg, factory::InstantiateMsg,
+    rewards_manager::InstantiateMsg as RewardsMangerInstantiateMsg,
+    splitter::InstantiateMsg as SplitterInstantiateMsg,
+    strategy::InstantiateMsg as StrategyInstantiateMsg,
+    token::InstantiateMsg as TokenInstantiateMsg,
+    validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
+    withdrawal_manager::InstantiateMsg as WithdrawalManagerInstantiateMsg,
+    withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
+};
+use drop_staking_base::state::factory::{PreInstantiatedContracts, STATE};
 use drop_staking_base::state::splitter::Config as SplitterConfig;
-use drop_staking_base::{
-    msg::factory::{
-        ExecuteMsg, InstantiateMsg, MigrateMsg, ProxyMsg, QueryMsg, UpdateConfigMsg,
-        ValidatorSetMsg,
-    },
-    state::factory::STATE,
-};
-use drop_staking_base::{
-    msg::{
-        core::{InstantiateMsg as CoreInstantiateMsg, QueryMsg as CoreQueryMsg},
-        distribution::InstantiateMsg as DistributionInstantiateMsg,
-        lsm_share_bond_provider::InstantiateMsg as LsmShareBondProviderInstantiateMsg,
-        native_bond_provider::InstantiateMsg as NativeBondProviderInstantiateMsg,
-        pump::InstantiateMsg as RewardsPumpInstantiateMsg,
-        puppeteer::InstantiateMsg as PuppeteerInstantiateMsg,
-        rewards_manager::{
-            InstantiateMsg as RewardsMangerInstantiateMsg, QueryMsg as RewardsQueryMsg,
-        },
-        splitter::InstantiateMsg as SplitterInstantiateMsg,
-        strategy::InstantiateMsg as StrategyInstantiateMsg,
-        token::InstantiateMsg as TokenInstantiateMsg,
-        validatorset::InstantiateMsg as ValidatorsSetInstantiateMsg,
-        withdrawal_manager::{
-            InstantiateMsg as WithdrawalManagerInstantiateMsg,
-            QueryMsg as WithdrawalManagerQueryMsg,
-        },
-        withdrawal_voucher::InstantiateMsg as WithdrawalVoucherInstantiateMsg,
-    },
-    state::pump::PumpTimeout,
-};
 use neutron_sdk::{
     bindings::{msg::NeutronMsg, query::NeutronQuery},
     NeutronResult,
 };
 
-const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
+pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const PERCENT_PRECISION: Uint128 = Uint128::new(10000u128); // allows to achieve 0.01% precision
 
@@ -62,13 +49,11 @@ pub fn instantiate(
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(info.sender.as_str()))?;
 
-    let mut attrs = vec![
-        attr("action", "init"),
+    validate_pre_instantiated_contracts(deps.as_ref(), &env, &msg.pre_instantiated_contracts)?;
+
+    let attrs = vec![
         attr("base_denom", &msg.base_denom),
-        attr("sdk_version", &msg.sdk_version),
         attr("salt", &msg.salt),
-        attr("code_ids", format!("{:?}", msg.code_ids)),
-        attr("remote_opts", format!("{:?}", msg.remote_opts)),
         attr("owner", info.sender),
         attr("subdenom", &msg.subdenom),
     ];
@@ -86,112 +71,45 @@ pub fn instantiate(
         get_code_checksum(deps.as_ref(), msg.code_ids.validators_set_code_id)?;
     let distribution_contract_checksum =
         get_code_checksum(deps.as_ref(), msg.code_ids.distribution_code_id)?;
-    let puppeteer_contract_checksum =
-        get_code_checksum(deps.as_ref(), msg.code_ids.puppeteer_code_id)?;
     let rewards_manager_contract_checksum =
         get_code_checksum(deps.as_ref(), msg.code_ids.rewards_manager_code_id)?;
     let splitter_contract_checksum =
         get_code_checksum(deps.as_ref(), msg.code_ids.splitter_code_id)?;
-    let rewards_pump_contract_checksum =
-        get_code_checksum(deps.as_ref(), msg.code_ids.rewards_pump_code_id)?;
-    let lsm_share_contract_checksum =
-        get_code_checksum(deps.as_ref(), msg.code_ids.lsm_share_bond_provider_code_id)?;
-    let native_bond_contract_checksum =
-        get_code_checksum(deps.as_ref(), msg.code_ids.native_bond_provider_code_id)?;
     let salt = msg.salt.as_bytes();
 
     let token_address =
         instantiate2_address(&token_contract_checksum, &canonical_self_address, salt)?;
-    attrs.push(attr("token_address", token_address.to_string()));
     let core_address =
         instantiate2_address(&core_contract_checksum, &canonical_self_address, salt)?;
-    attrs.push(attr("core_address", core_address.to_string()));
-    let puppeteer_address =
-        instantiate2_address(&puppeteer_contract_checksum, &canonical_self_address, salt)?;
-    attrs.push(attr("puppeteer_address", puppeteer_address.to_string()));
-
     let withdrawal_voucher_address = instantiate2_address(
         &withdrawal_voucher_contract_checksum,
         &canonical_self_address,
         salt,
     )?;
-    attrs.push(attr(
-        "withdrawal_voucher_address",
-        withdrawal_voucher_address.to_string(),
-    ));
-
     let withdrawal_manager_address = instantiate2_address(
         &withdrawal_manager_contract_checksum,
         &canonical_self_address,
         salt,
     )?;
-    attrs.push(attr(
-        "withdrawal_manager_address",
-        withdrawal_manager_address.to_string(),
-    ));
-
     let strategy_address =
         instantiate2_address(&strategy_contract_checksum, &canonical_self_address, salt)?;
-    attrs.push(attr("strategy_address", strategy_address.to_string()));
-
     let validators_set_address = instantiate2_address(
         &validators_set_contract_checksum,
         &canonical_self_address,
         salt,
     )?;
-    attrs.push(attr(
-        "validators_set_address",
-        validators_set_address.to_string(),
-    ));
-
     let distribution_calculator_address = instantiate2_address(
         &distribution_contract_checksum,
         &canonical_self_address,
         salt,
     )?;
-    attrs.push(attr(
-        "distribution_address",
-        distribution_calculator_address.to_string(),
-    ));
-
     let rewards_manager_address = instantiate2_address(
         &rewards_manager_contract_checksum,
         &canonical_self_address,
         salt,
     )?;
-    attrs.push(attr(
-        "rewards_manager_address",
-        rewards_manager_address.to_string(),
-    ));
-
     let splitter_address =
         instantiate2_address(&splitter_contract_checksum, &canonical_self_address, salt)?;
-    attrs.push(attr("splitter_address", splitter_address.to_string()));
-
-    let rewards_pump_address = instantiate2_address(
-        &rewards_pump_contract_checksum,
-        &canonical_self_address,
-        salt,
-    )?;
-    attrs.push(attr(
-        "rewards_pump_address",
-        rewards_pump_address.to_string(),
-    ));
-    let lsm_share_bond_provider_address =
-        instantiate2_address(&lsm_share_contract_checksum, &canonical_self_address, salt)?;
-    attrs.push(attr(
-        "lsm_share_bond_provider_address",
-        lsm_share_bond_provider_address.to_string(),
-    ));
-    let native_bond_provider_address = instantiate2_address(
-        &native_bond_contract_checksum,
-        &canonical_self_address,
-        salt,
-    )?;
-    attrs.push(attr(
-        "native_bond_provider_address",
-        native_bond_provider_address.to_string(),
-    ));
 
     let core_contract = deps.api.addr_humanize(&core_address)?;
     let token_contract = deps.api.addr_humanize(&token_address)?;
@@ -200,13 +118,8 @@ pub fn instantiate(
     let strategy_contract = deps.api.addr_humanize(&strategy_address)?;
     let validators_set_contract = deps.api.addr_humanize(&validators_set_address)?;
     let distribution_contract = deps.api.addr_humanize(&distribution_calculator_address)?;
-    let puppeteer_contract = deps.api.addr_humanize(&puppeteer_address)?;
     let rewards_manager_contract = deps.api.addr_humanize(&rewards_manager_address)?;
-    let rewards_pump_contract = deps.api.addr_humanize(&rewards_pump_address)?;
     let splitter_contract = deps.api.addr_humanize(&splitter_address)?;
-    let lsm_share_bond_provider_contract =
-        deps.api.addr_humanize(&lsm_share_bond_provider_address)?;
-    let native_bond_provider_contract = deps.api.addr_humanize(&native_bond_provider_address)?;
 
     STATE.save(deps.storage, CORE_CONTRACT, &core_contract.clone())?;
     STATE.save(
@@ -223,7 +136,7 @@ pub fn instantiate(
     STATE.save(
         deps.storage,
         PUPPETEER_CONTRACT,
-        &puppeteer_contract.clone(),
+        &msg.pre_instantiated_contracts.puppeteer_address,
     )?;
     STATE.save(
         deps.storage,
@@ -242,21 +155,40 @@ pub fn instantiate(
         &distribution_contract.clone(),
     )?;
     STATE.save(deps.storage, SPLITTER_CONTRACT, &splitter_contract.clone())?;
-    STATE.save(
-        deps.storage,
-        LSM_SHARE_BOND_PROVIDER_CONTRACT,
-        &lsm_share_bond_provider_contract.clone(),
-    )?;
+    if let Some(lsm_share_bond_provider_address) = &msg
+        .pre_instantiated_contracts
+        .lsm_share_bond_provider_address
+        .clone()
+    {
+        STATE.save(
+            deps.storage,
+            LSM_SHARE_BOND_PROVIDER_CONTRACT,
+            lsm_share_bond_provider_address,
+        )?;
+    }
+
     STATE.save(
         deps.storage,
         NATIVE_BOND_PROVIDER_CONTRACT,
-        &native_bond_provider_contract.clone(),
+        &msg.pre_instantiated_contracts
+            .native_bond_provider_address
+            .clone(),
     )?;
-    STATE.save(
-        deps.storage,
-        REWARDS_PUMP_CONTRACT,
-        &rewards_pump_contract.clone(),
-    )?;
+    if let Some(rewards_pump_address) = &msg.pre_instantiated_contracts.rewards_pump_address.clone()
+    {
+        STATE.save(deps.storage, REWARDS_PUMP_CONTRACT, rewards_pump_address)?;
+    }
+    if let Some(undonding_pump_address) = &msg
+        .pre_instantiated_contracts
+        .unbonding_pump_address
+        .clone()
+    {
+        STATE.save(
+            deps.storage,
+            UNBONDING_PUMP_CONTRACT,
+            undonding_pump_address,
+        )?;
+    }
 
     let msgs = vec![
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
@@ -275,7 +207,7 @@ pub fn instantiate(
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
             admin: Some(env.contract.address.to_string()),
             code_id: msg.code_ids.validators_set_code_id,
-            label: "validators set".to_string(),
+            label: get_contract_label("validators-set"),
             msg: to_json_binary(&ValidatorsSetInstantiateMsg {
                 stats_contract: "neutron1x69dz0c0emw8m2c6kp5v6c08kgjxmu30f4a8w5".to_string(), //FIXME: mock address, replace with real one
                 owner: env.contract.address.to_string(),
@@ -286,44 +218,19 @@ pub fn instantiate(
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
             admin: Some(env.contract.address.to_string()),
             code_id: msg.code_ids.distribution_code_id,
-            label: "distribution".to_string(),
+            label: get_contract_label("distribution"),
             msg: to_json_binary(&DistributionInstantiateMsg {})?,
             funds: vec![],
             salt: Binary::from(salt),
         }),
         CosmosMsg::Wasm(WasmMsg::Instantiate2 {
             admin: Some(env.contract.address.to_string()),
-            code_id: msg.code_ids.puppeteer_code_id,
-            label: get_contract_label("puppeteer"),
-            msg: to_json_binary(&PuppeteerInstantiateMsg {
-                allowed_senders: vec![
-                    lsm_share_bond_provider_contract.to_string(),
-                    native_bond_provider_contract.to_string(),
-                    core_contract.to_string(),
-                    env.contract.address.to_string(),
-                ],
-                owner: Some(env.contract.address.to_string()),
-                remote_denom: msg.remote_opts.denom.to_string(),
-                update_period: msg.remote_opts.update_period,
-                connection_id: msg.remote_opts.connection_id.to_string(),
-                port_id: msg.remote_opts.port_id.to_string(),
-                transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
-                sdk_version: msg.sdk_version.to_string(),
-                timeout: msg.remote_opts.timeout.local,
-                delegations_queries_chunk_size: None,
-                factory_contract: env.contract.address.to_string(),
-            })?,
-            funds: vec![],
-            salt: Binary::from(salt),
-        }),
-        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
-            admin: Some(env.contract.address.to_string()),
             code_id: msg.code_ids.strategy_code_id,
-            label: "strategy".to_string(),
+            label: get_contract_label("strategy"),
             msg: to_json_binary(&StrategyInstantiateMsg {
                 owner: env.contract.address.to_string(),
-                factory_contract: env.contract.address.to_string(),
                 denom: msg.remote_opts.denom.to_string(),
+                factory_contract: env.contract.address.to_string(),
             })?,
             funds: vec![],
             salt: Binary::from(salt),
@@ -341,7 +248,6 @@ pub fn instantiate(
                 unbonding_safe_period: msg.core_params.unbonding_safe_period,
                 unbond_batch_switch_time: msg.core_params.unbond_batch_switch_time,
                 idle_min_interval: msg.core_params.idle_min_interval,
-                transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
                 owner: env.contract.address.to_string(),
                 emergency_address: None,
                 icq_update_delay: msg.core_params.icq_update_delay,
@@ -391,64 +297,12 @@ pub fn instantiate(
                 config: SplitterConfig {
                     receivers: get_splitter_receivers(
                         msg.fee_params,
-                        native_bond_provider_contract.to_string(),
+                        msg.pre_instantiated_contracts
+                            .native_bond_provider_address
+                            .to_string(),
                     )?,
                     denom: msg.base_denom.to_string(),
                 },
-            })?,
-            funds: vec![],
-            salt: Binary::from(salt),
-        }),
-        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
-            admin: Some(env.contract.address.to_string()),
-            code_id: msg.code_ids.rewards_pump_code_id,
-            label: get_contract_label("rewards-pump"),
-            msg: to_json_binary(&RewardsPumpInstantiateMsg {
-                dest_address: Some(splitter_contract.to_string()),
-                dest_channel: Some(msg.remote_opts.reverse_transfer_channel_id.to_string()),
-                dest_port: Some(msg.remote_opts.port_id.to_string()),
-                connection_id: msg.remote_opts.connection_id.to_string(),
-                refundee: None,
-                timeout: PumpTimeout {
-                    local: Some(msg.remote_opts.timeout.local),
-                    remote: msg.remote_opts.timeout.remote,
-                },
-                local_denom: msg.local_denom.to_string(),
-                owner: Some(env.contract.address.to_string()),
-            })?,
-            funds: vec![],
-            salt: Binary::from(salt),
-        }),
-        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
-            admin: Some(env.contract.address.to_string()),
-            code_id: msg.code_ids.lsm_share_bond_provider_code_id,
-            label: get_contract_label("lsm-share-bond-provider"),
-            msg: to_json_binary(&LsmShareBondProviderInstantiateMsg {
-                owner: env.contract.address.to_string(),
-                factory_contract: env.contract.address.to_string(),
-                port_id: msg.remote_opts.port_id.to_string(),
-                transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
-                timeout: msg.remote_opts.timeout.local,
-                lsm_min_bond_amount: msg.lsm_share_bond_params.lsm_min_bond_amount,
-                lsm_redeem_threshold: msg.lsm_share_bond_params.lsm_redeem_threshold,
-                lsm_redeem_maximum_interval: msg.lsm_share_bond_params.lsm_redeem_max_interval,
-            })?,
-            funds: vec![],
-            salt: Binary::from(salt),
-        }),
-        CosmosMsg::Wasm(WasmMsg::Instantiate2 {
-            admin: Some(env.contract.address.to_string()),
-            code_id: msg.code_ids.native_bond_provider_code_id,
-            label: get_contract_label("native-bond-provider"),
-            msg: to_json_binary(&NativeBondProviderInstantiateMsg {
-                owner: env.contract.address.to_string(),
-                base_denom: msg.base_denom.to_string(),
-                factory_contract: env.contract.address.to_string(),
-                min_ibc_transfer: msg.native_bond_params.min_ibc_transfer,
-                min_stake_amount: msg.native_bond_params.min_stake_amount,
-                port_id: msg.remote_opts.port_id.to_string(),
-                transfer_channel_id: msg.remote_opts.transfer_channel_id.to_string(),
-                timeout: msg.remote_opts.timeout.local,
             })?,
             funds: vec![],
             salt: Binary::from(salt),
@@ -462,7 +316,6 @@ pub fn instantiate(
 pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> ContractResult<Binary> {
     match msg {
         QueryMsg::State {} => query_state(deps),
-        QueryMsg::PauseInfo {} => query_pause_info(deps),
         QueryMsg::Ownership {} => {
             let ownership = cw_ownable::get_ownership(deps.storage)?;
             Ok(to_json_binary(&ownership)?)
@@ -478,26 +331,6 @@ fn query_state(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
         .map(|(k, v)| (k, v.into_string()))
         .collect::<HashMap<String, String>>();
     Ok(to_json_binary(&out)?)
-}
-
-fn query_pause_info(deps: Deps<NeutronQuery>) -> ContractResult<Binary> {
-    let core_contract = STATE.load(deps.storage, CORE_CONTRACT)?;
-    let withdrawal_manager_contract = STATE.load(deps.storage, WITHDRAWAL_MANAGER_CONTRACT)?;
-    let rewards_manager_contract = STATE.load(deps.storage, REWARDS_MANAGER_CONTRACT)?;
-
-    to_json_binary(&drop_staking_base::state::factory::PauseInfoResponse {
-        core: deps
-            .querier
-            .query_wasm_smart(core_contract, &CoreQueryMsg::Pause {})?,
-        withdrawal_manager: deps.querier.query_wasm_smart(
-            withdrawal_manager_contract,
-            &WithdrawalManagerQueryMsg::PauseInfo {},
-        )?,
-        rewards_manager: deps
-            .querier
-            .query_wasm_smart(rewards_manager_contract, &RewardsQueryMsg::PauseInfo {})?,
-    })
-    .map_err(From::from)
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
@@ -519,74 +352,7 @@ pub fn execute(
         ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, env, info, *msg),
         ExecuteMsg::Proxy(msg) => execute_proxy_msg(deps, env, info, msg),
         ExecuteMsg::AdminExecute { msgs } => execute_admin_execute(deps, env, info, msgs),
-        ExecuteMsg::Pause {} => exec_pause(deps, info),
-        ExecuteMsg::Unpause {} => exec_unpause(deps, info),
     }
-}
-
-fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let core_contract = STATE.load(deps.storage, CORE_CONTRACT)?;
-    let withdrawal_manager_contract = STATE.load(deps.storage, WITHDRAWAL_MANAGER_CONTRACT)?;
-    let rewards_manager_contract = STATE.load(deps.storage, REWARDS_MANAGER_CONTRACT)?;
-
-    let attrs = vec![attr("action", "pause")];
-    let messages = vec![
-        get_proxied_message(
-            core_contract.to_string(),
-            drop_staking_base::msg::core::ExecuteMsg::SetPause(
-                drop_staking_base::state::core::Pause {
-                    tick: true,
-                    bond: false,
-                    unbond: false,
-                },
-            ),
-            vec![],
-        )?,
-        get_proxied_message(
-            withdrawal_manager_contract.to_string(),
-            drop_staking_base::msg::withdrawal_manager::ExecuteMsg::Pause {},
-            vec![],
-        )?,
-        get_proxied_message(
-            rewards_manager_contract.to_string(),
-            drop_staking_base::msg::rewards_manager::ExecuteMsg::Pause {},
-            vec![],
-        )?,
-    ];
-    Ok(response("execute-pause", CONTRACT_NAME, attrs).add_messages(messages))
-}
-
-fn exec_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
-    cw_ownable::assert_owner(deps.storage, &info.sender)?;
-    let core_contract = STATE.load(deps.storage, CORE_CONTRACT)?;
-    let withdrawal_manager_contract = STATE.load(deps.storage, WITHDRAWAL_MANAGER_CONTRACT)?;
-    let rewards_manager_contract = STATE.load(deps.storage, REWARDS_MANAGER_CONTRACT)?;
-    let attrs = vec![attr("action", "unpause")];
-    let messages = vec![
-        get_proxied_message(
-            core_contract.to_string(),
-            drop_staking_base::msg::core::ExecuteMsg::SetPause(
-                drop_staking_base::state::core::Pause {
-                    tick: false,
-                    bond: false,
-                    unbond: false,
-                },
-            ),
-            vec![],
-        )?,
-        get_proxied_message(
-            rewards_manager_contract.to_string(),
-            drop_staking_base::msg::rewards_manager::ExecuteMsg::Unpause {},
-            vec![],
-        )?,
-        get_proxied_message(
-            withdrawal_manager_contract.to_string(),
-            drop_staking_base::msg::withdrawal_manager::ExecuteMsg::Unpause {},
-            vec![],
-        )?,
-    ];
-    Ok(response("execute-unpause", CONTRACT_NAME, attrs).add_messages(messages))
 }
 
 fn execute_admin_execute(
@@ -651,9 +417,11 @@ fn execute_proxy_msg(
                 )?);
                 messages.push(get_proxied_message(
                     puppeteer_contract.to_string(),
-                    drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery { validators: validators.iter().map(|v| {v.valoper_address.to_string()}).collect() },
+                    drop_staking_base::msg::puppeteer::ExecuteMsg::RegisterBalanceAndDelegatorDelegationsQuery {
+                        validators: validators.iter().map(|v| { v.valoper_address.to_string() }).collect()
+                    },
                     info.funds,
-                )?)
+                )?);
             }
         },
     }
@@ -687,9 +455,17 @@ pub fn migrate(
     _env: Env,
     _msg: MigrateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
+    let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
+    let storage_contract_name = contract_version_metadata.contract.as_str();
+    if storage_contract_name != CONTRACT_NAME {
+        return Err(ContractError::MigrationError {
+            storage_contract_name: storage_contract_name.to_string(),
+            contract_name: CONTRACT_NAME.to_string(),
+        });
+    }
+
+    let storage_version: semver::Version = contract_version_metadata.version.parse()?;
     let version: semver::Version = CONTRACT_VERSION.parse()?;
-    let storage_version: semver::Version =
-        cw2::get_contract_version(deps.storage)?.version.parse()?;
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
@@ -713,4 +489,140 @@ fn get_splitter_receivers(
         }
         None => Ok(vec![(bond_provider_address, PERCENT_PRECISION)]),
     }
+}
+
+pub fn get_contract_version(deps: Deps, contract_addr: &Addr) -> ContractResult<ContractVersion> {
+    let contract_version = deps
+        .querier
+        .query_wasm_raw(contract_addr, b"contract_info")?;
+
+    if let Some(contract_version) = contract_version {
+        return Ok(from_json(&contract_version)?);
+    }
+
+    Err(ContractError::AbsentContractVersion {})
+}
+
+pub fn get_contract_config_owner(deps: Deps, contract_addr: &Addr) -> ContractResult<String> {
+    let contract_owner: cw_ownable::Ownership<String> = deps
+        .querier
+        .query_wasm_smart(contract_addr, &OwnerQueryMsg::Ownership {})?;
+
+    Ok(contract_owner.owner.unwrap_or_default())
+}
+
+pub fn validate_contract_metadata(
+    deps: Deps,
+    env: &Env,
+    contract_addr: &Addr,
+    valid_names: &[&str],
+) -> ContractResult<()> {
+    let contract_version = get_contract_version(deps, contract_addr)?;
+
+    if !valid_names.contains(&contract_version.contract.as_ref()) {
+        return Err(ContractError::InvalidContractName {
+            expected: valid_names.join(";"),
+            actual: contract_version.contract,
+        });
+    }
+
+    let contract_config_owner = get_contract_config_owner(deps, contract_addr)?;
+    if contract_config_owner != env.contract.address {
+        return Err(ContractError::InvalidContractOwner {
+            contract: contract_addr.to_string(),
+            expected: env.contract.address.to_string(),
+            actual: contract_config_owner,
+        });
+    }
+
+    let contract_info = deps.querier.query_wasm_contract_info(contract_addr)?;
+
+    if let Some(contract_admin) = contract_info.admin {
+        if contract_admin != env.contract.address {
+            return Err(ContractError::InvalidContractAdmin {
+                contract: contract_addr.to_string(),
+                expected: env.contract.address.to_string(),
+                actual: contract_admin.to_string(),
+            });
+        }
+    } else {
+        return Err(ContractError::InvalidContractAdmin {
+            contract: contract_addr.to_string(),
+            expected: env.contract.address.to_string(),
+            actual: "None".to_string(),
+        });
+    }
+
+    Ok(())
+}
+
+fn validate_pre_instantiated_contracts(
+    deps: Deps,
+    env: &Env,
+    pre_instantiated_contracts: &PreInstantiatedContracts,
+) -> Result<(), ContractError> {
+    // Validate native bond provider contract
+    validate_contract_metadata(
+        deps,
+        env,
+        &pre_instantiated_contracts.native_bond_provider_address,
+        &[
+            drop_native_bond_provider::contract::CONTRACT_NAME,
+            drop_native_sync_bond_provider::contract::CONTRACT_NAME,
+        ],
+    )?;
+
+    // Validate val ref address
+    if let Some(val_ref_address) = &pre_instantiated_contracts.val_ref_address {
+        validate_contract_metadata(
+            deps,
+            env,
+            val_ref_address,
+            &[drop_val_ref::contract::CONTRACT_NAME],
+        )?;
+    }
+
+    // Validate lsm share bond provider contract
+    if let Some(lsm_share_bond_provider_address) =
+        &pre_instantiated_contracts.lsm_share_bond_provider_address
+    {
+        validate_contract_metadata(
+            deps,
+            env,
+            lsm_share_bond_provider_address,
+            &[drop_lsm_share_bond_provider::contract::CONTRACT_NAME],
+        )?;
+    }
+
+    // Validate puppeteer contract
+    validate_contract_metadata(
+        deps,
+        env,
+        &pre_instantiated_contracts.puppeteer_address,
+        &[
+            drop_puppeteer::contract::CONTRACT_NAME,
+            drop_puppeteer_initia::contract::CONTRACT_NAME,
+            drop_puppeteer_native::contract::CONTRACT_NAME,
+        ],
+    )?;
+
+    // Validate unbonding and rewards pump contracts
+    if let Some(unbonding_pump_address) = &pre_instantiated_contracts.unbonding_pump_address {
+        validate_contract_metadata(
+            deps,
+            env,
+            unbonding_pump_address,
+            &[drop_pump::contract::CONTRACT_NAME],
+        )?;
+    }
+    if let Some(rewards_pump_address) = &pre_instantiated_contracts.rewards_pump_address {
+        validate_contract_metadata(
+            deps,
+            env,
+            rewards_pump_address,
+            &[drop_pump::contract::CONTRACT_NAME],
+        )?;
+    }
+
+    Ok(())
 }

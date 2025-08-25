@@ -96,13 +96,23 @@ export class CoreModule extends ManagerModule {
 
     const config = await this.coreContractClient.queryConfig();
 
-    const lsmShareCanProcessOnIdle =
-      this.lsmShareBondProviderContractClient &&
-      (await this.lsmShareBondProviderContractClient.queryCanProcessOnIdle());
+    let lsmShareCanProcessOnIdle = false;
+    try {
+      lsmShareCanProcessOnIdle =
+        this.lsmShareBondProviderContractClient &&
+        (await this.lsmShareBondProviderContractClient.queryCanProcessOnIdle());
+    } catch (e) {
+      //
+    }
 
-    const nativeBondCanProcessOnIdle =
-      this.nativeBondProviderContractClient &&
-      (await this.nativeBondProviderContractClient.queryCanProcessOnIdle());
+    let nativeBondCanProcessOnIdle = false;
+    try {
+      nativeBondCanProcessOnIdle =
+        this.nativeBondProviderContractClient &&
+        (await this.nativeBondProviderContractClient.queryCanProcessOnIdle());
+    } catch (e) {
+      //
+    }
 
     if (
       this.lastRun / 1000 <
@@ -127,21 +137,7 @@ export class CoreModule extends ManagerModule {
     );
 
     if (puppeteerResponseReceived || coreContractState === 'idle') {
-      const queryIds = await this.puppeteerContractClient.queryKVQueryIds();
-
-      this.log.info(`Puppeteer query ids: ${JSON.stringify(queryIds)}`);
-
-      const queryIdsArray = queryIds.map(([queryId]) => queryId.toString());
-
-      this.log.info(
-        `Puppeteer query ids plain: ${JSONBig.stringify(queryIdsArray)}`,
-      );
-
-      if (queryIdsArray.length > 0) {
-        runQueryRelayer(this.context, this.log, queryIdsArray);
-
-        await waitBlocks(this.context, 3, this.log);
-
+      if (this.context.config.coordinator.nativeMode) {
         const res = await this.coreContractClient.tick(
           this.context.neutronWalletAddress,
           1.5,
@@ -150,6 +146,33 @@ export class CoreModule extends ManagerModule {
         );
 
         this.log.info(`Core contract tick response: ${JSONBig.stringify(res)}`);
+      } else {
+        const queryIds = await this.puppeteerContractClient.queryKVQueryIds();
+
+        this.log.info(`Puppeteer query ids: ${JSON.stringify(queryIds)}`);
+
+        const queryIdsArray = queryIds.map(([queryId]) => queryId.toString());
+
+        this.log.info(
+          `Puppeteer query ids plain: ${JSONBig.stringify(queryIdsArray)}`,
+        );
+
+        if (queryIdsArray.length > 0) {
+          runQueryRelayer(this.context, this.log, queryIdsArray);
+
+          await waitBlocks(this.context, 1, this.log);
+
+          const res = await this.coreContractClient.tick(
+            this.context.neutronWalletAddress,
+            1.5,
+            undefined,
+            [],
+          );
+
+          this.log.info(
+            `Core contract tick response: ${JSONBig.stringify(res)}`,
+          );
+        }
       }
     }
   }

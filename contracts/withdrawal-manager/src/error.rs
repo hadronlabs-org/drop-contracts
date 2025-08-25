@@ -38,6 +38,12 @@ pub enum ContractError {
 
     #[error("Semver parsing error: {0}")]
     SemVer(String),
+
+    #[error("Can't migrate from {storage_contract_name} to {contract_name}")]
+    MigrationError {
+        storage_contract_name: String,
+        contract_name: String,
+    },
 }
 
 impl From<semver::Error> for ContractError {

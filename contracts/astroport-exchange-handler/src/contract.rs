@@ -14,7 +14,7 @@ use drop_staking_base::msg::astroport_exchange_handler::{
 };
 use drop_staking_base::state::astroport_exchange_handler::{Config, CONFIG, SWAP_OPERATIONS};
 
-const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
+pub const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -305,8 +305,17 @@ fn exec_update_swap_operations(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> ContractResult<Response> {
     let version: semver::Version = CONTRACT_VERSION.parse()?;
-    let storage_version: semver::Version =
-        cw2::get_contract_version(deps.storage)?.version.parse()?;
+
+    let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
+    let storage_contract_name = contract_version_metadata.contract.as_str();
+    if storage_contract_name != CONTRACT_NAME {
+        return Err(ContractError::MigrationError {
+            storage_contract_name: storage_contract_name.to_string(),
+            contract_name: CONTRACT_NAME.to_string(),
+        });
+    }
+
+    let storage_version: semver::Version = contract_version_metadata.version.parse()?;
 
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;

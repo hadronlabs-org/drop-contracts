@@ -66,6 +66,25 @@ fn bond_missing_ld_assets() {
     assert_eq!(err, ContractError::LdTokenExpected {});
 }
 
+#[test]
+fn test_migrate_wrong_contract() {
+    let mut deps = mock_dependencies(&[]);
+
+    let deps_mut = deps.as_mut();
+
+    cw2::set_contract_version(deps_mut.storage, "wrong_contract_name", "0.0.1").unwrap();
+
+    let res =
+        crate::contract::migrate(deps.as_mut(), mock_env(), crate::msg::MigrateMsg {}).unwrap_err();
+    assert_eq!(
+        res,
+        ContractError::MigrationError {
+            storage_contract_name: "wrong_contract_name".to_string(),
+            contract_name: contract::CONTRACT_NAME.to_string()
+        }
+    )
+}
+
 mod bond_missing_deposit {
     use drop_helpers::testing::{mock_dependencies, mock_state_query};
 

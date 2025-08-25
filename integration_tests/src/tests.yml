@@ -8,7 +8,7 @@ name: tests
 jobs:
   clippy:
     name: Actions - clippy
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,7 +25,7 @@ jobs:
       - run: cargo clippy --lib --target wasm32-unknown-unknown -- -D warnings
   coverage:
     name: Actions - unit tests coverage
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,12 +34,14 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2023-12-21
+          toolchain: 1.81.0
           profile: minimal
           override: true
       - name: Install cargo-tarpaulin
-        run: cargo install cargo-tarpaulin --version 0.29.1
-      - run: cargo tarpaulin --exclude-files "packages/*"
+        run: cargo install cargo-tarpaulin --version 0.29.1 --locked
+      - run: cargo tarpaulin
+          --verbose
+          --exclude-files "packages/*"
           --exclude-files "*/proto/*"
           --exclude-files "contracts/price-provider/*"
           --exclude-files "contracts/auto-withdrawer/*"
@@ -65,7 +67,7 @@ jobs:
           # reuqirements are not satisfied.
           fail: true
           # Publish the rendered output as a PR comment
-          publish: true
+          publish: false
           # Create a coverage diff report.
           diff: false
           # Branch to diff against.
@@ -81,7 +83,7 @@ jobs:
           coverage-summary-title: 'Code Coverage Summary'
   rustfmt:
     name: Actions - rustfmt
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - uses: actions/checkout@v4
         with:
@@ -96,7 +98,7 @@ jobs:
 
   unit-test:
     name: Actions - unit test
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - uses: actions/checkout@v4
         with:
@@ -112,7 +114,7 @@ jobs:
           RUST_BACKTRACE: 1
   lint-test:
     name: Actions - integration tests lint
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Setup node
         uses: actions/setup-node@v4
@@ -127,7 +129,7 @@ jobs:
         run: cd integration_tests && yarn --ignore-engines && yarn lint
   images-prepare:
     name: Actions - images prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - name: Upgrade docker compose to use v2
         run: sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x /usr/local/bin/docker-compose
@@ -156,7 +158,7 @@ jobs:
           yarn build-images
   artifacts-prepare:
     name: Actions - artifacts prepare
-    runs-on: self-hosted
+    runs-on: ubicloud-standard-4
     steps:
       - uses: actions/checkout@v4
         with:

@@ -2,6 +2,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Decimal, Uint128};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, MultiIndex};
 use drop_helpers::fsm::{Fsm, Transition};
+use drop_helpers::pause::Interval;
 use drop_puppeteer_base::peripheral_hook::ResponseHookMsg as PuppeteerResponseHookMsg;
 
 use super::bond_providers::BondProviders;
@@ -16,9 +17,9 @@ pub struct ConfigOptional {
     pub unbonding_safe_period: Option<u64>,
     pub unbond_batch_switch_time: Option<u64>,
     pub pump_ica_address: Option<String>,
-    pub transfer_channel_id: Option<String>,
     pub rewards_receiver: Option<String>,
     pub emergency_address: Option<String>,
+    pub icq_update_delay: Option<u64>,
 }
 
 #[cw_serde]
@@ -31,12 +32,11 @@ pub struct Config {
     pub unbonding_safe_period: u64,    //seconds
     pub unbond_batch_switch_time: u64, //seconds
     pub pump_ica_address: Option<String>,
-    pub transfer_channel_id: String,
     pub emergency_address: Option<String>,
     pub icq_update_delay: u64, // blocks
 }
 
-pub const CONFIG: Item<Config> = Item::new("config");
+pub const CONFIG: Item<Config> = Item::new("config_v2");
 
 #[cw_serde]
 #[derive(Copy)]
@@ -142,9 +142,9 @@ const TRANSITIONS: &[Transition<ContractState>] = &[
 #[cw_serde]
 #[derive(Default)]
 pub struct Pause {
-    pub bond: bool,
-    pub unbond: bool,
-    pub tick: bool,
+    pub bond: Interval,
+    pub unbond: Interval,
+    pub tick: Interval,
 }
 pub const MAX_BOND_PROVIDERS: u64 = 10;
 

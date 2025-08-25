@@ -119,7 +119,7 @@ pub fn mock_dependencies(
     }
 }
 
-type WasmFn = dyn Fn(&Binary) -> Binary;
+type WasmFn = dyn Fn(&Binary) -> ContractResult<Binary>;
 type CustomFn = dyn Fn(&QueryRequest<NeutronQuery>) -> Binary;
 
 pub struct WasmMockQuerier {
@@ -217,7 +217,7 @@ impl WasmMockQuerier {
                     });
                 }
                 let response = responses.remove(0);
-                SystemResult::Ok(ContractResult::Ok(response(data)))
+                SystemResult::Ok(response(data))
             }
             QueryRequest::Custom(custom_query) => match custom_query {
                 NeutronQuery::InterchainQueryResult { query_id } => SystemResult::Ok(
@@ -271,7 +271,7 @@ impl WasmMockQuerier {
                         });
                     }
                     let response = responses.remove(0);
-                    SystemResult::Ok(ContractResult::Ok(response(msg)))
+                    SystemResult::Ok(response(msg))
                 }
                 cosmwasm_std::WasmQuery::CodeInfo { code_id } => {
                     let mut stargate_query_responses = self.stargate_query_responses.borrow_mut();
@@ -292,9 +292,47 @@ impl WasmMockQuerier {
                             kind: "No such mocked queries found".to_string(),
                         });
                     }
-                    SystemResult::Ok(ContractResult::Ok(responses[0](
-                        &to_json_binary(&code_id).unwrap(),
-                    )))
+                    SystemResult::Ok(responses[0](&to_json_binary(&code_id).unwrap()))
+                }
+                cosmwasm_std::WasmQuery::ContractInfo { contract_addr } => {
+                    let mut wasm_responses = self.wasm_query_responses.borrow_mut();
+                    let responses = match wasm_responses.get_mut(contract_addr) {
+                        None => Err(SystemError::UnsupportedRequest {
+                            kind: format!(
+                                "Wasm contract {} contract info query is not mocked. Query",
+                                contract_addr
+                            ),
+                        }),
+                        Some(responses) => Ok(responses),
+                    }
+                    .unwrap();
+                    if responses.is_empty() {
+                        return SystemResult::Err(SystemError::UnsupportedRequest {
+                            kind: "No such mocked contract info queries found".to_string(),
+                        });
+                    }
+                    SystemResult::Ok(responses[0](&to_json_binary(&contract_addr).unwrap()))
+                }
+                cosmwasm_std::WasmQuery::Raw { contract_addr, key } => {
+                    let mut wasm_responses = self.wasm_query_responses.borrow_mut();
+                    let responses = match wasm_responses.get_mut(contract_addr) {
+                        None => Err(SystemError::UnsupportedRequest {
+                            kind: format!(
+                                "Wasm contract {} raw query is not mocked. Raw query {}",
+                                contract_addr,
+                                hex::encode(key)
+                            ),
+                        }),
+                        Some(responses) => Ok(responses),
+                    }
+                    .unwrap();
+                    if responses.is_empty() {
+                        return SystemResult::Err(SystemError::UnsupportedRequest {
+                            kind: "No such mocked raw queries found".to_string(),
+                        });
+                    }
+                    let response = responses.remove(0);
+                    SystemResult::Ok(response(key))
                 }
                 _ => SystemResult::Err(SystemError::UnsupportedRequest {
                     kind: "Unsupported wasm request given".to_string(),
@@ -348,7 +386,7 @@ impl WasmMockQuerier {
     }
     pub fn add_wasm_query_response<F>(&mut self, contract_address: &str, response_func: F)
     where
-        F: 'static + Fn(&Binary) -> Binary,
+        F: 'static + Fn(&Binary) -> ContractResult<Binary>,
     {
         let mut wasm_responses = self.wasm_query_responses.borrow_mut();
         let response_funcs = wasm_responses
@@ -366,7 +404,7 @@ impl WasmMockQuerier {
     }
     pub fn add_stargate_query_response<F>(&mut self, path: &str, response_func: F)
     where
-        F: 'static + Fn(&Binary) -> Binary,
+        F: 'static + Fn(&Binary) -> ContractResult<Binary>,
     {
         let mut stargate_responses = self.stargate_query_responses.borrow_mut();
         let response_funcs = stargate_responses.entry(path.to_string()).or_default();
@@ -450,6 +488,6 @@ pub fn mock_state_query(deps: &mut OwnedDeps<MockStorage, MockApi, WasmMockQueri
                     "native_bond_provider_contract".to_string(),
                 ),
             ]);
-            to_json_binary(&contracts).unwrap()
+            cosmwasm_std::ContractResult::Ok(to_json_binary(&contracts).unwrap())
         });
 }

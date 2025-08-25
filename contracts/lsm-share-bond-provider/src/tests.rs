@@ -67,21 +67,25 @@ fn lsm_denom_query_config(
                 )
                 .unwrap();
             if request.hash == "lsm_denom_1" {
-                to_json_binary(&QueryDenomTraceResponse {
-                    denom_trace: DenomTrace {
-                        base_denom: "valoper12345/1".to_string(),
-                        path: "transfer/transfer_channel_id".to_string(),
-                    },
-                })
-                .unwrap()
+                cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&QueryDenomTraceResponse {
+                        denom_trace: DenomTrace {
+                            base_denom: "valoper12345/1".to_string(),
+                            path: "transfer/transfer_channel_id".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                )
             } else {
-                to_json_binary(&QueryDenomTraceResponse {
-                    denom_trace: DenomTrace {
-                        base_denom: "valoper12345/1".to_string(),
-                        path: "wrong_denom".to_string(),
-                    },
-                })
-                .unwrap()
+                cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&QueryDenomTraceResponse {
+                        denom_trace: DenomTrace {
+                            base_denom: "valoper12345/1".to_string(),
+                            path: "wrong_denom".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                )
             }
         },
     );
@@ -93,29 +97,35 @@ fn lsm_denom_query_config(
             if let drop_staking_base::msg::validatorset::QueryMsg::Validator { valoper } = request {
                 assert_eq!(valoper, "valoper12345");
                 if unknown_validator {
-                    to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
-                        validator: None,
-                    })
-                    .unwrap()
+                    cosmwasm_std::ContractResult::Ok(
+                        to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
+                            validator: None,
+                        })
+                        .unwrap(),
+                    )
                 } else {
-                    to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
-                        validator: Some(drop_staking_base::state::validatorset::ValidatorInfo {
-                            valoper_address: "valoper12345".to_string(),
-                            weight: 1u64,
-                            last_processed_remote_height: None,
-                            last_processed_local_height: None,
-                            last_validated_height: None,
-                            last_commission_in_range: None,
-                            uptime: Decimal::one(),
-                            tombstone: false,
-                            jailed_number: None,
-                            init_proposal: None,
-                            total_passed_proposals: 0u64,
-                            total_voted_proposals: 0u64,
-                            on_top: Uint128::zero(),
-                        }),
-                    })
-                    .unwrap()
+                    cosmwasm_std::ContractResult::Ok(
+                        to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
+                            validator: Some(
+                                drop_staking_base::state::validatorset::ValidatorInfo {
+                                    valoper_address: "valoper12345".to_string(),
+                                    weight: 1u64,
+                                    last_processed_remote_height: None,
+                                    last_processed_local_height: None,
+                                    last_validated_height: None,
+                                    last_commission_in_range: None,
+                                    uptime: Decimal::one(),
+                                    tombstone: false,
+                                    jailed_number: None,
+                                    init_proposal: None,
+                                    total_passed_proposals: 0u64,
+                                    total_voted_proposals: 0u64,
+                                    on_top: Uint128::zero(),
+                                },
+                            ),
+                        })
+                        .unwrap(),
+                    )
                 }
             } else {
                 unimplemented!()
@@ -124,20 +134,22 @@ fn lsm_denom_query_config(
 
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&DelegationsResponse {
-                delegations: Delegations {
-                    delegations: vec![DropDelegation {
-                        delegator: Addr::unchecked("delegator"),
-                        validator: "valoper12345".to_string(),
-                        amount: Coin::new(1000, "remote_denom".to_string()),
-                        share_ratio: Decimal256::one(),
-                    }],
-                },
-                remote_height: 10u64,
-                local_height: 10u64,
-                timestamp: Timestamp::from_seconds(90001),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&DelegationsResponse {
+                    delegations: Delegations {
+                        delegations: vec![DropDelegation {
+                            delegator: Addr::unchecked("delegator"),
+                            validator: "valoper12345".to_string(),
+                            amount: Coin::new(1000, "remote_denom".to_string()),
+                            share_ratio: Decimal256::one(),
+                        }],
+                    },
+                    remote_height: 10u64,
+                    local_height: 10u64,
+                    timestamp: Timestamp::from_seconds(90001),
+                })
+                .unwrap(),
+            )
         });
 }
 
@@ -414,12 +426,14 @@ fn test_process_on_idle_supported() {
 
     deps.querier
         .add_wasm_query_response("puppeteer_contract", |_| {
-            to_json_binary(&IcaState::Registered {
-                ica_address: "ica_address".to_string(),
-                port_id: "port_id".to_string(),
-                channel_id: "channel_id".to_string(),
-            })
-            .unwrap()
+            cosmwasm_std::ContractResult::Ok(
+                to_json_binary(&IcaState::Registered {
+                    ica_address: "ica_address".to_string(),
+                    port_id: "port_id".to_string(),
+                    channel_id: "channel_id".to_string(),
+                })
+                .unwrap(),
+            )
         });
 
     let deps_mut = deps.as_mut();
@@ -667,6 +681,29 @@ fn test_execute_bond_multiple_denoms() {
             PaymentError::MultipleDenoms {}
         )
     );
+}
+
+#[test]
+fn test_migrate_wrong_contract() {
+    let mut deps = mock_dependencies(&[]);
+
+    let deps_mut = deps.as_mut();
+
+    cw2::set_contract_version(deps_mut.storage, "wrong_contract_name", "0.0.1").unwrap();
+
+    let res = crate::contract::migrate(
+        deps.as_mut(),
+        mock_env(),
+        drop_staking_base::msg::lsm_share_bond_provider::MigrateMsg {},
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        ContractError::MigrationError {
+            storage_contract_name: "wrong_contract_name".to_string(),
+            contract_name: crate::contract::CONTRACT_NAME.to_string()
+        }
+    )
 }
 
 mod query {
@@ -1173,13 +1210,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                to_json_binary(&QueryDenomTraceResponse {
-                    denom_trace: DenomTrace {
-                        base_denom: "valoper12345/1".to_string(),
-                        path: "icahost/transfer_channel_id".to_string(),
-                    },
-                })
-                .unwrap()
+                cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&QueryDenomTraceResponse {
+                        denom_trace: DenomTrace {
+                            base_denom: "valoper12345/1".to_string(),
+                            path: "icahost/transfer_channel_id".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                )
             },
         );
         let err = crate::contract::check_denom::check_denom(
@@ -1198,13 +1237,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                to_json_binary(&QueryDenomTraceResponse {
-                    denom_trace: DenomTrace {
-                        base_denom: "valoper12345/1".to_string(),
-                        path: "transfer/unknown_channel".to_string(),
-                    },
-                })
-                .unwrap()
+                cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&QueryDenomTraceResponse {
+                        denom_trace: DenomTrace {
+                            base_denom: "valoper12345/1".to_string(),
+                            path: "transfer/unknown_channel".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                )
             },
         );
         let err = crate::contract::check_denom::check_denom(
@@ -1223,13 +1264,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                to_json_binary(&QueryDenomTraceResponse {
-                    denom_trace: DenomTrace {
-                        base_denom: "valoper12345/1".to_string(),
-                        path: "icahost/unknown_channel".to_string(),
-                    },
-                })
-                .unwrap()
+                cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&QueryDenomTraceResponse {
+                        denom_trace: DenomTrace {
+                            base_denom: "valoper12345/1".to_string(),
+                            path: "icahost/unknown_channel".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                )
             },
         );
         let err = crate::contract::check_denom::check_denom(
@@ -1248,13 +1291,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                to_json_binary(&QueryDenomTraceResponse {
-                    denom_trace: DenomTrace {
-                        base_denom: "unknown_denom".to_string(),
-                        path: "transfer/transfer_channel_id".to_string(),
-                    },
-                })
-                .unwrap()
+                cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&QueryDenomTraceResponse {
+                        denom_trace: DenomTrace {
+                            base_denom: "unknown_denom".to_string(),
+                            path: "transfer/transfer_channel_id".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                )
             },
         );
         let err = crate::contract::check_denom::check_denom(
@@ -1273,13 +1318,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                to_json_binary(&QueryDenomTraceResponse {
-                    denom_trace: DenomTrace {
-                        base_denom: "valoper98765/1".to_string(),
-                        path: "transfer/transfer_channel_id".to_string(),
-                    },
-                })
-                .unwrap()
+                cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&QueryDenomTraceResponse {
+                        denom_trace: DenomTrace {
+                            base_denom: "valoper98765/1".to_string(),
+                            path: "transfer/transfer_channel_id".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                )
             },
         );
         let query_called = std::rc::Rc::new(std::cell::RefCell::new(false));
@@ -1294,10 +1341,12 @@ mod check_denom {
                     assert_eq!(valoper, "valoper98765");
 
                     query_called_cb.replace(true);
-                    to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
-                        validator: None,
-                    })
-                    .unwrap()
+                    cosmwasm_std::ContractResult::Ok(
+                        to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
+                            validator: None,
+                        })
+                        .unwrap(),
+                    )
                 } else {
                     unimplemented!()
                 }
@@ -1319,13 +1368,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                to_json_binary(&QueryDenomTraceResponse {
-                    denom_trace: DenomTrace {
-                        base_denom: "valoper12345/1/2".to_string(),
-                        path: "transfer/transfer_channel_id".to_string(),
-                    },
-                })
-                .unwrap()
+                cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&QueryDenomTraceResponse {
+                        denom_trace: DenomTrace {
+                            base_denom: "valoper12345/1/2".to_string(),
+                            path: "transfer/transfer_channel_id".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                )
             },
         );
         let err = crate::contract::check_denom::check_denom(
@@ -1344,13 +1395,15 @@ mod check_denom {
         deps.querier.add_stargate_query_response(
             "/ibc.applications.transfer.v1.Query/DenomTrace",
             |_| {
-                to_json_binary(&QueryDenomTraceResponse {
-                    denom_trace: DenomTrace {
-                        base_denom: "valoper12345/1".to_string(),
-                        path: "transfer/transfer_channel_id".to_string(),
-                    },
-                })
-                .unwrap()
+                cosmwasm_std::ContractResult::Ok(
+                    to_json_binary(&QueryDenomTraceResponse {
+                        denom_trace: DenomTrace {
+                            base_denom: "valoper12345/1".to_string(),
+                            path: "transfer/transfer_channel_id".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                )
             },
         );
         deps.querier
@@ -1361,24 +1414,28 @@ mod check_denom {
                     request
                 {
                     assert_eq!(valoper, "valoper12345");
-                    to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
-                        validator: Some(drop_staking_base::state::validatorset::ValidatorInfo {
-                            valoper_address: "valoper12345".to_string(),
-                            weight: 1u64,
-                            last_processed_remote_height: None,
-                            last_processed_local_height: None,
-                            last_validated_height: None,
-                            last_commission_in_range: None,
-                            uptime: Decimal::one(),
-                            tombstone: false,
-                            jailed_number: None,
-                            init_proposal: None,
-                            total_passed_proposals: 0u64,
-                            total_voted_proposals: 0u64,
-                            on_top: Uint128::zero(),
-                        }),
-                    })
-                    .unwrap()
+                    cosmwasm_std::ContractResult::Ok(
+                        to_json_binary(&drop_staking_base::msg::validatorset::ValidatorResponse {
+                            validator: Some(
+                                drop_staking_base::state::validatorset::ValidatorInfo {
+                                    valoper_address: "valoper12345".to_string(),
+                                    weight: 1u64,
+                                    last_processed_remote_height: None,
+                                    last_processed_local_height: None,
+                                    last_validated_height: None,
+                                    last_commission_in_range: None,
+                                    uptime: Decimal::one(),
+                                    tombstone: false,
+                                    jailed_number: None,
+                                    init_proposal: None,
+                                    total_passed_proposals: 0u64,
+                                    total_voted_proposals: 0u64,
+                                    on_top: Uint128::zero(),
+                                },
+                            ),
+                        })
+                        .unwrap(),
+                    )
                 } else {
                     unimplemented!()
                 }
