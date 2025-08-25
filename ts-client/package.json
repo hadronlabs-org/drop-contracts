@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@neutron-org/client-ts": "^1.4.0",
-    "@neutron-org/contracts2ts": "1.4.6",
+    "@neutron-org/contracts2ts": "1.5.2",
     "@cosmjs/cosmwasm-stargate": "^0.32.4",
     "@cosmjs/proto-signing": "^0.32.4"
   },

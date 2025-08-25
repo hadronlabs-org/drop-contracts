@@ -580,10 +580,10 @@
     events "^3.3.0"
     protobufjs "^7.2.0"
 
-"@neutron-org/contracts2ts@1.4.6":
-  version "1.4.6"
-  resolved "https://registry.yarnpkg.com/@neutron-org/contracts2ts/-/contracts2ts-1.4.6.tgz#81b3c8ac675d9ce50ab51da4dfd2a27376b99d3e"
-  integrity sha512-se2DswFcGoXB2iTK14BJ5FxHSqOPxZRiJZyG7UT8QtIVNeBMogFeUub29zoJUBYpRtoxgQO8OOHF5vBS4hWM/g==
+"@neutron-org/contracts2ts@1.5.2":
+  version "1.5.2"
+  resolved "https://registry.yarnpkg.com/@neutron-org/contracts2ts/-/contracts2ts-1.5.2.tgz#ff323a6238904b4fec60cc6c2b45da646f5da620"
+  integrity sha512-JkxOqV1TAyJKBhmmInncex3FDSRF9Z9Y+E9u87YmrQVUr4OHZdO3oclaGAtglB1IQSqe2RfZp3iHnT7JrIM8jQ==
   dependencies:
     "@apidevtools/json-schema-ref-parser" "^11.5.4"
     "@cosmjs/cosmwasm-stargate" "^0.32.4"
@@ -600,15 +600,15 @@
     lodash "^4.17.21"
     node-recursive-directory "^1.2.0"
 
-"@neutron-org/cosmopark@^1.7.3":
-  version "1.7.3"
-  resolved "https://registry.yarnpkg.com/@neutron-org/cosmopark/-/cosmopark-1.7.3.tgz#0bf2da78100bb690ffc537b9048cbeab16eedd2b"
-  integrity sha512-V/EDCw6FB30+l0PFkO4JhD3fk6tskgxTkOy30k8X51wuYrVQx3MEGxG71Vwq424GNU6R6AGQgMIbMTAg+SOzDA==
+"@neutron-org/cosmopark@1.7.14":
+  version "1.7.14"
+  resolved "https://registry.yarnpkg.com/@neutron-org/cosmopark/-/cosmopark-1.7.14.tgz#75eec7d140a2346e6e792454c21e365a83ae7f83"
+  integrity sha512-pOn8TvH2VbwJ1JnylE2/aPJnHI2wWjTBPVvR+oK7upQsuot7jr3lZ1EkpSKRTnOK9fVbqck7GCt8bnP8tnU32A==
   dependencies:
     "@iarna/toml" "^2.2.5"
     commander "^11.0.0"
     docker-cli-js "^2.10.0"
-    docker-compose "^0.24.2"
+    docker-compose "1.1.0"
     lodash "^4.17.21"
     pino "^8.17.2"
     rimraf "^5.0.7"
@@ -1549,10 +1549,10 @@ docker-cli-js@^2.10.0:
     lodash.snakecase "^4.1.1"
     nodeify-ts "1.0.6"
 
-docker-compose@^0.24.2:
-  version "0.24.8"
-  resolved "https://registry.yarnpkg.com/docker-compose/-/docker-compose-0.24.8.tgz#6c125e6b9e04cf68ced47e2596ef2bb93ee9694e"
-  integrity sha512-plizRs/Vf15H+GCVxq2EUvyPK7ei9b/cVesHvjnX4xaXjM9spHe2Ytq0BitndFgvTJ3E3NljPNUEl7BAN43iZw==
+docker-compose@1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/docker-compose/-/docker-compose-1.1.0.tgz#ccc21b280430357e51e192e29dc7b4cef81f3784"
+  integrity sha512-VrkQJNafPQ5d6bGULW0P6KqcxSkv3ZU5Wn2wQA19oB71o7+55vQ9ogFe2MMeNbK+jc9rrKVy280DnHO5JLMWOQ==
   dependencies:
     yaml "^2.2.2"
 
@@ -1582,7 +1582,7 @@ dotparser@^1.1.1:
     "@cosmjs/cosmwasm-stargate" "^0.32.4"
     "@cosmjs/proto-signing" "^0.32.4"
     "@neutron-org/client-ts" "^1.4.0"
-    "@neutron-org/contracts2ts" "1.4.6"
+    "@neutron-org/contracts2ts" "1.5.2"
 
 eastasianwidth@^0.2.0:
   version "0.2.0"
@@ -3223,7 +3223,16 @@ std-env@^3.3.3:
   resolved "https://registry.yarnpkg.com/std-env/-/std-env-3.7.0.tgz#c9f7386ced6ecf13360b6c6c55b8aaa4ef7481d2"
   integrity sha512-JPbdCEQLj1w5GilpiHAx3qJvFndqybBysA3qUOnznweH4QbNYUsW/ea8QzSrnh0vNsezMMw5bcVool8lM0gwzg==
 
-"string-width-cjs@npm:string-width@^4.2.0", string-width@^4.1.0:
+"string-width-cjs@npm:string-width@^4.2.0":
+  version "4.2.3"
+  resolved "https://registry.yarnpkg.com/string-width/-/string-width-4.2.3.tgz#269c7117d27b05ad2e536830a8ec895ef9c6d010"
+  integrity sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==
+  dependencies:
+    emoji-regex "^8.0.0"
+    is-fullwidth-code-point "^3.0.0"
+    strip-ansi "^6.0.1"
+
+string-width@^4.1.0:
   version "4.2.3"
   resolved "https://registry.yarnpkg.com/string-width/-/string-width-4.2.3.tgz#269c7117d27b05ad2e536830a8ec895ef9c6d010"
   integrity sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==
@@ -3248,7 +3257,14 @@ string_decoder@^1.1.1, string_decoder@^1.3.0:
   dependencies:
     safe-buffer "~5.2.0"
 
-"strip-ansi-cjs@npm:strip-ansi@^6.0.1", strip-ansi@^6.0.0, strip-ansi@^6.0.1:
+"strip-ansi-cjs@npm:strip-ansi@^6.0.1":
+  version "6.0.1"
+  resolved "https://registry.yarnpkg.com/strip-ansi/-/strip-ansi-6.0.1.tgz#9e26c63d30f53443e9489495b2105d37b67a85d9"
+  integrity sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==
+  dependencies:
+    ansi-regex "^5.0.1"
+
+strip-ansi@^6.0.0, strip-ansi@^6.0.1:
   version "6.0.1"
   resolved "https://registry.yarnpkg.com/strip-ansi/-/strip-ansi-6.0.1.tgz#9e26c63d30f53443e9489495b2105d37b67a85d9"
   integrity sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==

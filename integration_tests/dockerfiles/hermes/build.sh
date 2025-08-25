@@ -9,4 +9,3 @@ else
     VERSION=":$VERSION"
 fi
 docker build . -t ${ORG}hermes-test${VERSION}
-

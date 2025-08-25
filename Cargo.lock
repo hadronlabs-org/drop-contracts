@@ -640,7 +640,7 @@ dependencies = [
 
 [[package]]
 name = "drop-core"
-version = "1.0.0"
+version = "1.0.2"
 dependencies = [
  "cosmos-sdk-proto",
  "cosmwasm-schema",
@@ -673,7 +673,7 @@ dependencies = [
 
 [[package]]
 name = "drop-factory"
-version = "1.0.0"
+version = "1.0.2"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",

@@ -126,6 +126,41 @@ const networkConfigs = {
       `/opt/init-gaia.sh > /opt/init-gaia.log 2>&1`,
     ],
   },
+  neutronv2: {
+    binary: 'neutrond',
+    chain_id: 'ntrntest',
+    denom: 'untrn',
+    image: `${ORG}neutronv2-test${VERSION}`,
+    prefix: 'neutron',
+    loglevel: 'debug',
+    trace: true,
+    public: true,
+    validators: 2,
+    validators_balance: ['1900000000', '100000000', '100000000'],
+    upload: [
+      './artifacts/contracts',
+      './artifacts/contracts_thirdparty',
+      './artifacts/scripts/init-neutrond.sh',
+    ],
+    post_init: ['CHAINID=ntrntest CHAIN_DIR=/opt /opt/init-neutrond.sh'],
+    genesis_opts: {
+      'app_state.crisis.constant_fee.denom': 'untrn',
+    },
+    config_opts: {
+      'consensus.timeout_commit': '500ms',
+      'consensus.timeout_propose': '500ms',
+    },
+    app_opts: {
+      'api.enable': 'true',
+      'api.address': 'tcp://0.0.0.0:1317',
+      'api.swagger': 'true',
+      'grpc.enable': 'true',
+      'grpc.address': '0.0.0.0:9090',
+      'minimum-gas-prices': '0.0025untrn',
+      'rosetta.enable': 'true',
+      'telemetry.prometheus-retention-time': 1000,
+    },
+  },
   neutron: {
     binary: 'neutrond',
     chain_id: 'ntrntest',
@@ -241,6 +276,7 @@ const awaitNeutronChannels = (rest: string, rpc: string): Promise<void> =>
       const res = await client.IbcCoreChannelV1.query.queryChannels(undefined, {
         timeout: 1000,
       });
+      console.log(res);
       if (
         res.data.channels.length > 0 &&
         res.data.channels[0].counterparty.channel_id !== ''
@@ -388,8 +424,8 @@ export const setupPark = async (
   );
   if (relayers.hermes) {
     await awaitNeutronChannels(
-      `127.0.0.1:${instance.ports['neutron'].rest}`,
-      `127.0.0.1:${instance.ports['neutron'].rpc}`,
+      `127.0.0.1:${instance.ports['neutronv2'].rest}`,
+      `127.0.0.1:${instance.ports['neutronv2'].rpc}`,
     ).catch((e) => {
       console.log(`Failed to await neutron channels: ${e}`);
       throw e;
