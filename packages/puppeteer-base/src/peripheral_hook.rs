@@ -101,6 +101,8 @@ pub enum Transaction {
         interchain_account_id: String,
         rewards_withdraw_address: String,
     },
+    EnableTokenizeShares {},
+    DisableTokenizeShares {},
 }
 
 #[cw_serde]

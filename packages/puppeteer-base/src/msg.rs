@@ -1,5 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Empty, Uint128};
+use cw_ownable::cw_ownable_query;
 use schemars::JsonSchema;
 
 #[cw_serde]
@@ -21,6 +22,7 @@ pub struct OpenAckVersion {
 #[cw_serde]
 pub struct MigrateMsg {}
 
+#[cw_ownable_query]
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg<E = Empty>

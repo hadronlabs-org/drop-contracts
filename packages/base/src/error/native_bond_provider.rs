@@ -48,6 +48,12 @@ pub enum ContractError {
 
     #[error("Puppeteer ICA is not registered")]
     IcaNotRegistered {},
+
+    #[error("Can't migrate from {storage_contract_name} to {contract_name}")]
+    MigrationError {
+        storage_contract_name: String,
+        contract_name: String,
+    },
 }
 
 impl From<semver::Error> for ContractError {

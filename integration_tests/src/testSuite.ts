@@ -15,6 +15,7 @@ import {
 } from '@neutron-org/cosmopark/lib/types';
 import { Suite } from 'vitest';
 import { Tendermint34Client } from '@cosmjs/tendermint-rpc';
+
 const packageJSON = require(`${__dirname}/../package.json`);
 const VERSION = (process.env.CI ? '_' : ':') + packageJSON.version;
 const ORG = process.env.CI ? 'neutronorg/lionco-contracts:' : '';
@@ -62,6 +63,11 @@ const networkConfigs = {
       'app_state.slashing.params.slash_fraction_downtime': '0.1',
       'app_state.staking.params.validator_bond_factor': '10',
       'app_state.staking.params.unbonding_time': '1814400s',
+      'app_state.feemarket.params.beta': '0.0',
+      'app_state.feemarket.params.max_learning_rate': '0.0',
+      'app_state.feemarket.params.min_learning_rate': '0.0',
+      'app_state.feemarket.params.min_base_gas_price': '0.001',
+      'app_state.feemarket.state.base_gas_price': '0.001',
       'app_state.mint.minter.inflation': '0.9',
       'app_state.mint.params.inflation_max': '0.95',
       'app_state.mint.params.inflation_min': '0.5',
@@ -97,13 +103,7 @@ const networkConfigs = {
     trace: true,
     validators: 2,
     commands: redefinedParams.commands,
-    validators_balance: [
-      '1900000000',
-      '100000000',
-      '100000000',
-      '100000000',
-      '100000000',
-    ],
+    validators_balance: ['1900000000', '100000000'],
     genesis_opts: redefinedParams.genesisOpts || {
       'app_state.slashing.params.downtime_jail_duration': '10s',
       'app_state.slashing.params.signed_blocks_window': '10',
@@ -111,6 +111,11 @@ const networkConfigs = {
       'app_state.slashing.params.slash_fraction_downtime': '0.1',
       'app_state.staking.params.validator_bond_factor': '10',
       'app_state.staking.params.unbonding_time': '1814400s',
+      'app_state.feemarket.params.beta': '0.0',
+      'app_state.feemarket.params.max_learning_rate': '0.0',
+      'app_state.feemarket.params.min_learning_rate': '0.0',
+      'app_state.feemarket.params.min_base_gas_price': '0.001',
+      'app_state.feemarket.state.base_gas_price': '0.001',
       'app_state.mint.minter.inflation': '0.9',
       'app_state.mint.params.inflation_max': '0.95',
       'app_state.mint.params.inflation_min': '0.5',
@@ -137,6 +142,41 @@ const networkConfigs = {
       `/opt/init-gaia.sh > /opt/init-gaia.log 2>&1`,
     ],
   },
+  neutronv2: {
+    binary: 'neutrond',
+    chain_id: 'ntrntest',
+    denom: 'untrn',
+    image: `${ORG}neutronv2-test${VERSION}`,
+    prefix: 'neutron',
+    loglevel: 'debug',
+    trace: true,
+    public: true,
+    validators: 2,
+    validators_balance: ['1900000000', '100000000', '100000000'],
+    upload: [
+      './artifacts/contracts',
+      './artifacts/contracts_thirdparty',
+      './artifacts/scripts/init-neutrond.sh',
+    ],
+    post_init: ['CHAINID=ntrntest CHAIN_DIR=/opt /opt/init-neutrond.sh'],
+    genesis_opts: {
+      'app_state.crisis.constant_fee.denom': 'untrn',
+    },
+    config_opts: {
+      'consensus.timeout_commit': '500ms',
+      'consensus.timeout_propose': '500ms',
+    },
+    app_opts: {
+      'api.enable': 'true',
+      'api.address': 'tcp://0.0.0.0:1317',
+      'api.swagger': 'true',
+      'grpc.enable': 'true',
+      'grpc.address': '0.0.0.0:9090',
+      'minimum-gas-prices': '0.0025untrn',
+      'rosetta.enable': 'true',
+      'telemetry.prometheus-retention-time': 1000,
+    },
+  },
   initia: {
     binary: redefinedParams.binary || 'initiad',
     chain_id: 'testinitia',
@@ -146,13 +186,7 @@ const networkConfigs = {
     trace: true,
     validators: 2,
     commands: redefinedParams.commands,
-    validators_balance: [
-      '100000000',
-      '100000000',
-      '100000000',
-      '100000000',
-      '100000000',
-    ],
+    validators_balance: ['100000000', '100000000'],
     genesis_opts: redefinedParams.genesisOpts || {
       'app_state.slashing.params.downtime_jail_duration': '10s',
       'app_state.slashing.params.signed_blocks_window': '10',
@@ -449,6 +483,7 @@ export const setupPark = async (
       mnemonic: wallets.neutronqueryrelayer,
     } as any);
   }
+
   const instance = await cosmopark.create(config);
   await Promise.all(
     Object.entries(instance.ports).map(([network, ports]) =>

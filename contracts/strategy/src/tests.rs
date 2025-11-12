@@ -85,6 +85,7 @@ fn puppeteer_query(
         PuppeteerQueryMsg::TxState {} => todo!(),
         PuppeteerQueryMsg::Transactions {} => todo!(),
         PuppeteerQueryMsg::KVQueryIds {} => todo!(),
+        PuppeteerQueryMsg::Ownership {} => todo!(),
         PuppeteerQueryMsg::Extension { msg } => match msg {
             drop_staking_base::msg::puppeteer::QueryExtMsg::Delegations {} => {
                 let mut delegations_amount: Vec<DropDelegation> = Vec::new();
@@ -155,7 +156,6 @@ fn factory_query(_deps: Deps, _env: Env, msg: FactoryQueryMsg) -> StdResult<Bina
             ]);
             Ok(to_json_binary(&out).unwrap())
         }
-        FactoryQueryMsg::PauseInfo {} => todo!(),
         FactoryQueryMsg::Ownership {} => todo!(),
     }
 }
@@ -514,4 +514,27 @@ fn test_transfer_ownership() {
             pending_owner: None
         }
     );
+}
+
+#[test]
+fn test_migrate_wrong_contract() {
+    let mut deps = mock_dependencies(&[]);
+
+    let deps_mut = deps.as_mut();
+
+    cw2::set_contract_version(deps_mut.storage, "wrong_contract_name", "0.0.1").unwrap();
+
+    let res = crate::contract::migrate(
+        deps.as_mut(),
+        mock_env(),
+        drop_staking_base::msg::strategy::MigrateMsg {},
+    )
+    .unwrap_err();
+    assert_eq!(
+        res,
+        crate::error::ContractError::MigrationError {
+            storage_contract_name: "wrong_contract_name".to_string(),
+            contract_name: crate::contract::CONTRACT_NAME.to_string()
+        }
+    )
 }

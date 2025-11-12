@@ -1,4 +1,4 @@
-# Initia MoveVM "provide liquidity and send LP" module
+# Initia MoveVM "Liquidity Provider" module
 
 #### 1. Prepare an empty address with INIT tokens
 
@@ -8,64 +8,73 @@ This way, you should have:
 - initiad binary;
 - mnemonic with some INIT tokens on initiation-2 network.
 
-#### 2. Configure deployment
-
-Navigate to `Move.toml` and open it in your editor of choice. You are interested in the
-section `[addresses]`. `me` and `recipient` are filled with placeholder (`_`) addresses,
-so you will have to fill them up. You can use this easy snippet to generate hexadecimal
-addresses from keys stored in your initiad keychain:
+#### 2. Get your account address in hexademical format
 
 ```bash
 NAME="<name of your key>"; echo "0x$(initiad keys parse "$(initiad keys show "$NAME" --output json | jq -r '.address')" --output json | jq -r '.bytes' | tr '[:upper:]' '[:lower:]')"
 ```
 
-First, fill `me` to the address of your own account. For `recipient`, you can create a new
-empty account and use it's address.
-
 #### 3. Build module
 
-It is as easy as `initiad move build`.
+It is as easy as
+
+```bash
+initiad move build --named-addresses "me=<your hex address from step 2>"
+```
 
 #### 4. Deploy module
 
-It is also easy, sign your normal Cosmos SDK transaction:
+It is also as easy as
 
 ```bash
 initiad move deploy --path "$(pwd)" --upgrade-policy COMPATIBLE --from <name of your key> --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --node https://rpc.initiation-2.initia.xyz:443 --chain-id initiation-2
 ```
 
-#### 5. Determine address of module object
+#### 5. Instantiate a new Liquidity Provider object
 
-Open module upload transaction in block explorer, for example take a look at
-[this one](https://scan.testnet.initia.xyz/initiation-1/txs/7B408B00337E840D0AF2BB89615CEEFFD73A28458D1BD31185418909FAF37BDB).
-Look for event log with `type_tag` equal to `0x1::object::CreateEvent`.
-Inside this event there is a JSON, containing a field `object` with the
-address of our new module object. This address is where INIT tokens are expected
-to be deposited to.
+Method `create_liquidity_provider` has several arguments:
 
-#### 6. Send INIT tokens to the module object
-
-Should be as easy as a normal Cosmos SDK bank transfer, with a single caveat.
-You have object address in HEX format, but you need bech32. Let's convert it:
-suppose you have address `0x8a6fc188562db0e6008896b4e7a5ec027fe3461cb4169adc5165d1b58732d720`.
-Run `initiad keys parse 8a6fc188562db0e6008896b4e7a5ec027fe3461cb4169adc5165d1b58732d720`,
-take the first output with `init1` prefix: `init13fhurzzk9kcwvqygj66w0f0vqfl7x3sukstf4hz3vhgmtpej6usqzqa0mq`,
-this would be the address to send funds to:
+- string:\<name\> Name for a visual reference, e.g. "testnet_uinit"
+- address:\<address\> Priviliged account with a permission to withdraw any coins from the module object, will be set to `account` if omitted
+- string:\<name\> Name of a slinky pair, e.g. "INIT/USD"
+- bool:\<bool\> Flag whether to ignore slinky errors or not
+- object:\<address\> Address of liquidity pool, e.g. 0xdbf06c48af3984ec6d9ae8a9aa7dbb0bb1e784aa9b8c4a5681af660cf8558d7d for uinit-usdc on initiation-2 testnet
+- object:\<address\> Address of asset, e.g. 0x8e4733bdabcf7d4afc3d14f0dd46c9bf52fb0fce9e4b996c939e195b8bc891d9 for uinit on initiation-2 testnet
+- address:\<address\> Address which will be receiving all LP tokens (Rewards Pump ICA on Initia)
 
 ```bash
-initiad tx bank send <name of your key> init13fhurzzk9kcwvqygj66w0f0vqfl7x3sukstf4hz3vhgmtpej6usqzqa0mq 4242uinit --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --chain-id initiation-2 --node https://rpc.initiation-2.initia.xyz:443
+initiad tx move execute <your hex address from the step 2> drop_lp create_liquidity_provider --args '["string:<name>", "address:<backup address>", "string:INIT/USD", "bool:true", "object:<lp_metadata_address>", "object:<input_token_address>", "address:<lp_recepient>"]' --from <name of your key> --node https://rpc.initiation-2.initia.xyz:443 --chain-id initiation-2 --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit
 ```
 
-#### 7. Execute contract
+To get Liquidity Provider instance object's address use this:
 
 ```bash
-initiad tx move execute <address of @me from Move.toml> liquidity_provider provide --from testnet --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --node https://rpc.initiation-2.initia.xyz:443 --chain-id initiation-2
+initiad q tx <tx hash from the previous transaction> --node https://rpc.initiation-2.initia.xyz:443 -o j | jq '.events[] | select(.attributes[].value | contains("CreateLiquidityProviderEvent")) | .attributes[] | select(.key == "data").value | fromjson.lp_address' | sed 's/\"//g'
+```
+
+Then, to convert it from hex to bech32, use this command:
+
+```bash
+initiad keys parse <hex address without 0x prefix>
+```
+
+And pick up the one with "init1..." prefix.
+
+#### 6. Provide liquidity
+
+First, go to the initia [faucet](https://faucet.testnet.initia.xyz/),
+then get some INIT tokens on the Liquidity Provider bech32 instance address that you got from the step 5.
+
+- address:\<address\> Hex address of the liquidity provider instance
+
+```bash
+initiad tx move execute <your hex address from step 2> drop_lp provide '["address:<hex_lp_address>"]' --from <name of your key> --gas auto --gas-adjustment 1.5 --gas-prices 0.025uinit --node https://rpc.initiation-2.initia.xyz:443 --chain-id initiation-2
 ```
 
 #### 8. Validate
 
 Use block explorer to validate that:
 
-- @me address doesn't have any INIT tokens anymore;
+- Liquidity Provider address doesn't have any INIT tokens anymore;
 - @recipient address has some LP tokens (denom is
   `move/dbf06c48af3984ec6d9ae8a9aa7dbb0bb1e784aa9b8c4a5681af660cf8558d7d`).

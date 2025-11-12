@@ -1,7 +1,9 @@
 use bech32::{encode, Bech32, Hrp};
-use cosmwasm_std::{to_json_binary, Decimal, Deps, Order, Reply, StdError, SubMsg};
+use cosmwasm_std::{to_json_binary, Attribute, Decimal, Deps, Order, Reply, StdError, SubMsg};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response, StdResult};
+use drop_helpers::answer::response;
 use drop_helpers::query_id::get_query_id;
+use drop_staking_base::error::validatorstats::{ContractError, ContractResult};
 use drop_staking_base::msg::validatorsstats::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use drop_staking_base::state::validatorsstats::{
     Config, KVQueryIds, MissedBlocks, ValidatorMissedBlocksForPeriod, ValidatorState, CONFIG,
@@ -453,20 +455,22 @@ pub fn migrate(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
     _msg: MigrateMsg,
-) -> StdResult<Response<NeutronMsg>> {
-    let version: semver::Version = CONTRACT_VERSION
-        .parse()
-        .map_err(|e: semver::Error| StdError::generic_err(e.to_string()))?;
-    let storage_version: semver::Version = cw2::get_contract_version(deps.storage)?
-        .version
-        .parse()
-        .map_err(|e: semver::Error| StdError::generic_err(e.to_string()))?;
+) -> ContractResult<Response<NeutronMsg>> {
+    let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
+    let storage_contract_name = contract_version_metadata.contract.as_str();
+    if storage_contract_name != CONTRACT_NAME {
+        return Err(ContractError::MigrationError {
+            storage_contract_name: storage_contract_name.to_string(),
+            contract_name: CONTRACT_NAME.to_string(),
+        });
+    }
 
+    let storage_version: semver::Version = contract_version_metadata.version.parse()?;
+    let version: semver::Version = CONTRACT_VERSION.parse()?;
     if storage_version < version {
         cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     }
-
-    Ok(Response::new())
+    Ok(response("migrate", CONTRACT_NAME, Vec::<Attribute>::new()))
 }
 
 // TODO: add tests

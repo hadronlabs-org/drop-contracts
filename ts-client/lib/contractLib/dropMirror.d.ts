@@ -14,19 +14,8 @@ import { StdFee } from "@cosmjs/amino";
  * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
  */
 export type Uint128 = string;
-/**
- * A human readable address.
- *
- * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
- *
- * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
- *
- * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
- */
-export type Addr = string;
-export type ReturnType = "remote" | "local";
-export type BondState = "initiated" | "bonded" | "sent";
-export type ArrayOfTupleOfUint64AndBondItem = [number, BondItem][];
+export type ArrayOfFailedReceiverResponse = FailedReceiverResponse[];
+export type NullableFailedReceiverResponse = FailedReceiverResponse | null;
 /**
  * Expiration represents a point in time when some event happens. It can compare with a BlockInfo and will return is_expired() == true once the condition is hit (and for every block in the future)
  */
@@ -71,19 +60,15 @@ export type UpdateOwnershipArgs = {
     };
 } | "accept_ownership" | "renounce_ownership";
 export interface DropMirrorSchema {
-    responses: ArrayOfTupleOfUint64AndBondItem | Config | BondItem1 | OwnershipForString;
-    query: OneArgs | AllArgs;
-    execute: BondArgs | UpdateConfigArgs | CompleteArgs | ChangeReturnTypeArgs | UpdateBondArgs | UpdateOwnershipArgs;
+    responses: ArrayOfFailedReceiverResponse | Config | NullableFailedReceiverResponse | OwnershipForString;
+    query: FailedReceiverArgs;
+    execute: BondArgs | UpdateConfigArgs | RetryArgs | UpdateOwnershipArgs;
     instantiate?: InstantiateMsg;
     [k: string]: unknown;
 }
-export interface BondItem {
-    amount: Uint128;
-    backup?: Addr | null;
-    received?: Coin | null;
+export interface FailedReceiverResponse {
+    failed_transfers: Coin[];
     receiver: string;
-    return_type: ReturnType;
-    state: BondState;
 }
 export interface Coin {
     amount: Uint128;
@@ -96,14 +81,6 @@ export interface Config {
     prefix: string;
     source_channel: string;
     source_port: string;
-}
-export interface BondItem1 {
-    amount: Uint128;
-    backup?: Addr | null;
-    received?: Coin | null;
-    receiver: string;
-    return_type: ReturnType;
-    state: BondState;
 }
 /**
  * The contract's ownership info
@@ -122,15 +99,10 @@ export interface OwnershipForString {
      */
     pending_owner?: string | null;
 }
-export interface OneArgs {
-    id: number;
-}
-export interface AllArgs {
-    limit?: number | null;
-    start_after?: number | null;
+export interface FailedReceiverArgs {
+    receiver: string;
 }
 export interface BondArgs {
-    backup?: string | null;
     receiver: string;
     ref?: string | null;
 }
@@ -144,18 +116,8 @@ export interface ConfigOptional {
     source_channel?: string | null;
     source_port?: string | null;
 }
-export interface CompleteArgs {
-    items: number[];
-}
-export interface ChangeReturnTypeArgs {
-    id: number;
-    return_type: ReturnType;
-}
-export interface UpdateBondArgs {
-    backup?: string | null;
-    id: number;
+export interface RetryArgs {
     receiver: string;
-    return_type: ReturnType;
 }
 export interface InstantiateMsg {
     core_contract: string;
@@ -170,16 +132,26 @@ export declare class Client {
     contractAddress: string;
     constructor(client: CosmWasmClient | SigningCosmWasmClient, contractAddress: string);
     mustBeSigningClient(): Error;
-    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
-    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[]): Promise<InstantiateResult>;
+    static instantiate(client: SigningCosmWasmClient, sender: string, codeId: number, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
+    static instantiate2(client: SigningCosmWasmClient, sender: string, codeId: number, salt: Uint8Array, initMsg: InstantiateMsg, label: string, fees: StdFee | 'auto' | number, initCoins?: readonly Coin[], admin?: string): Promise<InstantiateResult>;
     queryConfig: () => Promise<Config>;
-    queryOne: (args: OneArgs) => Promise<BondItem>;
-    queryAll: (args: AllArgs) => Promise<ArrayOfTupleOfUint64AndBondItem>;
+    queryFailedReceiver: (args: FailedReceiverArgs) => Promise<NullableFailedReceiverResponse>;
+    queryAllFailed: () => Promise<ArrayOfFailedReceiverResponse>;
     queryOwnership: () => Promise<OwnershipForString>;
     bond: (sender: string, args: BondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    bondMsg: (args: BondArgs) => {
+        bond: BondArgs;
+    };
     updateConfig: (sender: string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    complete: (sender: string, args: CompleteArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    changeReturnType: (sender: string, args: ChangeReturnTypeArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-    updateBond: (sender: string, args: UpdateBondArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateConfigMsg: (args: UpdateConfigArgs) => {
+        update_config: UpdateConfigArgs;
+    };
+    retry: (sender: string, args: RetryArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    retryMsg: (args: RetryArgs) => {
+        retry: RetryArgs;
+    };
     updateOwnership: (sender: string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+    updateOwnershipMsg: (args: UpdateOwnershipArgs) => {
+        update_ownership: UpdateOwnershipArgs;
+    };
 }

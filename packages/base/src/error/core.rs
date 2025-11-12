@@ -150,6 +150,12 @@ pub enum ContractError {
 
     #[error("Bond provider balance isn't empty")]
     BondProviderBalanceNotEmpty {},
+
+    #[error("Can't migrate from {storage_contract_name} to {contract_name}")]
+    MigrationError {
+        storage_contract_name: String,
+        contract_name: String,
+    },
 }
 
 impl From<semver::Error> for ContractError {

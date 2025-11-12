@@ -48,43 +48,6 @@ export type ResponseHookMsg =
   | {
       error: ResponseHookErrorMsg;
     };
-export type ResponseAnswer =
-  | {
-      grant_delegate_response: MsgGrantResponse;
-    }
-  | {
-      delegate_response: MsgDelegateResponse;
-    }
-  | {
-      undelegate_response: MsgUndelegateResponse;
-    }
-  | {
-      begin_redelegate_response: MsgBeginRedelegateResponse;
-    }
-  | {
-      tokenize_shares_response: MsgTokenizeSharesResponse;
-    }
-  | {
-      redeem_tokensfor_shares_response: MsgRedeemTokensforSharesResponse;
-    }
-  | {
-      authz_exec_response: MsgExecResponse;
-    }
-  | {
-      i_b_c_transfer: MsgIBCTransfer;
-    }
-  | {
-      transfer_response: MsgSendResponse;
-    }
-  | {
-      unknown_response: {};
-    };
-/**
- * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
- *
- * This is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.
- */
-export type Binary = string;
 export type Transaction =
   | {
       undelegate: {
@@ -155,6 +118,12 @@ export type Transaction =
         interchain_account_id: string;
         rewards_withdraw_address: string;
       };
+    }
+  | {
+      enable_tokenize_shares: {};
+    }
+  | {
+      disable_tokenize_shares: {};
     };
 export type IBCTransferReason = "l_s_m_share" | "delegate";
 /**
@@ -179,7 +148,7 @@ export type Expiration =
       at_height: number;
     }
   | {
-      at_time: Timestamp2;
+      at_time: Timestamp;
     }
   | {
       never: {};
@@ -195,7 +164,7 @@ export type Expiration =
  *
  * let ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```
  */
-export type Timestamp2 = Uint64;
+export type Timestamp = Uint64;
 /**
  * A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
  *
@@ -271,56 +240,9 @@ export interface LastPuppeteerResponse {
   response?: ResponseHookMsg | null;
 }
 export interface ResponseHookSuccessMsg {
-  answers: ResponseAnswer[];
   local_height: number;
   remote_height: number;
-  request: RequestPacket;
-  request_id: number;
   transaction: Transaction;
-}
-export interface MsgGrantResponse {}
-export interface MsgDelegateResponse {}
-export interface MsgUndelegateResponse {
-  completion_time?: Timestamp | null;
-}
-export interface Timestamp {
-  nanos: number;
-  seconds: number;
-}
-export interface MsgBeginRedelegateResponse {
-  completion_time?: Timestamp | null;
-}
-export interface MsgTokenizeSharesResponse {
-  amount?: Coin | null;
-}
-export interface Coin {
-  amount: Uint1281;
-  denom: string;
-  [k: string]: unknown;
-}
-export interface MsgRedeemTokensforSharesResponse {
-  amount?: Coin | null;
-}
-export interface MsgExecResponse {
-  results: number[][];
-}
-export interface MsgIBCTransfer {}
-export interface MsgSendResponse {}
-export interface RequestPacket {
-  data?: Binary | null;
-  destination_channel?: string | null;
-  destination_port?: string | null;
-  sequence?: number | null;
-  source_channel?: string | null;
-  source_port?: string | null;
-  timeout_height?: RequestPacketTimeoutHeight | null;
-  timeout_timestamp?: number | null;
-  [k: string]: unknown;
-}
-export interface RequestPacketTimeoutHeight {
-  revision_height?: number | null;
-  revision_number?: number | null;
-  [k: string]: unknown;
 }
 export interface RedeemShareItem {
   amount: Uint1281;
@@ -333,10 +255,13 @@ export interface TransferReadyBatchesMsg {
   emergency: boolean;
   recipient: string;
 }
+export interface Coin {
+  amount: Uint1281;
+  denom: string;
+  [k: string]: unknown;
+}
 export interface ResponseHookErrorMsg {
   details: string;
-  request: RequestPacket;
-  request_id: number;
   transaction: Transaction;
 }
 /**
@@ -404,7 +329,7 @@ export class Client {
     this.client = client;
     this.contractAddress = contractAddress;
   }
-  mustBeSigningClient() {
+  mustBeSigningClient(): Error {
     return new Error("This client is not a SigningCosmWasmClient");
   }
   static async instantiate(
@@ -415,9 +340,10 @@ export class Client {
     label: string,
     fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
+    admin?: string,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
+      ...(initCoins && initCoins.length && { funds: initCoins }), ...(admin && { admin: admin }),
     });
     return res;
   }
@@ -425,14 +351,15 @@ export class Client {
     client: SigningCosmWasmClient,
     sender: string,
     codeId: number,
-    salt: number,
+    salt: Uint8Array,
     initMsg: InstantiateMsg,
     label: string,
     fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
+    admin?: string,
   ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
+    const res = await client.instantiate2(sender, codeId, salt, initMsg, label, fees, {
+      ...(initCoins && initCoins.length && { funds: initCoins }), ...(admin && { admin: admin }),
     });
     return res;
   }
@@ -468,22 +395,27 @@ export class Client {
   }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.updateConfigMsg(args), fee || "auto", memo, funds);
   }
+  updateConfigMsg = (args: UpdateConfigArgs): { update_config: UpdateConfigArgs } => { return { update_config: args }; }
   peripheralHook = async(sender:string, args: PeripheralHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { peripheral_hook: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.peripheralHookMsg(args), fee || "auto", memo, funds);
   }
+  peripheralHookMsg = (args: PeripheralHookArgs): { peripheral_hook: PeripheralHookArgs } => { return { peripheral_hook: args }; }
   bond = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { bond: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.bondMsg(), fee || "auto", memo, funds);
   }
+  bondMsg = (): { bond: {} } => { return { bond: {} } }
   processOnIdle = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { process_on_idle: {} }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.processOnIdleMsg(), fee || "auto", memo, funds);
   }
+  processOnIdleMsg = (): { process_on_idle: {} } => { return { process_on_idle: {} } }
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.updateOwnershipMsg(args), fee || "auto", memo, funds);
   }
+  updateOwnershipMsg = (args: UpdateOwnershipArgs): { update_ownership: UpdateOwnershipArgs } => { return { update_ownership: args }; }
 }

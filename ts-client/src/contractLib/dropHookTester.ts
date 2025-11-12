@@ -1,56 +1,5 @@
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult, InstantiateResult } from "@cosmjs/cosmwasm-stargate"; 
 import { StdFee } from "@cosmjs/amino";
-export type ResponseAnswer =
-  | {
-      grant_delegate_response: MsgGrantResponse;
-    }
-  | {
-      delegate_response: MsgDelegateResponse;
-    }
-  | {
-      undelegate_response: MsgUndelegateResponse;
-    }
-  | {
-      begin_redelegate_response: MsgBeginRedelegateResponse;
-    }
-  | {
-      tokenize_shares_response: MsgTokenizeSharesResponse;
-    }
-  | {
-      redeem_tokensfor_shares_response: MsgRedeemTokensforSharesResponse;
-    }
-  | {
-      authz_exec_response: MsgExecResponse;
-    }
-  | {
-      i_b_c_transfer: MsgIBCTransfer;
-    }
-  | {
-      transfer_response: MsgSendResponse;
-    }
-  | {
-      unknown_response: {};
-    };
-/**
- * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
- *
- * # Examples
- *
- * Use `from` to create instances of this and `u128` to get the value out:
- *
- * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
- *
- * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
- *
- * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
- */
-export type Uint128 = string;
-/**
- * Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.
- *
- * This is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.
- */
-export type Binary = string;
 export type Transaction =
   | {
       undelegate: {
@@ -121,7 +70,27 @@ export type Transaction =
         interchain_account_id: string;
         rewards_withdraw_address: string;
       };
+    }
+  | {
+      enable_tokenize_shares: {};
+    }
+  | {
+      disable_tokenize_shares: {};
     };
+/**
+ * A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.
+ *
+ * # Examples
+ *
+ * Use `from` to create instances of this and `u128` to get the value out:
+ *
+ * ``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);
+ *
+ * let b = Uint128::from(42u64); assert_eq!(b.u128(), 42);
+ *
+ * let c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```
+ */
+export type Uint128 = string;
 export type IBCTransferReason = "l_s_m_share" | "delegate";
 export type ArrayOfResponseHookSuccessMsg = ResponseHookSuccessMsg[];
 export type ArrayOfResponseHookErrorMsg = ResponseHookErrorMsg[];
@@ -140,56 +109,9 @@ export interface DropHookTesterSchema {
   [k: string]: unknown;
 }
 export interface ResponseHookSuccessMsg {
-  answers: ResponseAnswer[];
   local_height: number;
   remote_height: number;
-  request: RequestPacket;
-  request_id: number;
   transaction: Transaction;
-}
-export interface MsgGrantResponse {}
-export interface MsgDelegateResponse {}
-export interface MsgUndelegateResponse {
-  completion_time?: Timestamp | null;
-}
-export interface Timestamp {
-  nanos: number;
-  seconds: number;
-}
-export interface MsgBeginRedelegateResponse {
-  completion_time?: Timestamp | null;
-}
-export interface MsgTokenizeSharesResponse {
-  amount?: Coin | null;
-}
-export interface Coin {
-  amount: Uint128;
-  denom: string;
-  [k: string]: unknown;
-}
-export interface MsgRedeemTokensforSharesResponse {
-  amount?: Coin | null;
-}
-export interface MsgExecResponse {
-  results: number[][];
-}
-export interface MsgIBCTransfer {}
-export interface MsgSendResponse {}
-export interface RequestPacket {
-  data?: Binary | null;
-  destination_channel?: string | null;
-  destination_port?: string | null;
-  sequence?: number | null;
-  source_channel?: string | null;
-  source_port?: string | null;
-  timeout_height?: RequestPacketTimeoutHeight | null;
-  timeout_timestamp?: number | null;
-  [k: string]: unknown;
-}
-export interface RequestPacketTimeoutHeight {
-  revision_height?: number | null;
-  revision_number?: number | null;
-  [k: string]: unknown;
 }
 export interface RedeemShareItem {
   amount: Uint128;
@@ -202,10 +124,13 @@ export interface TransferReadyBatchesMsg {
   emergency: boolean;
   recipient: string;
 }
+export interface Coin {
+  amount: Uint128;
+  denom: string;
+  [k: string]: unknown;
+}
 export interface ResponseHookErrorMsg {
   details: string;
-  request: RequestPacket;
-  request_id: number;
   transaction: Transaction;
 }
 export interface SetConfigArgs {
@@ -245,7 +170,7 @@ export class Client {
     this.client = client;
     this.contractAddress = contractAddress;
   }
-  mustBeSigningClient() {
+  mustBeSigningClient(): Error {
     return new Error("This client is not a SigningCosmWasmClient");
   }
   static async instantiate(
@@ -256,9 +181,10 @@ export class Client {
     label: string,
     fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
+    admin?: string,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
+      ...(initCoins && initCoins.length && { funds: initCoins }), ...(admin && { admin: admin }),
     });
     return res;
   }
@@ -266,14 +192,15 @@ export class Client {
     client: SigningCosmWasmClient,
     sender: string,
     codeId: number,
-    salt: number,
+    salt: Uint8Array,
     initMsg: InstantiateMsg,
     label: string,
     fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
+    admin?: string,
   ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
+    const res = await client.instantiate2(sender, codeId, salt, initMsg, label, fees, {
+      ...(initCoins && initCoins.length && { funds: initCoins }), ...(admin && { admin: admin }),
     });
     return res;
   }
@@ -285,26 +212,32 @@ export class Client {
   }
   setConfig = async(sender:string, args: SetConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { set_config: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.setConfigMsg(args), fee || "auto", memo, funds);
   }
+  setConfigMsg = (args: SetConfigArgs): { set_config: SetConfigArgs } => { return { set_config: args }; }
   undelegate = async(sender:string, args: UndelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { undelegate: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.undelegateMsg(args), fee || "auto", memo, funds);
   }
+  undelegateMsg = (args: UndelegateArgs): { undelegate: UndelegateArgs } => { return { undelegate: args }; }
   redelegate = async(sender:string, args: RedelegateArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { redelegate: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.redelegateMsg(args), fee || "auto", memo, funds);
   }
+  redelegateMsg = (args: RedelegateArgs): { redelegate: RedelegateArgs } => { return { redelegate: args }; }
   tokenizeShare = async(sender:string, args: TokenizeShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { tokenize_share: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.tokenizeShareMsg(args), fee || "auto", memo, funds);
   }
+  tokenizeShareMsg = (args: TokenizeShareArgs): { tokenize_share: TokenizeShareArgs } => { return { tokenize_share: args }; }
   redeemShare = async(sender:string, args: RedeemShareArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { redeem_share: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.redeemShareMsg(args), fee || "auto", memo, funds);
   }
+  redeemShareMsg = (args: RedeemShareArgs): { redeem_share: RedeemShareArgs } => { return { redeem_share: args }; }
   puppeteerHook = async(sender:string, args: PuppeteerHookArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { puppeteer_hook: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.puppeteerHookMsg(args), fee || "auto", memo, funds);
   }
+  puppeteerHookMsg = (args: PuppeteerHookArgs): { puppeteer_hook: PuppeteerHookArgs } => { return { puppeteer_hook: args }; }
 }

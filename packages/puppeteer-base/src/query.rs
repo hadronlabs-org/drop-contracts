@@ -35,6 +35,10 @@ where
                 "Unsupported query message: {:?}",
                 msg
             )))),
+            QueryMsg::Ownership {} => {
+                let owner = cw_ownable::get_ownership(deps.storage)?;
+                to_json_binary(&owner).map_err(ContractError::Std)
+            }
         }
     }
 

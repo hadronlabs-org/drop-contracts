@@ -61,7 +61,7 @@ const integrationTestsWorkflow = (name: string) => [
 const integrationWorkflow = (name: string) => ({
   name: `${name} Integration Tests`,
   needs: ['images-prepare', 'artifacts-prepare'],
-  'runs-on': 'self-hosted',
+  'runs-on': 'ubicloud-standard-4',
   steps: integrationTestsWorkflow(name),
 });
 
@@ -71,7 +71,8 @@ const packageJson = JSON.parse(
 
 const names = Object.keys(packageJson.scripts)
   .filter((name) => name.includes(':'))
-  .filter((name) => name.includes('test'));
+  .filter((name) => name.includes('test'))
+  .filter((name) => !name.includes('poc-'));
 
 const workflow = parse(readFileSync(__dirname + `/tests.yml`).toString());
 names.forEach((name) => {

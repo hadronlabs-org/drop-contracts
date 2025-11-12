@@ -74,6 +74,12 @@ export type CosmosMsgFor_NeutronMsg =
       custom: NeutronMsg;
     }
   | {
+      staking: StakingMsg;
+    }
+  | {
+      distribution: DistributionMsg;
+    }
+  | {
       stargate: {
         type_url: string;
         value: Binary;
@@ -547,6 +553,58 @@ export type LimitOrderType =
   | "JUST_IN_TIME"
   | "GOOD_TIL_TIME";
 /**
+ * The message types of the staking module.
+ *
+ * See https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/staking/v1beta1/tx.proto
+ */
+export type StakingMsg =
+  | {
+      delegate: {
+        amount: Coin;
+        validator: string;
+        [k: string]: unknown;
+      };
+    }
+  | {
+      undelegate: {
+        amount: Coin;
+        validator: string;
+        [k: string]: unknown;
+      };
+    }
+  | {
+      redelegate: {
+        amount: Coin;
+        dst_validator: string;
+        src_validator: string;
+        [k: string]: unknown;
+      };
+    };
+/**
+ * The message types of the distribution module.
+ *
+ * See https://github.com/cosmos/cosmos-sdk/blob/v0.42.4/proto/cosmos/distribution/v1beta1/tx.proto
+ */
+export type DistributionMsg =
+  | {
+      set_withdraw_address: {
+        /**
+         * The `withdraw_address`
+         */
+        address: string;
+        [k: string]: unknown;
+      };
+    }
+  | {
+      withdraw_delegator_reward: {
+        /**
+         * The `validator_address`
+         */
+        validator: string;
+        [k: string]: unknown;
+      };
+    };
+/**
  * These are messages in the IBC lifecycle. Only usable by IBC-enabled contracts (contracts that directly speak the IBC protocol via 6 entry points)
  */
 export type IbcMsg =
@@ -727,9 +785,19 @@ export type UpdateOwnershipArgs =
     }
   | "accept_ownership"
   | "renounce_ownership";
+/**
+ * A human readable address.
+ *
+ * In Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.
+ *
+ * This type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.
+ *
+ * This type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.
+ */
+export type Addr = string;
 
 export interface DropFactorySchema {
-  responses: OwnershipForString | MapOfString | MapOfString1;
+  responses: OwnershipForString | MapOfString;
   execute: UpdateConfigArgs | ProxyArgs | AdminExecuteArgs | UpdateOwnershipArgs;
   instantiate?: InstantiateMsg;
   [k: string]: unknown;
@@ -754,9 +822,6 @@ export interface OwnershipForString {
 export interface MapOfString {
   [k: string]: string;
 }
-export interface MapOfString1 {
-  [k: string]: string;
-}
 export interface ConfigOptional {
   base_denom?: string | null;
   emergency_address?: string | null;
@@ -765,7 +830,6 @@ export interface ConfigOptional {
   pump_ica_address?: string | null;
   remote_denom?: string | null;
   rewards_receiver?: string | null;
-  transfer_channel_id?: string | null;
   unbond_batch_switch_time?: number | null;
   unbonding_period?: number | null;
   unbonding_safe_period?: number | null;
@@ -1152,22 +1216,16 @@ export interface InstantiateMsg {
   core_params: CoreParams;
   fee_params?: FeeParams | null;
   local_denom: string;
-  lsm_share_bond_params: LsmShareBondParams;
-  native_bond_params: NativeBondParams;
+  pre_instantiated_contracts: PreInstantiatedContracts;
   remote_opts: RemoteOpts;
   salt: string;
-  sdk_version: string;
   subdenom: string;
   token_metadata: DenomMetadata;
 }
 export interface CodeIds {
   core_code_id: number;
   distribution_code_id: number;
-  lsm_share_bond_provider_code_id: number;
-  native_bond_provider_code_id: number;
-  puppeteer_code_id: number;
   rewards_manager_code_id: number;
-  rewards_pump_code_id: number;
   splitter_code_id: number;
   strategy_code_id: number;
   token_code_id: number;
@@ -1186,23 +1244,19 @@ export interface FeeParams {
   fee: Decimal;
   fee_address: string;
 }
-export interface LsmShareBondParams {
-  lsm_min_bond_amount: Uint128;
-  lsm_redeem_max_interval: number;
-  lsm_redeem_threshold: number;
-}
-export interface NativeBondParams {
-  min_ibc_transfer: Uint128;
-  min_stake_amount: Uint128;
+export interface PreInstantiatedContracts {
+  lsm_share_bond_provider_address?: Addr | null;
+  native_bond_provider_address: Addr;
+  puppeteer_address: Addr;
+  rewards_pump_address?: Addr | null;
+  unbonding_pump_address?: Addr | null;
+  val_ref_address?: Addr | null;
 }
 export interface RemoteOpts {
   connection_id: string;
   denom: string;
-  port_id: string;
-  reverse_transfer_channel_id: string;
   timeout: Timeout;
   transfer_channel_id: string;
-  update_period: number;
 }
 export interface Timeout {
   local: number;
@@ -1253,7 +1307,7 @@ export class Client {
     this.client = client;
     this.contractAddress = contractAddress;
   }
-  mustBeSigningClient() {
+  mustBeSigningClient(): Error {
     return new Error("This client is not a SigningCosmWasmClient");
   }
   static async instantiate(
@@ -1264,9 +1318,10 @@ export class Client {
     label: string,
     fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
+    admin?: string,
   ): Promise<InstantiateResult> {
     const res = await client.instantiate(sender, codeId, initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
+      ...(initCoins && initCoins.length && { funds: initCoins }), ...(admin && { admin: admin }),
     });
     return res;
   }
@@ -1274,48 +1329,42 @@ export class Client {
     client: SigningCosmWasmClient,
     sender: string,
     codeId: number,
-    salt: number,
+    salt: Uint8Array,
     initMsg: InstantiateMsg,
     label: string,
     fees: StdFee | 'auto' | number,
     initCoins?: readonly Coin[],
+    admin?: string,
   ): Promise<InstantiateResult> {
-    const res = await client.instantiate2(sender, codeId, new Uint8Array([salt]), initMsg, label, fees, {
-      ...(initCoins && initCoins.length && { funds: initCoins }),
+    const res = await client.instantiate2(sender, codeId, salt, initMsg, label, fees, {
+      ...(initCoins && initCoins.length && { funds: initCoins }), ...(admin && { admin: admin }),
     });
     return res;
   }
   queryState = async(): Promise<MapOfString> => {
     return this.client.queryContractSmart(this.contractAddress, { state: {} });
   }
-  queryPauseInfo = async(): Promise<MapOfString> => {
-    return this.client.queryContractSmart(this.contractAddress, { pause_info: {} });
-  }
   queryOwnership = async(): Promise<OwnershipForString> => {
     return this.client.queryContractSmart(this.contractAddress, { ownership: {} });
   }
   updateConfig = async(sender:string, args: UpdateConfigArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_config: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.updateConfigMsg(args), fee || "auto", memo, funds);
   }
+  updateConfigMsg = (args: UpdateConfigArgs): { update_config: UpdateConfigArgs } => { return { update_config: args }; }
   proxy = async(sender:string, args: ProxyArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { proxy: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.proxyMsg(args), fee || "auto", memo, funds);
   }
+  proxyMsg = (args: ProxyArgs): { proxy: ProxyArgs } => { return { proxy: args }; }
   adminExecute = async(sender:string, args: AdminExecuteArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { admin_execute: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.adminExecuteMsg(args), fee || "auto", memo, funds);
   }
+  adminExecuteMsg = (args: AdminExecuteArgs): { admin_execute: AdminExecuteArgs } => { return { admin_execute: args }; }
   updateOwnership = async(sender:string, args: UpdateOwnershipArgs, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
           if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { update_ownership: args }, fee || "auto", memo, funds);
+    return this.client.execute(sender, this.contractAddress, this.updateOwnershipMsg(args), fee || "auto", memo, funds);
   }
-  pause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { pause: {} }, fee || "auto", memo, funds);
-  }
-  unpause = async(sender: string, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> =>  {
-          if (!isSigningCosmWasmClient(this.client)) { throw this.mustBeSigningClient(); }
-    return this.client.execute(sender, this.contractAddress, { unpause: {} }, fee || "auto", memo, funds);
-  }
+  updateOwnershipMsg = (args: UpdateOwnershipArgs): { update_ownership: UpdateOwnershipArgs } => { return { update_ownership: args }; }
 }

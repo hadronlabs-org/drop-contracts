@@ -45,11 +45,21 @@ pub mod entry {
 
     #[cosmwasm_std::entry_point]
     pub fn migrate(deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, ContractError> {
-        let version: semver::Version = CONTRACT_VERSION
+        let contract_version_metadata = cw2::get_contract_version(deps.storage)?;
+        let storage_contract_name = contract_version_metadata.contract.as_str();
+        if storage_contract_name != CONTRACT_NAME {
+            return Err(StdError::generic_err(format!(
+                "Can't migrate from {} to {}",
+                storage_contract_name, CONTRACT_NAME
+            ))
+            .into());
+        }
+
+        let storage_version: semver::Version = contract_version_metadata
+            .version
             .parse()
             .map_err(|e: semver::Error| StdError::generic_err(e.to_string()))?;
-        let storage_version: semver::Version = cw2::get_contract_version(deps.storage)?
-            .version
+        let version: semver::Version = CONTRACT_VERSION
             .parse()
             .map_err(|e: semver::Error| StdError::generic_err(e.to_string()))?;
 
