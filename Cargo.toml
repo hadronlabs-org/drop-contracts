@@ -4,6 +4,7 @@ members = [
     "contracts/astroport-exchange-handler",
     "contracts/auto-withdrawer",
     "contracts/core",
+    "contracts/core-tmp-migration",
     "contracts/distribution",
     "contracts/factory",
     "contracts/hook-tester",
