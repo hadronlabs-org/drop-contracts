@@ -17,8 +17,8 @@ pub struct ConfigOptional {
     pub unbond_batch_switch_time: Option<u64>,
     pub pump_ica_address: Option<String>,
     pub transfer_channel_id: Option<String>,
-    pub rewards_receiver: Option<String>,
     pub emergency_address: Option<String>,
+    pub icq_update_delay: Option<u64>,
 }
 
 #[cw_serde]
