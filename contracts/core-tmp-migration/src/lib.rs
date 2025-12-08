@@ -1,15 +1,10 @@
-use cosmwasm_std::{
-    ensure, ensure_eq, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Order, Response,
-    StdError, StdResult,
-};
+use cosmwasm_std::{ensure_eq, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError};
 use drop_staking_base::{
     error::core::ContractResult,
     msg::core::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg},
-    state::core::{unbond_batches_map, UnbondBatchStatus, LAST_PUPPETEER_RESPONSE},
+    state::core::unbond_batches_map,
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
-
-pub type MessageWithFeeResponse<T> = (CosmosMsg<T>, Option<CosmosMsg<T>>);
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]
 pub fn instantiate(
@@ -42,41 +37,17 @@ pub fn migrate(
     _env: Env,
     _msg: MigrateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
-    {
-        // STEP 1: switch 2 known Withdrawing batches back to Unbonding status
-        let mut withdrawing_batches_ids = unbond_batches_map()
-            .idx
-            .status
-            .prefix(UnbondBatchStatus::Withdrawing as u8)
-            .range(deps.storage, None, None, Order::Ascending)
-            .map(|res| res.map(|(id, _batch)| id))
-            .collect::<StdResult<Vec<_>>>()?;
-        withdrawing_batches_ids.sort();
-        ensure_eq!(
-            withdrawing_batches_ids,
-            vec![65u128, 66u128],
-            StdError::generic_err("Withdrawing batches are different from the expected set")
-        );
+    let affected_batch_id = 72u128;
 
-        for id in withdrawing_batches_ids {
-            let mut batch = unbond_batches_map().load(deps.storage, id)?;
-            batch.status = UnbondBatchStatus::Unbonding;
-            unbond_batches_map().save(deps.storage, id, &batch)?;
-        }
-    }
+    let mut batch = unbond_batches_map().load(deps.storage, affected_batch_id)?;
+    ensure_eq!(
+        batch.expected_release_time,
+        1766756416,
+        StdError::generic_err("Expected release time was already changed before us, aborting now!")
+    );
 
-    {
-        // STEP 2: erase last puppeteer response
-        let last_puppeteer_response = LAST_PUPPETEER_RESPONSE.may_load(deps.storage)?;
-        ensure!(
-            last_puppeteer_response.is_some(),
-            StdError::generic_err(
-                "Last puppeteer response is absent, but it is expected to be present"
-            )
-        );
-
-        LAST_PUPPETEER_RESPONSE.remove(deps.storage);
-    }
+    batch.expected_release_time = 1766155105; // 2025-12-19T14:38:24.905313525Z
+    unbond_batches_map().save(deps.storage, affected_batch_id, &batch)?;
 
     Ok(Response::new())
 }
