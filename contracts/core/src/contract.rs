@@ -1121,6 +1121,11 @@ fn execute_update_config(
         config.emergency_address = Some(emergency_address);
     }
 
+    if let Some(icq_update_delay) = new_config.icq_update_delay {
+        attrs.push(attr("icq_update_delay", icq_update_delay.to_string()));
+        config.icq_update_delay = icq_update_delay;
+    }
+
     CONFIG.save(deps.storage, &config)?;
 
     Ok(response("execute-update_config", CONTRACT_NAME, attrs))

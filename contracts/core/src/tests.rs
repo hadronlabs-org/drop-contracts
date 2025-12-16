@@ -123,8 +123,8 @@ fn test_update_config() {
         unbond_batch_switch_time: Some(12000),
         pump_ica_address: Some("new_pump_address".to_string()),
         transfer_channel_id: Some("new_transfer_channel".to_string()),
-        rewards_receiver: Some("new_rewards_receiver".to_string()),
         emergency_address: Some("new_emergency_address".to_string()),
+        icq_update_delay: Some(10),
     };
     let expected_config = Config {
         factory_contract: Addr::unchecked("new_factory_contract"),
@@ -137,7 +137,7 @@ fn test_update_config() {
         pump_ica_address: Some("new_pump_address".to_string()),
         transfer_channel_id: "new_transfer_channel".to_string(),
         emergency_address: Some("new_emergency_address".to_string()),
-        icq_update_delay: 5,
+        icq_update_delay: 10,
     };
 
     let res = execute(
