@@ -5,6 +5,7 @@ members = [
     "contracts/auto-withdrawer",
     "contracts/core",
     "contracts/core-tmp-migration",
+    "contracts/wm-tmp-migration",
     "contracts/distribution",
     "contracts/factory",
     "contracts/hook-tester",

@@ -1131,6 +1131,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-wm-tmp-migration"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "drop-staking-base",
+ "neutron-sdk",
+]
+
+[[package]]
 name = "dyn-clone"
 version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
