@@ -58,7 +58,7 @@ pub fn migrate(
             token_id: transfer.token_id.clone(),
         };
         let exec_msg = cosmwasm_std::CosmosMsg::Wasm(cosmwasm_std::WasmMsg::Execute {
-            contract_addr: "neutron1f4c2l9u8yekp99mexyhf7wxgrq3gjtuzgrqe90xaq75v7quulptqzef6up"
+            contract_addr: "neutron1atrxup8mj3dky7jcch3e3524t97hgdzfud9kc6zrkw3dwmgf69ws37ruc5"
                 .to_string(),
             msg: cosmwasm_std::to_json_binary(&transfer_msg)?,
             funds: vec![],
