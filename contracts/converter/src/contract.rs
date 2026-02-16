@@ -6,6 +6,7 @@ use cosmwasm_std::{attr, coin, to_json_binary, CosmosMsg, Decimal, Deps};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{assert_owner, get_ownership};
 use drop_helpers::answer::response;
+use drop_helpers::pause::{pause_guard, set_pause, unpause};
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
@@ -81,6 +82,8 @@ pub fn execute(
         ExecuteMsg::UpdateRate { rate } => exec_rate_update(deps, info, rate),
         ExecuteMsg::Swap { receiver } => exec_swap(receiver, deps, env, info),
         ExecuteMsg::Clawback {} => exec_clawback(deps, env, info),
+        ExecuteMsg::Pause {} => exec_pause(deps, info),
+        ExecuteMsg::Unpause {} => exec_unpause(deps, info),
     }
 }
 
@@ -104,6 +107,7 @@ fn exec_swap(
     _env: Env,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
+    pause_guard(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
     let rate = RATE.load(deps.storage)?;
     deps.api.addr_validate(&receiver)?;
@@ -126,6 +130,28 @@ fn exec_swap(
         ],
     )
     .add_message(send_msg))
+}
+
+fn exec_pause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
+    use cosmwasm_std::Attribute;
+    assert_owner(deps.storage, &info.sender)?;
+    set_pause(deps.storage)?;
+    Ok(response(
+        "execute-pause",
+        CONTRACT_NAME,
+        Vec::<Attribute>::new(),
+    ))
+}
+
+fn exec_unpause(deps: DepsMut, info: MessageInfo) -> ContractResult<Response<NeutronMsg>> {
+    use cosmwasm_std::Attribute;
+    assert_owner(deps.storage, &info.sender)?;
+    unpause(deps.storage);
+    Ok(response(
+        "execute-unpause",
+        CONTRACT_NAME,
+        Vec::<Attribute>::new(),
+    ))
 }
 
 fn exec_clawback(

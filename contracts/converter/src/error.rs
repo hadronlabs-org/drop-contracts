@@ -27,6 +27,9 @@ pub enum ContractError {
     #[error("Semver parsing error: {0}")]
     SemVer(String),
 
+    #[error("{0}")]
+    Pause(#[from] drop_helpers::pause::PauseError),
+
     #[error("No funds to clawback")]
     NoFundsToClawback {},
 

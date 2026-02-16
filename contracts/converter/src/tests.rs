@@ -6,6 +6,7 @@ use cosmwasm_std::{
     coin, from_json, testing::mock_env, testing::mock_info, Addr, BankMsg, CosmosMsg, Decimal,
     Uint128,
 };
+use drop_helpers::pause::PauseError;
 use drop_helpers::testing::mock_dependencies;
 
 #[test]
@@ -303,4 +304,80 @@ fn test_clawback_no_funds_error() {
 
     assert!(res.is_err());
     assert_eq!(res.unwrap_err(), ContractError::NoFundsToClawback {});
+}
+
+#[test]
+fn test_pause_blocks_swap_and_unpause_restores() {
+    let mut deps = mock_dependencies(&[coin(100u128, "denom_a")]);
+
+    let init = InstantiateMsg {
+        owner: "owner".to_string(),
+        rate: Decimal::percent(100),
+        from_token: "denom_a".to_string(),
+        to_token: "denom_b".to_string(),
+    };
+
+    let env = mock_env();
+    let info = mock_info("owner", &[]);
+    let _ = instantiate(deps.as_mut().into_empty(), env.clone(), info, init).unwrap();
+
+    // owner pauses
+    let pause_info = mock_info("owner", &[]);
+    let _ = execute(
+        deps.as_mut().into_empty(),
+        env.clone(),
+        pause_info,
+        crate::msg::ExecuteMsg::Pause {},
+    )
+    .unwrap();
+
+    // swap should now error with Pause
+    let swap_info = cosmwasm_std::MessageInfo {
+        sender: Addr::unchecked("some_sender"),
+        funds: vec![coin(100u128, "denom_a")],
+    };
+
+    let res = execute(
+        deps.as_mut().into_empty(),
+        env.clone(),
+        swap_info,
+        crate::msg::ExecuteMsg::Swap {
+            receiver: "recipient".to_string(),
+        },
+    );
+
+    assert!(res.is_err());
+    assert_eq!(
+        res.unwrap_err(),
+        ContractError::Pause(PauseError::Paused {})
+    );
+
+    // owner unpauses
+    let unpause_info = mock_info("owner", &[]);
+    let _ = execute(
+        deps.as_mut().into_empty(),
+        env.clone(),
+        unpause_info,
+        crate::msg::ExecuteMsg::Unpause {},
+    )
+    .unwrap();
+
+    // swap should succeed now
+    let swap_info2 = cosmwasm_std::MessageInfo {
+        sender: Addr::unchecked("some_sender"),
+        funds: vec![coin(100u128, "denom_a")],
+    };
+
+    let res2 = execute(
+        deps.as_mut().into_empty(),
+        env,
+        swap_info2,
+        crate::msg::ExecuteMsg::Swap {
+            receiver: "recipient".to_string(),
+        },
+    )
+    .unwrap();
+
+    // ensure a send message was produced
+    assert_eq!(res2.messages.len(), 1);
 }

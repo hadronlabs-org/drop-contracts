@@ -16,6 +16,8 @@ pub enum ExecuteMsg {
     Swap { receiver: String },
     UpdateRate { rate: Decimal },
     Clawback {},
+    Pause {},
+    Unpause {},
 }
 
 #[cw_ownable_query]
