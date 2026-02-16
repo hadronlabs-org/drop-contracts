@@ -1,4 +1,5 @@
 use crate::contract::{execute, instantiate, query};
+use crate::error::ContractError;
 use crate::msg::InstantiateMsg;
 use crate::msg::QueryMsg as ConverterQuery;
 use cosmwasm_std::{
@@ -140,4 +141,23 @@ fn test_swap_sends_bank_msg_and_attrs() {
 
     assert_eq!(amount_in, "100");
     assert_eq!(amount_out, "50");
+}
+
+#[test]
+fn test_instantiate_same_tokens_error() {
+    let mut deps = mock_dependencies(&[]);
+
+    let init = InstantiateMsg {
+        owner: "owner".to_string(),
+        rate: Decimal::percent(50),
+        from_token: "denom".to_string(),
+        to_token: "denom".to_string(),
+    };
+
+    let env = mock_env();
+    let info = mock_info("owner", &[]);
+
+    let res = instantiate(deps.as_mut().into_empty(), env, info, init);
+    assert!(res.is_err());
+    assert_eq!(res.unwrap_err(), ContractError::SameTokens {});
 }

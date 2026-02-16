@@ -26,6 +26,9 @@ pub enum ContractError {
 
     #[error("Semver parsing error: {0}")]
     SemVer(String),
+
+    #[error("From and To tokens must be different")]
+    SameTokens {},
 }
 
 impl From<semver::Error> for ContractError {

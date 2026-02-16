@@ -1,14 +1,11 @@
-use crate::error::ContractResult;
+use crate::error::{ContractError, ContractResult};
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use crate::state::{Config, CONFIG, RATE};
 use cosmwasm_std::{attr, coin, to_json_binary, CosmosMsg, Decimal, Deps};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{assert_owner, get_ownership};
 use drop_helpers::answer::response;
-use neutron_sdk::{
-    bindings::{msg::NeutronMsg, query::NeutronQuery},
-    NeutronResult,
-};
+use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
 
 const CONTRACT_NAME: &str = concat!("crates.io:drop-staking__", env!("CARGO_PKG_NAME"));
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -19,10 +16,13 @@ pub fn instantiate(
     _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
-) -> NeutronResult<Response> {
+) -> ContractResult<Response> {
     cw2::set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     deps.api.addr_validate(&msg.owner)?;
     cw_ownable::initialize_owner(deps.storage, deps.api, Some(&msg.owner))?;
+    if msg.from_token == msg.to_token {
+        return Err(ContractError::SameTokens {});
+    }
     CONFIG.save(
         deps.storage,
         &Config {
