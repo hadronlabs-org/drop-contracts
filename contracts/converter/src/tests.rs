@@ -25,7 +25,7 @@ fn test_instantiate_and_query() {
 
     // query config
     let cfg: crate::state::Config = from_json(
-        &query(
+        query(
             deps.as_ref().into_empty(),
             env.clone(),
             ConverterQuery::Config {},
@@ -39,8 +39,7 @@ fn test_instantiate_and_query() {
 
     // query rate
     let rate: Decimal =
-        from_json(&query(deps.as_ref().into_empty(), env, ConverterQuery::Rate()).unwrap())
-            .unwrap();
+        from_json(query(deps.as_ref().into_empty(), env, ConverterQuery::Rate()).unwrap()).unwrap();
 
     assert_eq!(rate, Decimal::percent(50));
 }
@@ -73,8 +72,7 @@ fn test_update_rate_by_owner() {
     .unwrap();
 
     let rate: Decimal =
-        from_json(&query(deps.as_ref().into_empty(), env, ConverterQuery::Rate()).unwrap())
-            .unwrap();
+        from_json(query(deps.as_ref().into_empty(), env, ConverterQuery::Rate()).unwrap()).unwrap();
 
     assert_eq!(rate, Decimal::percent(25));
 }
