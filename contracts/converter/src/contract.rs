@@ -72,11 +72,12 @@ pub fn execute(
 ) -> ContractResult<Response<NeutronMsg>> {
     match msg {
         ExecuteMsg::UpdateOwnership(action) => {
-            cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
-            Ok(response::<(&str, &str), _>(
+            let ownership =
+                cw_ownable::update_ownership(deps.into_empty(), &env.block, &info.sender, action)?;
+            Ok(response(
                 "execute-update-ownership",
                 CONTRACT_NAME,
-                [],
+                ownership.into_attributes(),
             ))
         }
         ExecuteMsg::UpdateRate { rate } => exec_rate_update(deps, info, rate),
