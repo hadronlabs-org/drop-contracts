@@ -82,7 +82,7 @@ pub fn execute(
         }
         ExecuteMsg::UpdateRate { rate } => exec_rate_update(deps, info, rate),
         ExecuteMsg::Swap { receiver } => exec_swap(receiver, deps, env, info),
-        ExecuteMsg::Clawback {} => exec_clawback(deps, env, info),
+        ExecuteMsg::Clawback { denom } => exec_clawback(deps, env, info, denom),
         ExecuteMsg::Pause {} => exec_pause(deps, info),
         ExecuteMsg::Unpause {} => exec_unpause(deps, info),
     }
@@ -159,15 +159,18 @@ fn exec_clawback(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
+    denom: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
     assert_owner(deps.storage, &info.sender)?;
     let config = CONFIG.load(deps.storage)?;
     let to_address = info.sender.to_string();
 
-    // only send the balance of the configured `from_token`
+    // determine which denom to clawback: provided one or contract's configured `from_token`
+    let chosen_denom = denom.unwrap_or(config.from_token.clone());
+
     let balance = deps
         .querier
-        .query_balance(env.contract.address.to_string(), config.from_token.clone())?
+        .query_balance(env.contract.address.to_string(), chosen_denom.clone())?
         .amount;
 
     if balance.is_zero() {
@@ -176,10 +179,15 @@ fn exec_clawback(
 
     let msg = CosmosMsg::Bank(BankMsg::Send {
         to_address: to_address.clone(),
-        amount: vec![coin(balance.u128(), &config.from_token)],
+        amount: vec![coin(balance.u128(), &chosen_denom)],
     });
 
-    Ok(response("execute-clawback", CONTRACT_NAME, [attr("to", to_address)]).add_message(msg))
+    Ok(response(
+        "execute-clawback",
+        CONTRACT_NAME,
+        [attr("to", to_address), attr("denom", chosen_denom)],
+    )
+    .add_message(msg))
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]

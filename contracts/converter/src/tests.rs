@@ -261,7 +261,7 @@ fn test_clawback_sends_all_funds_to_owner() {
         deps.as_mut().into_empty(),
         env,
         exec_info,
-        crate::msg::ExecuteMsg::Clawback {},
+        crate::msg::ExecuteMsg::Clawback { denom: None },
     )
     .unwrap();
 
@@ -299,7 +299,7 @@ fn test_clawback_no_funds_error() {
         deps.as_mut().into_empty(),
         env,
         exec_info,
-        crate::msg::ExecuteMsg::Clawback {},
+        crate::msg::ExecuteMsg::Clawback { denom: None },
     );
 
     assert!(res.is_err());
@@ -380,4 +380,44 @@ fn test_pause_blocks_swap_and_unpause_restores() {
 
     // ensure a send message was produced
     assert_eq!(res2.messages.len(), 1);
+}
+
+#[test]
+fn test_clawback_with_specified_denom() {
+    let mut deps = mock_dependencies(&[coin(7u128, "denom_a"), coin(42u128, "denom_b")]);
+
+    let init = InstantiateMsg {
+        owner: "owner".to_string(),
+        rate: Decimal::percent(100),
+        from_token: "denom_a".to_string(),
+        to_token: "denom_b".to_string(),
+    };
+
+    let env = mock_env();
+    let info = mock_info("owner", &[]);
+    let _ = instantiate(deps.as_mut().into_empty(), env.clone(), info, init).unwrap();
+
+    // owner calls clawback for denom_b explicitly
+    let exec_info = mock_info("owner", &[]);
+    let res = execute(
+        deps.as_mut().into_empty(),
+        env,
+        exec_info,
+        crate::msg::ExecuteMsg::Clawback {
+            denom: Some("denom_b".to_string()),
+        },
+    )
+    .unwrap();
+
+    // expect a single send of denom_b (42) to owner
+    assert_eq!(res.messages.len(), 1);
+    match &res.messages[0].msg {
+        CosmosMsg::Bank(BankMsg::Send { to_address, amount }) => {
+            assert_eq!(to_address, "owner");
+            assert_eq!(amount.len(), 1);
+            assert_eq!(amount[0].denom, "denom_b");
+            assert_eq!(amount[0].amount, Uint128::from(42u128));
+        }
+        _ => panic!("unexpected message"),
+    }
 }
