@@ -1,6 +1,7 @@
 use crate::error::{ContractError, ContractResult};
 use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use crate::state::{Config, CONFIG, RATE};
+use cosmwasm_std::BankMsg;
 use cosmwasm_std::{attr, coin, to_json_binary, CosmosMsg, Decimal, Deps};
 use cosmwasm_std::{Binary, DepsMut, Env, MessageInfo, Response};
 use cw_ownable::{assert_owner, get_ownership};
@@ -79,6 +80,7 @@ pub fn execute(
         }
         ExecuteMsg::UpdateRate { rate } => exec_rate_update(deps, info, rate),
         ExecuteMsg::Swap { receiver } => exec_swap(receiver, deps, env, info),
+        ExecuteMsg::Clawback {} => exec_clawback(deps, env, info),
     }
 }
 
@@ -124,6 +126,33 @@ fn exec_swap(
         ],
     )
     .add_message(send_msg))
+}
+
+fn exec_clawback(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+) -> ContractResult<Response<NeutronMsg>> {
+    assert_owner(deps.storage, &info.sender)?;
+    let config = CONFIG.load(deps.storage)?;
+    let to_address = info.sender.to_string();
+
+    // only send the balance of the configured `from_token`
+    let balance = deps
+        .querier
+        .query_balance(env.contract.address.to_string(), config.from_token.clone())?
+        .amount;
+
+    if balance.is_zero() {
+        return Err(ContractError::NoFundsToClawback {});
+    }
+
+    let msg = CosmosMsg::Bank(BankMsg::Send {
+        to_address: to_address.clone(),
+        amount: vec![coin(balance.u128(), &config.from_token)],
+    });
+
+    Ok(response("execute-clawback", CONTRACT_NAME, [attr("to", to_address)]).add_message(msg))
 }
 
 #[cfg_attr(not(feature = "library"), cosmwasm_std::entry_point)]

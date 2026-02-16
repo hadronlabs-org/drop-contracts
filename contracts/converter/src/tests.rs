@@ -238,3 +238,69 @@ fn test_math_rate_102_percent() {
         m => panic!("unexpected message: {:?}", m),
     }
 }
+
+#[test]
+fn test_clawback_sends_all_funds_to_owner() {
+    let mut deps = mock_dependencies(&[coin(10u128, "denom_a"), coin(5u128, "denom_b")]);
+
+    let init = InstantiateMsg {
+        owner: "owner".to_string(),
+        rate: Decimal::percent(100),
+        from_token: "denom_a".to_string(),
+        to_token: "denom_b".to_string(),
+    };
+
+    let env = mock_env();
+    let info = mock_info("owner", &[]);
+    let _ = instantiate(deps.as_mut().into_empty(), env.clone(), info, init).unwrap();
+
+    // owner calls clawback
+    let exec_info = mock_info("owner", &[]);
+    let res = execute(
+        deps.as_mut().into_empty(),
+        env,
+        exec_info,
+        crate::msg::ExecuteMsg::Clawback {},
+    )
+    .unwrap();
+
+    // expect only the `from_token` (denom_a) to be sent to owner
+    assert_eq!(res.messages.len(), 1);
+
+    match &res.messages[0].msg {
+        CosmosMsg::Bank(BankMsg::Send { to_address, amount }) => {
+            assert_eq!(to_address, "owner");
+            assert_eq!(amount.len(), 1);
+            assert_eq!(amount[0].denom, "denom_a");
+            assert_eq!(amount[0].amount, Uint128::from(10u128));
+        }
+        _ => panic!("unexpected message"),
+    }
+}
+
+#[test]
+fn test_clawback_no_funds_error() {
+    let mut deps = mock_dependencies(&[]);
+
+    let init = InstantiateMsg {
+        owner: "owner".to_string(),
+        rate: Decimal::percent(100),
+        from_token: "denom_a".to_string(),
+        to_token: "denom_b".to_string(),
+    };
+
+    let env = mock_env();
+    let info = mock_info("owner", &[]);
+    let _ = instantiate(deps.as_mut().into_empty(), env.clone(), info, init).unwrap();
+
+    let exec_info = mock_info("owner", &[]);
+    let res = execute(
+        deps.as_mut().into_empty(),
+        env,
+        exec_info,
+        crate::msg::ExecuteMsg::Clawback {},
+    );
+
+    assert!(res.is_err());
+    assert_eq!(res.unwrap_err(), ContractError::NoFundsToClawback {});
+}

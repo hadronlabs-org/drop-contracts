@@ -27,6 +27,9 @@ pub enum ContractError {
     #[error("Semver parsing error: {0}")]
     SemVer(String),
 
+    #[error("No funds to clawback")]
+    NoFundsToClawback {},
+
     #[error("From and To tokens must be different")]
     SameTokens {},
 }

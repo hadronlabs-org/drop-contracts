@@ -15,6 +15,7 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     Swap { receiver: String },
     UpdateRate { rate: Decimal },
+    Clawback {},
 }
 
 #[cw_ownable_query]
