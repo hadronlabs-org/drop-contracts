@@ -1,0 +1,145 @@
+use crate::contract::{execute, instantiate, query};
+use crate::msg::InstantiateMsg;
+use crate::msg::QueryMsg as ConverterQuery;
+use cosmwasm_std::{
+    coin, from_json, testing::mock_env, testing::mock_info, Addr, BankMsg, CosmosMsg, Decimal,
+    Uint128,
+};
+use drop_helpers::testing::mock_dependencies;
+
+#[test]
+fn test_instantiate_and_query() {
+    let mut deps = mock_dependencies(&[]);
+
+    let init = InstantiateMsg {
+        owner: "owner".to_string(),
+        rate: Decimal::percent(50),
+        from_token: "denom_a".to_string(),
+        to_token: "denom_b".to_string(),
+    };
+
+    let env = mock_env();
+
+    let info = mock_info("owner", &[]);
+    let _res = instantiate(deps.as_mut().into_empty(), env.clone(), info, init).unwrap();
+
+    // query config
+    let cfg: crate::state::Config = from_json(
+        &query(
+            deps.as_ref().into_empty(),
+            env.clone(),
+            ConverterQuery::Config {},
+        )
+        .unwrap(),
+    )
+    .unwrap();
+
+    assert_eq!(cfg.from_token, "denom_a");
+    assert_eq!(cfg.to_token, "denom_b");
+
+    // query rate
+    let rate: Decimal =
+        from_json(&query(deps.as_ref().into_empty(), env, ConverterQuery::Rate()).unwrap())
+            .unwrap();
+
+    assert_eq!(rate, Decimal::percent(50));
+}
+
+#[test]
+fn test_update_rate_by_owner() {
+    let mut deps = mock_dependencies(&[]);
+
+    let init = InstantiateMsg {
+        owner: "owner".to_string(),
+        rate: Decimal::percent(10),
+        from_token: "denom_a".to_string(),
+        to_token: "denom_b".to_string(),
+    };
+
+    let env = mock_env();
+    let info = mock_info("owner", &[]);
+    let _ = instantiate(deps.as_mut().into_empty(), env.clone(), info, init).unwrap();
+
+    // owner updates rate to 25%
+    let exec_info = mock_info("owner", &[]);
+    let _res = execute(
+        deps.as_mut().into_empty(),
+        env.clone(),
+        exec_info,
+        crate::msg::ExecuteMsg::UpdateRate {
+            rate: Decimal::percent(25),
+        },
+    )
+    .unwrap();
+
+    let rate: Decimal =
+        from_json(&query(deps.as_ref().into_empty(), env, ConverterQuery::Rate()).unwrap())
+            .unwrap();
+
+    assert_eq!(rate, Decimal::percent(25));
+}
+
+#[test]
+fn test_swap_sends_bank_msg_and_attrs() {
+    let mut deps = mock_dependencies(&[coin(100u128, "denom_a")]);
+
+    let init = InstantiateMsg {
+        owner: "owner".to_string(),
+        rate: Decimal::percent(50),
+        from_token: "denom_a".to_string(),
+        to_token: "denom_b".to_string(),
+    };
+
+    let env = mock_env();
+    let info = mock_info("owner", &[]);
+    let _ = instantiate(deps.as_mut().into_empty(), env.clone(), info, init).unwrap();
+
+    // perform swap: pay 100 denom_a -> expect 50 denom_b to receiver
+    let swap_info = cosmwasm_std::MessageInfo {
+        sender: Addr::unchecked("some_sender"),
+        funds: vec![coin(100u128, "denom_a")],
+    };
+
+    let res = execute(
+        deps.as_mut().into_empty(),
+        env.clone(),
+        swap_info,
+        crate::msg::ExecuteMsg::Swap {
+            receiver: "recipient".to_string(),
+        },
+    )
+    .unwrap();
+
+    // one message expected: BankMsg::Send to recipient with 50 denom_b
+    assert_eq!(res.messages.len(), 1);
+
+    match &res.messages[0].msg {
+        CosmosMsg::Bank(BankMsg::Send { to_address, amount }) => {
+            assert_eq!(to_address, "recipient");
+            assert_eq!(amount.len(), 1);
+            assert_eq!(amount[0].amount, Uint128::from(50u128));
+            assert_eq!(amount[0].denom, "denom_b");
+        }
+        m => panic!("unexpected message: {:?}", m),
+    }
+
+    // attributes should include amount_in and amount_out inside events
+    let mut amount_in: Option<String> = None;
+    let mut amount_out: Option<String> = None;
+    for event in &res.events {
+        for attr in &event.attributes {
+            if attr.key == "amount_in" {
+                amount_in = Some(attr.value.clone());
+            }
+            if attr.key == "amount_out" {
+                amount_out = Some(attr.value.clone());
+            }
+        }
+    }
+
+    let amount_in = amount_in.expect("amount_in attribute");
+    let amount_out = amount_out.expect("amount_out attribute");
+
+    assert_eq!(amount_in, "100");
+    assert_eq!(amount_out, "50");
+}
