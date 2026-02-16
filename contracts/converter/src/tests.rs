@@ -161,3 +161,80 @@ fn test_instantiate_same_tokens_error() {
     assert!(res.is_err());
     assert_eq!(res.unwrap_err(), ContractError::SameTokens {});
 }
+
+#[test]
+fn test_math_rate_230_percent() {
+    let mut deps = mock_dependencies(&[coin(133u128, "denom_a")]);
+
+    let init = InstantiateMsg {
+        owner: "owner".to_string(),
+        rate: Decimal::percent(230),
+        from_token: "denom_a".to_string(),
+        to_token: "denom_b".to_string(),
+    };
+
+    let env = mock_env();
+    let info = mock_info("owner", &[]);
+    let _ = instantiate(deps.as_mut().into_empty(), env.clone(), info, init).unwrap();
+
+    let swap_info = cosmwasm_std::MessageInfo {
+        sender: Addr::unchecked("some_sender"),
+        funds: vec![coin(133u128, "denom_a")],
+    };
+
+    let res = execute(
+        deps.as_mut().into_empty(),
+        env,
+        swap_info,
+        crate::msg::ExecuteMsg::Swap {
+            receiver: "recipient".to_string(),
+        },
+    )
+    .unwrap();
+
+    match &res.messages[0].msg {
+        CosmosMsg::Bank(BankMsg::Send { amount, .. }) => {
+            // 133 * 2.3 = 305.9 -> expect truncated to 305
+            assert_eq!(amount[0].amount, Uint128::from(305u128));
+        }
+        m => panic!("unexpected message: {:?}", m),
+    }
+}
+
+#[test]
+fn test_math_rate_102_percent() {
+    let mut deps = mock_dependencies(&[coin(1000u128, "denom_a")]);
+
+    let init = InstantiateMsg {
+        owner: "owner".to_string(),
+        rate: Decimal::percent(102),
+        from_token: "denom_a".to_string(),
+        to_token: "denom_b".to_string(),
+    };
+
+    let env = mock_env();
+    let info = mock_info("owner", &[]);
+    let _ = instantiate(deps.as_mut().into_empty(), env.clone(), info, init).unwrap();
+
+    let swap_info = cosmwasm_std::MessageInfo {
+        sender: Addr::unchecked("some_sender"),
+        funds: vec![coin(1000u128, "denom_a")],
+    };
+
+    let res = execute(
+        deps.as_mut().into_empty(),
+        env,
+        swap_info,
+        crate::msg::ExecuteMsg::Swap {
+            receiver: "recipient".to_string(),
+        },
+    )
+    .unwrap();
+
+    match &res.messages[0].msg {
+        CosmosMsg::Bank(BankMsg::Send { amount, .. }) => {
+            assert_eq!(amount[0].amount, Uint128::from(1020u128));
+        }
+        m => panic!("unexpected message: {:?}", m),
+    }
+}
