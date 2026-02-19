@@ -789,6 +789,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-null-core"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-multi-test",
+ "cw-ownable",
+ "cw-storage-plus 1.2.0",
+ "cw-utils 1.0.3",
+ "cw2 1.1.2",
+ "drop-helpers",
+ "drop-puppeteer-base",
+ "neutron-sdk",
+ "semver",
+ "thiserror",
+]
+
+[[package]]
 name = "drop-price-provider"
 version = "1.0.0"
 dependencies = [
