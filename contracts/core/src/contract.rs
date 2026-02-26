@@ -6,7 +6,9 @@ use cosmwasm_std::{
 };
 use cw_storage_plus::Bound;
 use drop_helpers::answer::response;
-use drop_helpers::pause::{is_paused, pause_guard, set_pause, unpause, PauseInfoResponse};
+use drop_helpers::pause::{
+    is_paused, pause_guard, set_pause, unpause, PauseError, PauseInfoResponse,
+};
 use drop_puppeteer_base::msg::{IBCTransferReason, TransferReadyBatchesMsg};
 use drop_puppeteer_base::state::RedeemShareItem;
 use drop_staking_base::{
@@ -1013,6 +1015,7 @@ fn execute_bond(
     receiver: Option<String>,
     r#ref: Option<String>,
 ) -> ContractResult<Response<NeutronMsg>> {
+    return Err(ContractError::PauseError(PauseError::Paused {}));
     let config = CONFIG.load(deps.storage)?;
     let Coin { mut amount, denom } = cw_utils::one_coin(&info)?;
     if let Some(bond_limit) = config.bond_limit {
@@ -1209,6 +1212,7 @@ fn execute_unbond(
     deps: DepsMut<NeutronQuery>,
     info: MessageInfo,
 ) -> ContractResult<Response<NeutronMsg>> {
+    return Err(ContractError::PauseError(PauseError::Paused {}));
     let attrs = vec![attr("action", "unbond")];
     let unbond_batch_id = UNBOND_BATCH_ID.load(deps.storage)?;
     let config = CONFIG.load(deps.storage)?;
