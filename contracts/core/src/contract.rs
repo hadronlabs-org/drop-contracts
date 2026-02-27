@@ -144,6 +144,7 @@ fn query_lsm_shares_to_redeem(deps: Deps<NeutronQuery>) -> ContractResult<Binary
 }
 
 fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractResult<Decimal> {
+    return Ok(EXCHANGE_RATE.load(deps.storage)?.0);
     let fsm_state = FSM.get_current_state(deps.storage)?;
     if fsm_state != ContractState::Idle {
         return Ok(EXCHANGE_RATE
