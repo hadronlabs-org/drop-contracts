@@ -160,6 +160,7 @@ fn query_bond_providers(deps: Deps<NeutronQuery>) -> ContractResult<Vec<Addr>> {
 }
 
 fn query_exchange_rate(deps: Deps<NeutronQuery>, config: &Config) -> ContractResult<Decimal> {
+    return Ok(EXCHANGE_RATE.load(deps.storage)?.0);
     let fsm_state = FSM.get_current_state(deps.storage)?;
     let addrs = drop_helpers::get_contracts!(deps, config.factory_contract, puppeteer_contract);
     if fsm_state != ContractState::Idle {
