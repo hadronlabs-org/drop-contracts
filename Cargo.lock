@@ -851,6 +851,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-puppeteer-tmp-migration"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-std",
+ "drop-puppeteer-base",
+ "drop-staking-base",
+ "neutron-sdk",
+]
+
+[[package]]
 name = "drop-rewards-manager"
 version = "1.0.0"
 dependencies = [
