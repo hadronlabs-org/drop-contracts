@@ -15,8 +15,9 @@ use drop_helpers::{
 };
 use drop_proto::proto::initia::mstaking::v1::InitiaMsgDelegate;
 use drop_proto::proto::{
-    cosmos::base::v1beta1::Coin as ProtoCoin, initia::mstaking::v1::MsgBeginRedelegate,
-    liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward,
+    cosmos::base::v1beta1::Coin as ProtoCoin,
+    initia::mstaking::v1::MsgBeginRedelegate,
+    // liquidstaking::distribution::v1beta1::MsgWithdrawDelegatorReward,
 };
 use drop_puppeteer_base::{
     error::{ContractError, ContractResult},
@@ -567,24 +568,24 @@ fn execute_claim_rewards_and_optionaly_transfer(
         )?);
     }
 
-    let mut claim_msgs = vec![];
-    for val in validators.clone() {
-        claim_msgs.push(cosmos_sdk_proto::Any {
-            type_url: "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
-            value: MsgWithdrawDelegatorReward {
-                delegator_address: ica.to_string(),
-                validator_address: val,
-            }
-            .to_bytes()?,
-        })
-    }
+    // let mut claim_msgs = vec![];
+    // for val in validators.clone() {
+    //     claim_msgs.push(cosmos_sdk_proto::Any {
+    //         type_url: "/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward".to_string(),
+    //         value: MsgWithdrawDelegatorReward {
+    //             delegator_address: ica.to_string(),
+    //             validator_address: val,
+    //         }
+    //         .to_bytes()?,
+    //     })
+    // }
 
-    let grant_msg = MsgExec {
-        grantee: ica.to_string(),
-        msgs: claim_msgs,
-    };
+    // let grant_msg = MsgExec {
+    //     grantee: ica.to_string(),
+    //     msgs: claim_msgs,
+    // };
 
-    any_msgs.push(prepare_any_msg(grant_msg, "/cosmos.authz.v1beta1.MsgExec")?);
+    // any_msgs.push(prepare_any_msg(grant_msg, "/cosmos.authz.v1beta1.MsgExec")?);
 
     let submsg = compose_submsg(
         deps.branch(),
