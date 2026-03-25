@@ -655,6 +655,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "drop-core-tmp-migration"
+version = "1.0.0"
+dependencies = [
+ "cosmwasm-std",
+ "drop-staking-base",
+ "neutron-sdk",
+]
+
+[[package]]
 name = "drop-distribution"
 version = "1.0.0"
 dependencies = [
