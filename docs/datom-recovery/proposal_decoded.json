@@ -1,0 +1,25 @@
+{
+  "factory_admin_execute": {
+    "admin_execute": {
+      "msgs": [
+        {
+          "wasm": {
+            "migrate": {
+              "contract_addr": "neutron1gcklauurx4ckyp0t8a6axl0500vy3n09y5utpspjg8ruxnln8erq2uumck",
+              "new_code_id": 5412,
+              "msg": "eyJwYXlvdXRfcmF0aW8iOiIwLjcxMjEifQ=="
+            }
+          }
+        }
+      ]
+    }
+  },
+  "converter_update_rate": {
+    "update_rate": {
+      "rate": "0.9266621389"
+    }
+  },
+  "wm_migrate_msg": {
+    "payout_ratio": "0.7121"
+  }
+}

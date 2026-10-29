@@ -1,0 +1,38 @@
+[
+  {
+    "wasm": {
+      "execute": {
+        "contract_addr": "neutron1rtydk5vlppj2nmw98ctpgee6hxe5va7mc9x3lng8xm75p3dus80s7pkvmu",
+        "msg": {
+          "admin_execute": {
+            "msgs": [
+              {
+                "wasm": {
+                  "migrate": {
+                    "contract_addr": "neutron1gcklauurx4ckyp0t8a6axl0500vy3n09y5utpspjg8ruxnln8erq2uumck",
+                    "new_code_id": 5412,
+                    "msg": "eyJwYXlvdXRfcmF0aW8iOiIwLjcxMjEifQ=="
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "funds": []
+      }
+    }
+  },
+  {
+    "wasm": {
+      "execute": {
+        "contract_addr": "neutron15024sa6het7qrgccrx9wtxff7mh9qrcu9m6gvvlvez6em46ylscqk4kqj9",
+        "msg": {
+          "update_rate": {
+            "rate": "0.9266621389"
+          }
+        },
+        "funds": []
+      }
+    }
+  }
+]
