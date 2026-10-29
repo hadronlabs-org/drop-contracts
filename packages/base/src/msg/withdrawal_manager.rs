@@ -1,4 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::Decimal;
 use cw721::Cw721ReceiveMsg;
 use cw_ownable::{cw_ownable_execute, cw_ownable_query};
 #[allow(unused_imports)]
@@ -20,6 +21,8 @@ pub struct InstantiateMsg {
 pub enum QueryMsg {
     #[returns(crate::state::withdrawal_manager::Config)]
     Config {},
+    #[returns(Decimal)]
+    PayoutRatio {},
 }
 
 #[cw_ownable_execute]
@@ -40,4 +43,6 @@ pub enum ReceiveNftMsg {
 }
 
 #[cw_serde]
-pub struct MigrateMsg {}
+pub struct MigrateMsg {
+    pub payout_ratio: Option<Decimal>,
+}

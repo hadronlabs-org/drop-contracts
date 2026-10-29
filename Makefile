@@ -1,4 +1,4 @@
-.PHONY: schema test clippy build fmt compile check_contracts
+.PHONY: schema test clippy build fmt compile compile_neutron check_contracts
 
 schema:
 	@find contracts/* -maxdepth 2 -type f -name Cargo.toml -execdir cargo schema \;
@@ -22,6 +22,30 @@ compile:
 		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
 		--platform linux/amd64 \
 		cosmwasm/workspace-optimizer:0.15.1
+	@sudo chown -R $(shell id -u):$(shell id -g) artifacts
+
+# Production build for Neutron mainnet (wasmvm >= 3.0.7 rejects functions with > 100 locals).
+# Same image and cargo build as `compile`; wasm-opt additionally gets
+# --one-caller-inline-max-function-size=0 so single-caller handlers are not all inlined into
+# the `execute` entry point. See README "Production builds for Neutron".
+compile_neutron:
+	@docker run --rm -v "$(CURDIR)":/code \
+		--mount type=volume,source="$(notdir $(CURDIR))_cache",target=/target \
+		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+		--platform linux/amd64 \
+		--entrypoint sh \
+		cosmwasm/workspace-optimizer:0.15.1 -c '\
+			set -e; \
+			export PATH="$$PATH:/root/.cargo/bin"; \
+			mkdir -p artifacts; \
+			rm -f /target/wasm32-unknown-unknown/release/*.wasm; \
+			/usr/local/bin/bob; \
+			for WASM in /target/wasm32-unknown-unknown/release/*.wasm; do \
+				echo "Optimizing $$(basename $$WASM) ..."; \
+				wasm-opt -Os --signext-lowering --one-caller-inline-max-function-size=0 \
+					"$$WASM" -o "artifacts/$$(basename $$WASM)"; \
+			done; \
+			cd artifacts && sha256sum -- *.wasm | tee checksums.txt'
 	@sudo chown -R $(shell id -u):$(shell id -g) artifacts
 
 compile_arm64:

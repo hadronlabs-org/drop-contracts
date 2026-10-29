@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     attr, ensure_eq, from_json, to_json_binary, Attribute, BankMsg, Binary, Coin, CosmosMsg,
-    Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128, WasmMsg,
+    Decimal, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Storage, Uint128, WasmMsg,
 };
 use cw721::NftInfoResponse;
 use cw_ownable::{get_ownership, update_ownership};
@@ -15,7 +15,7 @@ use drop_staking_base::{
     },
     state::{
         core::{UnbondBatch, UnbondBatchStatus},
-        withdrawal_manager::{Config, Cw721ReceiveMsg, CONFIG},
+        withdrawal_manager::{Config, Cw721ReceiveMsg, CONFIG, PAYOUT_RATIO},
     },
 };
 use neutron_sdk::bindings::{msg::NeutronMsg, query::NeutronQuery};
@@ -57,7 +57,12 @@ pub fn query(deps: Deps<NeutronQuery>, _env: Env, msg: QueryMsg) -> StdResult<Bi
         QueryMsg::Ownership {} => Ok(to_json_binary(&get_ownership(deps.storage)?)?),
         QueryMsg::Config {} => to_json_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::PauseInfo {} => query_pause_info(deps),
+        QueryMsg::PayoutRatio {} => to_json_binary(&load_payout_ratio(deps.storage)?),
     }
+}
+
+fn load_payout_ratio(storage: &dyn Storage) -> StdResult<Decimal> {
+    Ok(PAYOUT_RATIO.may_load(storage)?.unwrap_or(Decimal::one()))
 }
 
 fn query_pause_info(deps: Deps<NeutronQuery>) -> StdResult<Binary> {
@@ -209,9 +214,12 @@ fn execute_receive_nft_withdraw(
         unbond_batch.total_dasset_amount_to_withdraw,
     );
 
-    let payout_amount = user_share * unbond_batch.unbonded_amount.unwrap_or(Uint128::zero());
+    let payout_ratio = load_payout_ratio(deps.storage)?;
+    let payout_amount =
+        user_share * unbond_batch.unbonded_amount.unwrap_or(Uint128::zero()) * payout_ratio;
     let to_address = receiver.unwrap_or(sender);
     attrs.push(attr("batch_id", batch_id.to_string()));
+    attrs.push(attr("payout_ratio", payout_ratio.to_string()));
     attrs.push(attr("payout_amount", payout_amount.to_string()));
     attrs.push(attr("to_address", &to_address));
 
@@ -241,8 +249,15 @@ fn execute_receive_nft_withdraw(
 pub fn migrate(
     deps: DepsMut<NeutronQuery>,
     _env: Env,
-    _msg: MigrateMsg,
+    msg: MigrateMsg,
 ) -> ContractResult<Response<NeutronMsg>> {
+    if let Some(payout_ratio) = msg.payout_ratio {
+        if payout_ratio.is_zero() || payout_ratio > Decimal::one() {
+            return Err(ContractError::InvalidPayoutRatio {});
+        }
+        PAYOUT_RATIO.save(deps.storage, &payout_ratio)?;
+    }
+
     let version: semver::Version = CONTRACT_VERSION.parse()?;
     let storage_version: semver::Version =
         cw2::get_contract_version(deps.storage)?.version.parse()?;

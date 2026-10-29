@@ -1,0 +1,20 @@
+[
+  {
+    "wasm": {
+      "execute": {
+        "contract_addr": "neutron1rtydk5vlppj2nmw98ctpgee6hxe5va7mc9x3lng8xm75p3dus80s7pkvmu",
+        "msg": "eyJhZG1pbl9leGVjdXRlIjp7Im1zZ3MiOlt7Indhc20iOnsibWlncmF0ZSI6eyJjb250cmFjdF9hZGRyIjoibmV1dHJvbjFnY2tsYXV1cng0Y2t5cDB0OGE2YXhsMDUwMHZ5M24wOXk1dXRwc3BqZzhydXhubG44ZXJxMnV1bWNrIiwibmV3X2NvZGVfaWQiOjU0MTIsIm1zZyI6ImV5SndZWGx2ZFhSZmNtRjBhVzhpT2lJd0xqY3hNakVpZlE9PSJ9fX1dfX0=",
+        "funds": []
+      }
+    }
+  },
+  {
+    "wasm": {
+      "execute": {
+        "contract_addr": "neutron15024sa6het7qrgccrx9wtxff7mh9qrcu9m6gvvlvez6em46ylscqk4kqj9",
+        "msg": "eyJ1cGRhdGVfcmF0ZSI6eyJyYXRlIjoiMC45MjY2NjIxMzg5In19",
+        "funds": []
+      }
+    }
+  }
+]

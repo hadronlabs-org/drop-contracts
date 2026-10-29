@@ -1003,7 +1003,7 @@ dependencies = [
 
 [[package]]
 name = "drop-withdrawal-manager"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
