@@ -36,6 +36,9 @@ pub enum ContractError {
     #[error(transparent)]
     PauseError(#[from] PauseError),
 
+    #[error("Invalid payout ratio: must be in (0, 1]")]
+    InvalidPayoutRatio {},
+
     #[error("Semver parsing error: {0}")]
     SemVer(String),
 }
